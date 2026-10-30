@@ -52,7 +52,7 @@ saída do script ou do comando antes e depois.
 <!--
 Porta de uma via (o rollback da imagem não desfaz): migration, envio externo (email, ClickSign, WhatsApp),
 escrita ou apagamento em dado de produção, mudança em .github/ ou nas skills da subida (ship, onda-enxuta,
-agentes iae-*). O resto é porta de duas vias: a subida faz rollback automático.
+agentes diduccio-*). O resto é porta de duas vias: a subida faz rollback automático.
 Raio: quem sente se der errado (uma tela, um módulo, todos os logins, o próprio deploy).
 -->
 
@@ -67,8 +67,8 @@ Raio: quem sente se der errado (uma tela, um módulo, todos os logins, o própri
 
 ## 🤖 Gates (ADR 0068)
 
-- [ ] Ferramenta (nada em `plataforma/`): CI verde
-- [ ] App: `iae-revisor` uma vez (com `Sensível:` se o `sensivel.py` acusar rota sem login ou migration) e CI verde
+- [ ] Ferramenta (nada em `app/`): CI verde
+- [ ] App: `diduccio-revisor` uma vez (com `Sensível:` se o `sensivel.py` acusar rota sem login ou migration) e CI verde
 
 ## Closes
 

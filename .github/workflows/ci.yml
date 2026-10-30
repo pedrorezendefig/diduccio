@@ -8,6 +8,27 @@ on:
     branches: [main]
 
 jobs:
+  app:
+    name: Lint, testes e build do app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Dependências
+        run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
   ferramenta:
     name: Testes e lint de texto
     runs-on: ubuntu-latest
