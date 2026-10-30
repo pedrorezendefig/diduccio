@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.0",
+  "project": {
+    "name": "Diduccio",
+    "slug": "diduccio",
+    "description": "Gestão do Condomínio Diduccio: portaria, encomendas, moradores. Ainda sem deploy."
+  },
+  "git": {
+    "repo": "pedrorezendefig/diduccio",
+    "branch": "main",
+    "root_relative": "app"
+  },
+  "coolify": null,
+  "services": []
+}

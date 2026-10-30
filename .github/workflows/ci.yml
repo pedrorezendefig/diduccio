@@ -1,0 +1,68 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  app:
+    name: Lint, testes e build do app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Dependências
+        run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
+  ferramenta:
+    name: Testes e lint de texto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Dependências
+        run: pip install pyyaml pytest
+      - name: Testes de tools/
+        run: python -m pytest tools/ -q
+      - name: Lint travessão
+        # Travessão (U+2014) e meia-risca (U+2013) no texto que os sócios leem.
+        # Os caracteres entram pelos bytes UTF-8 em octal para não existir literal
+        # no lint, e a busca é por bytes (LC_ALL=C) para rodar igual no grep do
+        # Linux e do macOS. Erro do grep (saída 2) derruba o passo em vez de
+        # passar por limpo. tools/test_fluxo_github.py roda este passo.
+        run: |
+          T=$(printf '\342\200\224')
+          M=$(printf '\342\200\223')
+          alvos=""
+          for p in CONTEXT.md CLAUDE.md README.md docs .claude/skills; do
+            if [ -e "$p" ]; then alvos="$alvos $p"; fi
+          done
+          set +e
+          LC_ALL=C grep -rl -e "$T" -e "$M" $alvos
+          st=$?
+          set -e
+          if [ "$st" -eq 0 ]; then
+            echo "::error::Travessão ou meia-risca nos arquivos acima. Use vírgula, dois-pontos, parênteses ou ponto."
+            exit 1
+          fi
+          if [ "$st" -ne 1 ]; then
+            echo "::error::O grep do lint de travessão falhou (saída $st)."
+            exit "$st"
+          fi

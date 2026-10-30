@@ -1,0 +1,160 @@
+# Higiene de issues (ADR 0007, decisões 2 e 5).
+# Event-driven, dois papéis:
+#   - fechamento: roda em QUALQUER fechamento (merge com Closes #N, web, manual),
+#     para que o status do quadro nunca minta;
+#   - comentário de revisor: sinaliza com a label `revisor-comentou`: só sinaliza,
+#     quem julga e age (reabrir, editar critérios) é o agente, com humano no loop.
+name: Higiene de issues
+
+on:
+  issues:
+    types: [closed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  higiene:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Limpar labels de estado e fechar PRD pai
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const estado = ['in-progress', 'ready-for-agent', 'blocked'];
+
+            const limparLabels = async (issue_number, labels) => {
+              for (const name of labels.filter((n) => estado.includes(n))) {
+                try {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+                } catch (e) {
+                  if (e.status !== 404) throw e; // 404 = label já saiu; ignorar
+                }
+              }
+            };
+
+            // 1. Remove in-progress/ready-for-agent/blocked da issue que fechou
+            const issue = context.payload.issue;
+            await limparLabels(issue.number, issue.labels.map((l) => l.name));
+
+            // 2. Se era a última sub-issue aberta de um PRD, fecha o PRD
+            const { repository } = await github.graphql(
+              `query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    parent {
+                      number
+                      state
+                      labels(first: 20) { nodes { name } }
+                      subIssues(first: 100) { totalCount nodes { state } }
+                    }
+                  }
+                }
+              }`,
+              { owner, repo, number: issue.number }
+            );
+
+            const parent = repository.issue.parent;
+            if (!parent || parent.state !== 'OPEN') return;
+
+            const abertas = parent.subIssues.nodes.filter((s) => s.state === 'OPEN').length;
+            if (abertas > 0) {
+              core.info(`PRD #${parent.number} segue aberto: ${abertas} sub-issue(s) em aberto.`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: parent.number,
+              body: `Todas as ${parent.subIssues.totalCount} sub-issues deste PRD foram concluídas (a #${issue.number} era a última), então ele fecha sozinho. _(Action de higiene.)_`,
+            });
+
+            // Fechar o pai com GITHUB_TOKEN não re-dispara esta Action (anti-recursão
+            // do GitHub), então a limpeza das labels do PRD acontece aqui mesmo.
+            await limparLabels(parent.number, parent.labels.nodes.map((l) => l.name));
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: parent.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+
+  # ADR 0007, decisão 5: o que dispara o loop é o comentário de um login de
+  # REVIEWER_LOGINS e o contexto que ele adiciona, não quem a pessoa é.
+  # Trocar o revisor = trocar a repository variable REVIEWER_LOGINS (sem commit).
+  # ADR 0054, decisão 4: o marcador `<!-- revisor-app` é o segundo gatilho, para
+  # o revisor que responde no app e não tem login no GitHub.
+  revisor:
+    # Comentários em PR também chegam como issue_comment, mas o loop é só sobre issues.
+    #
+    # Em repositório público QUALQUER pessoa comenta, e cada comentário subiria um
+    # runner só para o script descobrir que o autor não é revisor. O filtro de
+    # author_association corta isso ANTES do job existir: quem está de fora nem
+    # dispara a Action. A checagem fina continua no script (REVIEWER_LOGINS), que
+    # é quem decide de fato; este teto é grosso de propósito.
+    if: >-
+      github.event_name == 'issue_comment'
+      && !github.event.issue.pull_request
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    env:
+      REVIEWER_LOGINS: ${{ vars.REVIEWER_LOGINS || 'pedrorezendefig' }}
+    steps:
+      - name: Sinalizar comentário de revisor com a label revisor-comentou
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const corpo = context.payload.comment.body || '';
+            const autor = context.payload.comment.user.login.toLowerCase();
+
+            // ADR 0054, decisão 4 (emenda ao ADR 0020, decisão 5): quem revisa sem
+            // login no GitHub responde na Conversa da Demanda e o app espelha a
+            // resposta aqui, pelo token de um colaborador. O marcador é a assinatura
+            // dessa voz: vale ANTES de REVIEWER_LOGINS e independe do login do autor
+            // (que é sempre o da integração). Quem tem login recebe `<!-- automacao -->`
+            // no espelho e cai no caminho de baixo, como qualquer automação.
+            //
+            // ANCORADO no início do corpo (issue #680, emenda de 10/09/2026): o app
+            // sempre escreve o marcador em linha própria, como primeira coisa do
+            // corpo, na forma literal `<!-- revisor-app autor="Pessoa do hospital" demanda="id" -->`
+            // (um espaço só depois de `<!--`). Sem a âncora, qualquer comentário que
+            // CITASSE o marcador (as issues #673, #675 e #680 o citam no corpo) acendia
+            // a label e travava a onda. O texto do autor chega com `<!--` neutralizado
+            // pelo app, então um marcador digitado à mão na resposta nunca começa o corpo.
+            const doRevisorNoApp = /^<!-- revisor-app autor="[^"]*" demanda="[^"]*" -->[ \t]*(\r?\n|$)/.test(corpo);
+
+            if (!doRevisorNoApp) {
+              const revisores = (process.env.REVIEWER_LOGINS || '')
+                .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+              if (!revisores.includes(autor)) {
+                core.info(`${autor} não está em REVIEWER_LOGINS e o comentário não tem o marcador do app: nada a fazer.`);
+                return;
+              }
+
+              // O revisor de teste é a MESMA conta que roda a automação (gh, /ship,
+              // /triage). Comentários de automação carregam marcadores fixos e não
+              // são a voz do revisor: sem isso, todo comentário do agente
+              // dispararia o loop sobre si mesmo (issue #74).
+              const marcadoresAutomacao = [
+                'This was generated by AI during triage', // disclaimer obrigatório do /triage
+                '<!-- automacao -->',                     // marcador para skills/scripts
+              ];
+              if (marcadoresAutomacao.some((m) => corpo.includes(m))) {
+                core.info('Comentário de automação, não dispara o loop do revisor.');
+                return;
+              }
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number, labels: ['revisor-comentou'],
+            });
+            const origem = doRevisorNoApp ? 'marcador revisor-app' : `comentário de ${autor}`;
+            core.info(`revisor-comentou aplicada na #${issue_number} (${origem}).`);
