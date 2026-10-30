@@ -65,4 +65,4 @@ Regras do resumo:
 
 - Não faz entrevista longa. Se a ideia precisa de 5 decisões encadeadas, diga isso e sugira `/grill-with-docs`.
 - Não escreve ADR nem mexe em `CONTEXT.md` por conta própria. Se uma decisão merecer ADR, diga em uma linha e deixe o usuário pedir.
-- Commit e PR saem pela Skill `ship`, sem perguntar: no IAE, depois do "siga" e da verificação, a entrega é a porta C do `/ask-iae`. Chame a Skill tool com `ship` (argumentos `"<descrição>" --from-diff`), que abre o PR e roda a subida; o "o que você faz agora" do resumo vira o resultado do ship. Única parada: se a ponte mudou comportamento do app que alguém precisa conferir antes, diga que é porta B e pare na proposta da issue.
+- Commit e PR saem pela Skill `ship`, sem perguntar: no Diduccio, depois do "siga" e da verificação, a entrega é a porta C do `/ask-diduccio`. Chame a Skill tool com `ship` (argumentos `"<descrição>" --from-diff`), que abre o PR e roda a subida; o "o que você faz agora" do resumo vira o resultado do ship. Única parada: se a ponte mudou comportamento do app que alguém precisa conferir antes, diga que é porta B e pare na proposta da issue.

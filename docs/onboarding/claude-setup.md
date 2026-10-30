@@ -1,8 +1,8 @@
-# Setup do Claude Code para trabalhar no IAE
+# Setup do Claude Code para trabalhar no Diduccio
 
-Guia de setup da máquina, feito uma vez. Depois dele, siga o [`dev.md`](./dev.md), que leva do clone ao IAE OS aberto e explica o dia a dia. Tempo estimado: 15 minutos.
+Guia de setup da máquina, feito uma vez. Depois dele, siga o [`dev.md`](./dev.md), que leva do clone ao Diduccio OS aberto e explica o dia a dia. Tempo estimado: 15 minutos.
 
-O IAE ainda não tem deploy nem serviço externo. Por isso este guia não tem CLI de plataforma, token de produção nem `tokens/.env`: quando a plataforma for escolhida, a seção de acessos externos entra aqui.
+O Diduccio ainda não tem deploy nem serviço externo. Por isso este guia não tem CLI de plataforma, token de produção nem `tokens/.env`: quando a plataforma for escolhida, a seção de acessos externos entra aqui.
 
 ## Checklist
 
@@ -14,7 +14,7 @@ O IAE ainda não tem deploy nem serviço externo. Por isso este guia não tem CL
 - [ ] [4.](#4-permissões) Allow-list mínima de permissões
 - [ ] [5.](#5-verificação) `/pegar-issue` e `/deploy status` respondendo
 
-Todas as skills do time já vêm no clone, em `.claude/skills/` (lista e roteamento: `/ask-iae`). Nada a instalar por máquina.
+Todas as skills do time já vêm no clone, em `.claude/skills/` (lista e roteamento: `/ask-diduccio`). Nada a instalar por máquina.
 
 ## 1. Pré-requisitos
 
@@ -23,7 +23,7 @@ Todas as skills do time já vêm no clone, em `.claude/skills/` (lista e roteame
 | **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | O agente |
 | **GitHub CLI** (`gh`) | `brew install gh` | Issues, PRs e merge. As skills falam com o GitHub por ele |
 | **`jq`** | `brew install jq` | Leitura de JSON nos scripts das skills |
-| **Python 3** | já vem no macOS, ou `brew install python@3.12` | O IAE OS (Python sem dependências) e os scripts das skills |
+| **Python 3** | já vem no macOS, ou `brew install python@3.12` | O Diduccio OS (Python sem dependências) e os scripts das skills |
 | **`uv`** | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | Roda os testes de `tools/` com o Python 3.12, como no CI |
 
 Conferir:
@@ -38,11 +38,11 @@ uv --version
 
 ## 2. Acesso ao repo
 
-O repo `pedrorezendefig/iae` é privado. Peça ao Pedro para adicionar você como colaborador e aceite o convite que chega por e-mail. Depois:
+O repo `pedrorezendefig/diduccio` é privado. Peça ao Pedro para adicionar você como colaborador e aceite o convite que chega por e-mail. Depois:
 
 ```bash
 gh auth login          # GitHub.com, HTTPS, Login with browser
-gh repo view pedrorezendefig/iae --json viewerPermission --jq .viewerPermission
+gh repo view pedrorezendefig/diduccio --json viewerPermission --jq .viewerPermission
 # esperado: WRITE ou ADMIN
 ```
 
@@ -61,7 +61,7 @@ Dentro de uma sessão do Claude Code (`claude` no terminal):
 
 | Plugin | Para quê |
 |---|---|
-| `code-review` | `/code-review`, revisão avulsa do diff. No `/ship`, quem revisa o PR da plataforma é o `iae-revisor` |
+| `code-review` | `/code-review`, revisão avulsa do diff. No `/ship`, quem revisa o PR da plataforma é o `diduccio-revisor` |
 | `security-guidance` | `/security-review`, revisão de segurança avulsa |
 | `context7` | Documentação atualizada das bibliotecas |
 | `skill-creator` | Criar e editar skills do time |
@@ -92,7 +92,7 @@ O Claude Code pede confirmação a cada comando novo. Para reduzir os pedidos se
 
 ## 5. Verificação
 
-Abra uma sessão nova dentro do repo (`cd ~/PedroDev/IAE && claude`) e rode:
+Abra uma sessão nova dentro do repo (`cd ~/PedroDev/Diduccio && claude`) e rode:
 
 ```
 /pegar-issue
@@ -104,13 +104,13 @@ Esperado: a tabela das issues `ready-for-agent` desbloqueadas (pode estar vazia)
 /deploy status
 ```
 
-Esperado: "O IAE ainda não tem deploy", e que a subida termina no merge.
+Esperado: "O Diduccio ainda não tem deploy", e que a subida termina no merge.
 
 ## 6. Problemas comuns
 
 | Problema | Causa | Conserto |
 |---|---|---|
-| `/pegar-issue` não responde | Sessão fora da pasta do repo | `cd ~/PedroDev/IAE && ls .claude/skills/pegar-issue/SKILL.md` |
+| `/pegar-issue` não responde | Sessão fora da pasta do repo | `cd ~/PedroDev/Diduccio && ls .claude/skills/pegar-issue/SKILL.md` |
 | Push recusado com "Push direto na main bloqueado" | O hook da `main` está ligado, como deve | Crie uma branch e abra PR |
 | `/setup-maquina` acusa a trava da `main` | O clone não tem o hook ligado | `git config core.hooksPath .githooks` |
 | Issue não aparece na fila | Sem `ready-for-agent`, já tem dono ou está bloqueada | `gh issue view <N>` mostra labels e assignee |

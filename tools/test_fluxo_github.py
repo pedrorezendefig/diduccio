@@ -1,4 +1,4 @@
-"""Testes do fluxo do GitHub do IAE (issue #3).
+"""Testes do fluxo do GitHub do Diduccio (issue #3).
 
 O passo "Lint travessão" do `.github/workflows/ci.yml` roda aqui como roda no
 CI: o `run:` do passo é lido do YAML e executado num diretório temporário que
@@ -92,7 +92,7 @@ const github = {
   graphql: async () => ({ repository: { issue: { parent: null } } }),
 };
 const context = {
-  repo: { owner: 'pedrorezendefig', repo: 'iae' },
+  repo: { owner: 'pedrorezendefig', repo: 'diduccio' },
   payload: { issue: { number: 7, labels: [{ name: 'in-progress' }, { name: 'fatia:M' }] } },
 };
 const core = { info: () => {} };

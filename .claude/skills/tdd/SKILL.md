@@ -3,7 +3,7 @@ name: tdd
 description: Test-driven development em loop red-green-refactor. Use para construir feature ou corrigir bug com o teste primeiro, ou quando pedirem testes de integração.
 ---
 
-> **IAE:** os critérios de aceite da issue (`gh issue view <N>`) são a lista de testes a escrever (cada critério → um teste RED). Nomes de teste descrevem o comportamento de domínio em **pt-BR** (ex.: `test_aluno_ve_o_progresso_do_curso`). Ferramenta (`tools/`) = `pytest`; a `plataforma/` segue o padrão de teste já existente nela. Use a terminologia de `CONTEXT.md`.
+> **Diduccio:** os critérios de aceite da issue (`gh issue view <N>`) são a lista de testes a escrever (cada critério → um teste RED). Nomes de teste descrevem o comportamento de domínio em **pt-BR** (ex.: `test_aluno_ve_o_progresso_do_curso`). Ferramenta (`tools/`) = `pytest`; a `app/` segue o padrão de teste já existente nela. Use a terminologia de `CONTEXT.md`.
 
 > **Prova por mutação (ADR 0068):** teste verde não prova nada. Prove cada critério com um mutante: quebre no código a coisa que o critério promete, rode o teste e veja o vermelho, depois restaure. O teto é um mutante por critério de aceite, não por teste. Cada mutante mexe em uma coisa só (dois cortes juntos não dizem qual deles o teste pegou), e quando o teste do critério tem detector próprio (varredura, regex, fuzz) o mutante é o efeito que o detector deve pegar, para provar que ele não é cego.
 

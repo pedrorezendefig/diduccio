@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# diagnostico.sh: confere o que a máquina tem para trabalhar no IAE.
+# diagnostico.sh: confere o que a máquina tem para trabalhar no Diduccio.
 #
 # Uso:
 #   bash .claude/skills/setup-maquina/scripts/diagnostico.sh [--nivel N]
@@ -87,7 +87,9 @@ if [ "$NIVEL" -ge 2 ]; then
   bin_ok bash "brew install bash"
   bin_ok python3 "brew install python"
   bin_ok uv "curl -LsSf https://astral.sh/uv/install.sh | sh (os testes de tools/ rodam com o Python 3.12 do uv)"
-  # O IAE ainda não tem deploy: sem plataforma, não há CLI nem token de plataforma para conferir.
+  bin_ok node "brew install node (o app em app/ roda com Node 20 ou mais: npm ci, npm run lint, npm test, npm run build)"
+  bin_ok npm "vem com o node"
+  # O Diduccio ainda não tem deploy: sem plataforma, não há CLI nem token de plataforma para conferir.
   if status="$(python3 .claude/skills/deploy/scripts/status_deploy.py 2>/dev/null)"; then
     ok "deploy" "$(printf '%s' "$status" | head -1)"
   else

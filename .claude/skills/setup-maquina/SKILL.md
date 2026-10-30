@@ -5,7 +5,7 @@ description: "Diagnostica a máquina clonada (binários, gh, trava da main, Clau
 
 # Setup de máquina nova
 
-Quem clona o repositório do IAE precisa de pouca coisa para trabalhar no fluxo (planejar, desenvolver, abrir PR, mergear). O IAE ainda não tem deploy, então não há CLI nem token de plataforma para conferir. Esta skill diz, numa tabela, o que já está pronto e o que falta.
+Quem clona o repositório do Diduccio precisa de pouca coisa para trabalhar no fluxo (planejar, desenvolver, abrir PR, mergear). O Diduccio ainda não tem deploy, então não há CLI nem token de plataforma para conferir. Esta skill diz, numa tabela, o que já está pronto e o que falta.
 
 ## Níveis
 

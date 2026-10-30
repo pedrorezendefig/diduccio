@@ -28,8 +28,8 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 RAIZ = Path(__file__).resolve().parents[4]
-APP = "plataforma/backend/app"
-FRONT = "plataforma/frontend/src"
+APP = "app/backend/app"
+FRONT = "app/frontend/src"
 METODOS_DE_ROTA = {"get", "post", "put", "patch", "delete", "head", "options", "api_route", "websocket"}
 # Rota sem login que não precisa do revisor de segurança por PR (caminho relativo a APP).
 FORA_DA_LISTA = {"routers/health.py"}

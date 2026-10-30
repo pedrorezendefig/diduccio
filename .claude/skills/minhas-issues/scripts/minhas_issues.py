@@ -8,7 +8,7 @@ Uso:
   python3 minhas_issues.py            login do `gh api user`
   python3 minhas_issues.py @login     fila de outra pessoa
 
-"Minha" segue a regra do filtro de responsável do IAE OS (issue #1039):
+"Minha" segue a regra do filtro de responsável do Diduccio OS (issue #1039):
 atribuída à pessoa; sem ninguém atribuído, quem criou.
 """
 

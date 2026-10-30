@@ -25,7 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PASTA = "plataforma/supabase/migrations"
+PASTA = "app/supabase/migrations"
 RE_NUMERO = re.compile(r"^(\d+)_")
 
 

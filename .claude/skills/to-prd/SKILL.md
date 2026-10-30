@@ -5,7 +5,7 @@ description: Transforma o contexto da conversa num PRD e publica como issue no G
 
 This skill takes the current conversation context and codebase understanding and produces a PRD. Do NOT interview the user; just synthesize what you already know.
 
-> **Idioma (IAE):** o PRD inteiro é escrito em **pt-BR**: título da issue, problema, solução, histórias de usuário, decisões. Use a terminologia de `CONTEXT.md` (Sócio, Cliente, Plataforma de cursos, IAE OS...). Veja a regra de idioma no `CLAUDE.md`.
+> **Idioma (Diduccio):** o PRD inteiro é escrito em **pt-BR**: título da issue, problema, solução, histórias de usuário, decisões. Use a terminologia de `CONTEXT.md` (Sócio, Cliente, Plataforma de cursos, Diduccio OS...). Veja a regra de idioma no `CLAUDE.md`.
 
 Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`). Triage label = `ready-for-agent` (veja `docs/agents/triage-labels.md`). Se faltar esse contexto, leia os dois arquivos de `docs/agents/`.
 
@@ -29,7 +29,7 @@ Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`)
 
    **Todo PRD abre com o bloco "Para os sócios"** (ADR 0068): um resumo em linguagem simples, no topo do corpo, antes da parte técnica. É a porta de entrada de quem lê as issues direto no GitHub sem abrir o código. Formato fixo, mínimo de palavras, zero jargão:
 
-   - **O que muda:** uma frase de valor, não-técnica: o que o sistema passa a fazer pelo IAE.
+   - **O que muda:** uma frase de valor, não-técnica: o que o sistema passa a fazer pelo Diduccio.
    - **O que você precisa saber:** de 2 a 3 regras simples que deixem o leitor reconhecer a feature funcionando.
 
    **Humanizer antes do `gh issue create`** (ADR 0071): passe o corpo pela Skill tool com `humanizer` em modo embutido, com atenção ao bloco "Para os sócios". A amostra de voz é o bloco "Para os sócios" de um PRD já publicado: ela manda no tom, o humanizer só tira os cacoetes. O resto do corpo fica neutro e direto; termos do `CONTEXT.md`, títulos do template e histórias no formato "Como `<ator>`" não mudam.

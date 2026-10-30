@@ -2,7 +2,7 @@
 
 Cada teste trava um critério de aceite da issue: as labels documentadas são as
 do repo, o onboarding leva do clone ao painel aberto, o README tem o mapa de
-pastas no formato do Hospital e nenhum doc diz que o IAE já tem Coolify,
+pastas no formato do Hospital e nenhum doc diz que o Diduccio já tem Coolify,
 Vercel ou Manual.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 
-# As labels do repo pedrorezendefig/iae em 2026-10-14 (`gh label list`).
+# As labels do repo pedrorezendefig/diduccio em 2026-10-14 (`gh label list`).
 # Label nova no GitHub entra aqui e em docs/agents/triage-labels.md juntas.
 LABELS_DO_REPO = {
     "accessibility", "bug", "documentation", "duplicate", "enhancement", "good first issue",
@@ -22,8 +22,8 @@ LABELS_DO_REPO = {
     "needs-triage", "needs-info", "ready-for-agent", "ready-for-human", "in-progress", "revisor-comentou",
     "fatia:P", "fatia:M", "fatia:G",
     "type:feature", "type:fix", "type:chore", "type:refactor", "type:docs", "type:spec", "type:test",
-    "area:backend", "area:frontend", "area:supabase", "area:infra", "area:docs", "area:skills", "area:spec",
-    "area:video",
+    "area:portaria", "area:moradores", "area:reservas", "area:administracao",
+    "area:supabase", "area:infra", "area:docs", "area:skills", "area:spec",
     "wayfinder:map", "wayfinder:research", "wayfinder:prototype", "wayfinder:grilling", "wayfinder:task",
 }
 
@@ -33,7 +33,7 @@ def _labels_nas_tabelas(texto: str) -> set[str]:
     return set(re.findall(r"^\| `([^`]+)` \|", texto, re.M))
 
 
-def test_triage_labels_lista_as_mesmas_labels_do_repo_com_area_video() -> None:
+def test_triage_labels_lista_as_mesmas_labels_do_repo() -> None:
     texto = (RAIZ / "docs/agents/triage-labels.md").read_text(encoding="utf-8")
     assert _labels_nas_tabelas(texto) == LABELS_DO_REPO
 
@@ -41,10 +41,10 @@ def test_triage_labels_lista_as_mesmas_labels_do_repo_com_area_video() -> None:
 def test_onboarding_dev_leva_do_clone_ao_painel_aberto_passando_pelo_hook() -> None:
     texto = (RAIZ / "docs/onboarding/dev.md").read_text(encoding="utf-8")
     passos = [
-        "gh repo clone pedrorezendefig/iae",
+        "gh repo clone pedrorezendefig/diduccio",
         "git config core.hooksPath .githooks",
         "tools/workflow-dashboard/install-launchd.sh",
-        "http://localhost:8800",
+        "http://localhost:8801",
     ]
     posicoes = [texto.find(p) for p in passos]
     assert -1 not in posicoes, dict(zip(passos, posicoes))
@@ -80,7 +80,7 @@ def test_readme_tem_o_mapa_de_pastas_no_formato_do_hospital() -> None:
         assert f"| `{pasta}/` |" in texto, f"{pasta}/ fora da tabela da raiz"
 
 
-# Coolify, Vercel e o Manual do usuário são do Hospital. Num doc do IAE eles só
+# Coolify, Vercel e o Manual do usuário são do Hospital. Num doc do Diduccio eles só
 # aparecem como plano ou como ausência, nunca como algo que já existe aqui.
 # `docs/comercial/` fica de fora: é a proposta ao Cliente, escrita no futuro.
 # "manual" minúsculo é adjetivo ("passo manual"); o produto é "Manual" ou `docs/manual/`.

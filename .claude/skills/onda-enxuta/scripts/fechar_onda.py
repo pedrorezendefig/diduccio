@@ -18,17 +18,17 @@ squash (o unico metodo que o repositorio permite), no proprio numero, em ordem,
 como o PR avulso (ADR 0068). A onda e o avulso com mais PRs.
 
 Classe do lote, pelos arquivos (issue #965): "app" se algum esta em
-`plataforma/`, "ferramenta" se nenhum esta. Lote misto e app. Os
+`app/`, "ferramenta" se nenhum esta. Lote misto e app. Os
 arquivos sao os do `git diff --no-renames` de cada PR, como no detector do CI:
-mover codigo para fora de `plataforma/` conta como app. Classe, versao
+mover codigo para fora de `app/` conta como app. Classe, versao
 e servicos saem do lote inteiro, antes do primeiro merge.
   - app: a sequencia inteira abaixo.
   - ferramenta: so merge pela API depois do CI verde (passos 1 a 4 e 9). Sem
     versao nova, sem APP_VERSION, sem tag, sem esperar build, sem health e sem
     registro (nenhuma entrada no history.json). Se o webhook do Coolify disparar
     build em algum merge, a subida o cancela, como faz com o do commit do registro.
-Sem plataforma (IAE, issue #5): enquanto o `services` do project.json estiver
-vazio, todo lote e ferramenta, inclusive o que toca `plataforma/`. A subida
+Sem plataforma (Diduccio, issue #5): enquanto o `services` do project.json estiver
+vazio, todo lote e ferramenta, inclusive o que toca `app/`. A subida
 termina no merge: o CLI do Coolify nao e pre-condicao e a espera da migration
 nao roda. Quando o primeiro servico entrar no project.json, a sequencia inteira
 volta a valer.
@@ -198,7 +198,7 @@ import checar_migration_repetida  # noqa: E402
 import ci_sem_runner  # noqa: E402
 
 # Sem servico no project.json, nao ha plataforma: a subida termina no merge
-# (issue #5 do IAE). A regra e a mesma do `/deploy status`.
+# (issue #5 do Diduccio). A regra e a mesma do `/deploy status`.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "deploy" / "scripts"))
 from status_deploy import tem_plataforma  # noqa: E402
 
@@ -215,7 +215,7 @@ SEMAFORO = ".claude/skills/deploy/scripts/semaforo.sh"
 SPEC = "docs/spec"
 HISTORY = f"{SPEC}/deploy/history.json"
 STATE = f"{SPEC}/deploy/state.json"
-APP = "plataforma/"
+APP = "app/"
 BUILD_WAIT_WEBHOOK_S = 120
 BUILD_POLL_S = 10
 BUILD_TIMEOUT_S = 40 * 60
@@ -703,7 +703,7 @@ def preparar_pr(raiz: Path, wt: Path, info: dict) -> str:
 # --------------------------------------------------------------------- bump
 
 def classe_do_lote(caminhos) -> str:
-    """"app" se algum arquivo esta em plataforma/, "ferramenta" se nenhum
+    """"app" se algum arquivo esta em app/, "ferramenta" se nenhum
     esta (issue #965). Lote misto e app."""
     return "app" if any(c.startswith(APP) for c in caminhos) else "ferramenta"
 
@@ -1572,7 +1572,7 @@ def main() -> int:
             arquivos.update(run(["git", "diff", "--no-renames", "--name-only", f"{base}...{i['head_conferido']}"],
                                 cwd=wt).stdout.split())
             arquivos.update(f["path"] for f in i.get("files") or [])
-        # sem plataforma todo lote e ferramenta: so merge (issue #5 do IAE)
+        # sem plataforma todo lote e ferramenta: so merge (issue #5 do Diduccio)
         ferramenta = not plataforma or classe_do_lote(arquivos) == "ferramenta"
         tipo = None if ferramenta else tipo_de_bump(infos)
         versao_nova = proxima_versao(versao_antiga, tipo) if tipo else None

@@ -1,8 +1,8 @@
 # Labels de triage
 
-As skills falam em **5 papéis canônicos** de triage. Esta página mapeia cada papel para a label real no GitHub do IAE e lista todas as outras labels do repo. Os nomes técnicos ficam em inglês (são identificadores estáveis que as skills aplicam); o significado vem em pt-BR.
+As skills falam em **5 papéis canônicos** de triage. Esta página mapeia cada papel para a label real no GitHub do Diduccio e lista todas as outras labels do repo. Os nomes técnicos ficam em inglês (são identificadores estáveis que as skills aplicam); o significado vem em pt-BR.
 
-As labels são as do Hospital mais `area:video` (PRD #1). Quem cria label nova no GitHub acrescenta a linha aqui no mesmo PR: o teste `tools/test_docs_fluxo.py` confere que esta página e o repo têm a mesma lista.
+As labels são as do IAE, com as `area:*` do Diduccio. Quem cria label nova no GitHub acrescenta a linha aqui no mesmo PR: o teste `tools/test_docs_fluxo.py` confere que esta página e o repo têm a mesma lista.
 
 ## Papéis de triage
 
@@ -42,7 +42,7 @@ Família descritiva, não de estado. O `/to-issues` aplica uma por fatia na queb
 | `fatia:M` | Média: meio período, fatia vertical completa |
 | `fatia:G` | Grande: dia cheio ou mais, mais risco (muitas camadas, tela nova, integração externa) |
 
-O IAE OS agrupa essas labels no filtro `fatia:` da aba Issues, e a `/onda-enxuta` escolhe por elas o esforço do implementador.
+O Diduccio OS agrupa essas labels no filtro `fatia:` da aba Issues, e a `/onda-enxuta` escolhe por elas o esforço do implementador.
 
 ## Natureza da mudança
 
@@ -60,18 +60,19 @@ Dizem **o que** é a mudança, não o estado dela. Alimentam o tipo do PR e do c
 
 ## Área
 
-Onde a mudança incide. A pasta do app é `plataforma/`.
+Onde a mudança incide. A pasta do app é `app/`.
 
 | Label | Significado |
 | --- | --- |
-| `area:backend` | Backend em `plataforma/` |
-| `area:frontend` | Frontend em `plataforma/` |
-| `area:supabase` | Migrations, schema e políticas de acesso do banco |
-| `area:infra` | `.github/` e deploy |
+| `area:portaria` | Entregadores, encomendas, retirada assinada (`app/`) |
+| `area:moradores` | Unidades, moradores, vagas, TAGs e cargos (`app/`) |
+| `area:reservas` | Festas, churrasqueira, piscina, mudanças e agenda (`app/`) |
+| `area:administracao` | Atas, comunicados, tarefas, compras e usuários (`app/`) |
+| `area:supabase` | Migrations, schema, RLS, Edge Functions e Storage |
+| `area:infra` | `.github/`, PWA, service worker e deploy |
 | `area:docs` | `docs/` fora de `docs/spec/`, `README.md`, `CLAUDE.md` |
 | `area:skills` | `.claude/skills/` |
 | `area:spec` | `docs/spec/` |
-| `area:video` | Trabalho de vídeo: roteiro, gravação, edição e render |
 
 ## Wayfinding
 

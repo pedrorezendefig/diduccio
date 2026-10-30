@@ -157,11 +157,11 @@ def test_status_de_erro_conta_como_ci_vermelho():
 def cenario():
     return dados(
         issues=[
-            issue(941, "Módulo de fases", ["in-progress", "fatia:G"], [EU], parent={"number": 938, "title": "PRD: IAE OS"}),
-            issue(939, "Subida enxuta", ["in-progress", "fatia:M"], [EU], parent={"number": 938, "title": "PRD: IAE OS"}),
+            issue(941, "Módulo de fases", ["in-progress", "fatia:G"], [EU], parent={"number": 938, "title": "PRD: Diduccio OS"}),
+            issue(939, "Subida enxuta", ["in-progress", "fatia:M"], [EU], parent={"number": 938, "title": "PRD: Diduccio OS"}),
             issue(955, "Runner reserva", ["in-progress"], [EU]),
-            issue(938, "PRD: IAE OS", ["ready-for-agent"], [EU]),
-            issue(942, "Aba Issues", ["ready-for-agent", "fatia:G"], parent={"number": 938, "title": "PRD: IAE OS"}),
+            issue(938, "PRD: Diduccio OS", ["ready-for-agent"], [EU]),
+            issue(942, "Aba Issues", ["ready-for-agent", "fatia:G"], parent={"number": 938, "title": "PRD: Diduccio OS"}),
             issue(926, "PR órfão", ["ready-for-agent", "priority:high", "fatia:P"], upd="2026-10-03T10:00:00Z"),
             issue(891, "Publicar a documentação", ["ready-for-human"], [EU], upd="2026-09-27T10:00:00Z"),
             issue(933, "Semáforo de deploy", ["needs-triage"]),
@@ -230,8 +230,8 @@ def test_plano_desce_a_ordem_quando_os_niveis_de_cima_estao_vazios():
         issues=[
             issue(926, "PR órfão", ["ready-for-agent", "priority:high", "fatia:P"]),
             issue(891, "Publicar a documentação", ["ready-for-human"], [EU]),
-            issue(942, "Aba Issues", ["ready-for-agent", "fatia:G"], parent={"number": 938, "title": "PRD: IAE OS"}),
-            issue(941, "Fases", ["in-progress", "fatia:G"], ["lucassampaioc1"], parent={"number": 938, "title": "PRD: IAE OS"}),
+            issue(942, "Aba Issues", ["ready-for-agent", "fatia:G"], parent={"number": 938, "title": "PRD: Diduccio OS"}),
+            issue(941, "Fases", ["in-progress", "fatia:G"], ["lucassampaioc1"], parent={"number": 938, "title": "PRD: Diduccio OS"}),
         ]
     )
     passos = plano_de(d)
@@ -243,8 +243,8 @@ def test_plano_desce_a_ordem_quando_os_niveis_de_cima_estao_vazios():
 def test_onda_sugere_recorte_do_prd_que_ja_tem_fatia_andando():
     d = dados(
         issues=[
-            issue(942, "Aba Issues", ["ready-for-agent", "fatia:G"], parent={"number": 938, "title": "PRD: IAE OS"}),
-            issue(941, "Fases", ["in-progress", "fatia:G"], [EU], parent={"number": 938, "title": "PRD: IAE OS"}),
+            issue(942, "Aba Issues", ["ready-for-agent", "fatia:G"], parent={"number": 938, "title": "PRD: Diduccio OS"}),
+            issue(941, "Fases", ["in-progress", "fatia:G"], [EU], parent={"number": 938, "title": "PRD: Diduccio OS"}),
             issue(651, "Juntar", ["ready-for-agent", "fatia:M"], parent={"number": 646, "title": "PRD: Ouvidoria"}),
         ]
     )

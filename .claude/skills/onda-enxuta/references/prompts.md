@@ -4,7 +4,7 @@ Use literalmente, preenchendo `<...>`. Cada agente já tem o contrato no própri
 
 **A primeira linha de todo prompt é `[papel: <nome>]`** (`implementador`, `corretor`, `revisor`): é por ela que o `medir_onda.py` atribui o custo de cada sub-agente ao papel certo.
 
-## iae-implementador
+## diduccio-implementador
 
 ```
 [papel: implementador]
@@ -14,7 +14,7 @@ Tentativa <k> de 3.
 <Se a issue cria migration: "o número é <0XX>; a <0XX-1> já existe em origin/main".>
 ```
 
-## iae-revisor
+## diduccio-revisor
 
 ```
 [papel: revisor]
@@ -22,7 +22,7 @@ PR #<PR>, issue #<N>. Ache problemas, não aprove, não edite. Revisão única: 
 <Se o sensivel.py acusou: "Sensível: <arquivos de rota sem login ou de migration, um por linha>".>
 ```
 
-## iae-corretor
+## diduccio-corretor
 
 ```
 [papel: corretor]

@@ -35,7 +35,7 @@ def rodar(tmp_path: Path, resposta: dict, *args: str) -> subprocess.CompletedPro
         "#!/bin/sh\n"
         'printf "%s\\n" "$*" >> "$GH_LOG"\n'
         'case "$1" in\n'
-        "  repo) echo pedrorezendefig/iae ;;\n"
+        "  repo) echo pedrorezendefig/diduccio ;;\n"
         '  api) cat "$GH_RESPOSTA" ;;\n'
         "esac\n",
         encoding="utf-8",
@@ -141,6 +141,6 @@ def test_a_fila_traz_pronta_e_desbloqueada_com_ou_sem_designado(tmp_path):
     chamada = (tmp_path / "gh.log").read_text(encoding="utf-8")
     assert "ISSUE_ADVANCED" in chamada
     assert (
-        "q=repo:pedrorezendefig/iae is:issue is:open label:ready-for-agent -is:blocked"
+        "q=repo:pedrorezendefig/diduccio is:issue is:open label:ready-for-agent -is:blocked"
     ) in chamada
     assert "no:assignee" not in chamada

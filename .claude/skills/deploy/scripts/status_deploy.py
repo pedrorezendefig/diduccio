@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""status_deploy.py: o `/deploy status` do IAE (issue #5).
+"""status_deploy.py: o `/deploy status` do Diduccio (issue #5).
 
-O IAE ainda não tem deploy. A plataforma existe quando o
+O Diduccio ainda não tem deploy. A plataforma existe quando o
 `docs/spec/deploy/project.json` lista algum serviço em `services`: é a lista
 que a subida (`onda-enxuta/scripts/fechar_onda.py`) constrói, confere no
 health e registra. Sem serviço, a subida termina no merge, e este script diz

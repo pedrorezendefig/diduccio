@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Olha para trás numa onda que já terminou e responde: **o que no ambiente deixou o atrito acontecer, e que mudança impede a repetição?** O produto é uma lista de candidatas, da mais grave para a menos, cada uma presa a um momento concreto da onda. Nada é editado aqui: a candidata aceita vira PR de ferramenta pelo `/ship`, com a decisão no corpo do PR (ADR 0068, regra 12).
 
-Fork do `/retro` do Matt Pocock (Skills v1.3), com as fontes e as casas do IAE. O princípio é o dele: **o padrão mora no revisor, não no implementador** (o implementador tem a pressão de contexto: explora, escreve, depura; o revisor recebe um diff). E **violação mecânica vira check determinístico**, nunca prosa: um check falha, uma frase em skill não.
+Fork do `/retro` do Matt Pocock (Skills v1.3), com as fontes e as casas do Diduccio. O princípio é o dele: **o padrão mora no revisor, não no implementador** (o implementador tem a pressão de contexto: explora, escreve, depura; o revisor recebe um diff). E **violação mecânica vira check determinístico**, nunca prosa: um check falha, uma frase em skill não.
 
 ## Sintaxe
 
@@ -21,7 +21,7 @@ Sem argumento: a medição mais recente em `~/.claude/onda-enxuta/medicoes/`.
 ## Fontes, nesta ordem
 
 1. **Medição:** `~/.claude/onda-enxuta/medicoes/<data>-<sessao>-onda<N>.json`. Os sinais: `github.<PR>.ci_falhas`, `revisoes` acima de 1, `por_papel.corretor` (agentes e custo), `contexto_max` acima de 150 mil, `minutos` fora do normal da sessão.
-2. **GitHub:** o comentário `## Onda <nome> <N>` no PRD (linha da subida, baixas, linha `retro:`); as issues `ready-for-human` da onda (o comentário de baixa diz gate, achado e hipótese); os comentários do `iae-corretor` nos PRs (achado e commit); o veredito do `iae-revisor`; `docs/spec/deploy/history.json` (a entrada da versão, com `notes`).
+2. **GitHub:** o comentário `## Onda <nome> <N>` no PRD (linha da subida, baixas, linha `retro:`); as issues `ready-for-human` da onda (o comentário de baixa diz gate, achado e hipótese); os comentários do `diduccio-corretor` nos PRs (achado e commit); o veredito do `diduccio-revisor`; `docs/spec/deploy/history.json` (a entrada da versão, com `notes`).
 3. **JSONL da sessão**, só onde a medição aponta: `~/.claude/projects/<slug>/<sessao>.jsonl` e `<sessao>/subagents/agent-*.jsonl`. Procure o trecho do atrito (a sequência de tool calls antes do erro, a busca longa, a releitura repetida), não a sessão inteira.
 
 ## Passos
@@ -32,20 +32,20 @@ Sem argumento: a medição mais recente em `~/.claude/onda-enxuta/medicoes/`.
 
 | Atrito | Casa da mudança |
 |---|---|
-| Agente demorou a achar arquivo ou fato; dependência escondida entre arquivos | **Ponteiro de navegação** no arquivo que ele já lê (`CLAUDE.md`, a skill, o agente `iae-*`), uma linha |
+| Agente demorou a achar arquivo ou fato; dependência escondida entre arquivos | **Ponteiro de navegação** no arquivo que ele já lê (`CLAUDE.md`, a skill, o agente `diduccio-*`), uma linha |
 | Erro que um check pegaria (padrão fixo, API proibida, forma de import, lugar do arquivo, travessão) | **Check** no CI (`.github/workflows/`), regra de lint, grep de template; gatilho de segurança em `sensivel.py` ou `revisao-sensivel.txt` |
-| Revisor deixou passar um juízo (consistência entre arquivos, "parece com o resto", teste vácuo de forma nova) | **Lente** no `iae-revisor.md`, só must-fix, nunca no `iae-implementador` |
+| Revisor deixou passar um juízo (consistência entre arquivos, "parece com o resto", teste vácuo de forma nova) | **Lente** no `diduccio-revisor.md`, só must-fix, nunca no `diduccio-implementador` |
 | Instrução sem efeito, ou regra que o script já cumpre | **Apagar** (cada regra tem uma casa: script ou skill, nunca as duas) |
 | Tool call cara (colagem de log inteiro, releitura de PRD, suíte inteira em vez do arquivo) | **Prompt menor**, ponteiro em vez de colagem, script que resume |
 | Informação que o agente não alcançou (log do deploy, estado de outra sessão, decisão só no prompt) | **Acesso**: campo no prompt de disparo, consulta `gh` pronta, log acessível |
 | Repo sem guarda-corpo para aquele erro (nenhum check, nenhuma lente) | Achado por si só, com o check mais barato na linguagem do repo |
 
-4. Antes de propor check novo, leia o que já existe (`.github/workflows/`, `tools/lint_skills.py`, o lint de `plataforma/` quando existir): check que existe e não está ligado é a candidata, não um check novo.
+4. Antes de propor check novo, leia o que já existe (`.github/workflows/`, `tools/lint_skills.py`, o lint de `app/` quando existir): check que existe e não está ligado é a candidata, não um check novo.
 5. Apresente até 7 candidatas, da mais grave para a menos: **atrito** (momento: PR/issue/trecho), **causa no ambiente**, **mudança** (arquivo e uma linha do que entra ou sai), **tipo** (check, lente, ponteiro, apagar, prompt, acesso). Termine com a linha "nenhuma mudança feita; cada candidata aceita vira `/ship` próprio".
 
 ## O que esta skill não faz
 
 - Não edita arquivo, não abre PR, não instala hook. Só propõe; quem escolhe é o humano.
-- Não revisa o código da onda (isso é o `iae-revisor`) nem a arquitetura (isso é o `/improve-codebase-architecture`).
+- Não revisa o código da onda (isso é o `diduccio-revisor`) nem a arquitetura (isso é o `/improve-codebase-architecture`).
 - Não é memória: não guarda o que aconteceu, muda o ambiente para não acontecer de novo. Achado que é só "lembrar da próxima vez" não entra nesta lista.
 - Não audita checks antigos: vê uma onda só. Check que dispara em código bom é sinal para remover, mas isso quem vê é quem roda o CI todo dia.

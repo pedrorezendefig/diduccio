@@ -6,7 +6,7 @@ Como as skills de engenharia devem consumir a documentação deste repo ao explo
 
 - **`CONTEXT.md`** (na raiz): o glossário do projeto. Use a terminologia daqui em títulos de issue, hipóteses, nomes de teste e propostas de refactor. Não troque por sinônimos que o glossário pede para evitar.
 - **`docs/adr/`**: leia as ADRs que tocam a área em que vai trabalhar. Decisões difíceis de desfazer, ou que surpreenderiam quem chega, vivem aqui.
-- **`docs/spec/snapshots/`**: referência **factual e mecânica** do app, gerada do código pelo `/snapshot`: `ROTAS.md` (endpoints), `ENTIDADES.md` e `SCHEMA.md` (tabelas e chaves), `MIGRATIONS.md`, `INTEGRACOES.md`. Quando precisar saber qual rota ou tabela existe hoje, olhe aqui em vez de adivinhar. Enquanto `plataforma/` não tem código, os arquivos só dizem isso.
+- **`docs/spec/snapshots/`**: referência **factual e mecânica** do app, gerada do código pelo `/snapshot`: `ROTAS.md` (endpoints), `ENTIDADES.md` e `SCHEMA.md` (tabelas e chaves), `MIGRATIONS.md`, `INTEGRACOES.md`. Quando precisar saber qual rota ou tabela existe hoje, olhe aqui em vez de adivinhar. Enquanto `app/` não tem código, os arquivos só dizem isso.
 
 Se algum desses arquivos não existir, **siga em silêncio**. Não sinalize a ausência nem sugira criá-los de antemão: `CONTEXT.md` e ADRs nascem sob demanda no `/grill-with-docs`, quando um termo ou uma decisão de fato se resolve.
 
@@ -21,10 +21,10 @@ Se algum desses arquivos não existir, **siga em silêncio**. Não sinalize a au
 ├── CONTEXT.md
 ├── docs/
 │   ├── adr/
-│   │   └── 0001-iae-os-e-uma-copia-solta-do-hospital-os.md
+│   │   └── 0001-instalacao-do-fluxo-de-trabalho.md
 │   ├── agents/          ← este diretório (config das skills)
 │   └── spec/snapshots/  ← referência factual do app
-└── plataforma/          ← o app (Plataforma de cursos), quando o código começar
+└── app/          ← o app do condomínio (React, Vite, Supabase)
 ```
 
 ## Status de uma ADR
@@ -44,4 +44,4 @@ A supersessão e a emenda são **bidirecionais**: se a ADR A traz `superseded_by
 
 Se o que você vai propor contradiz uma ADR, **diga isso** em vez de sobrescrever em silêncio:
 
-> _Contradiz a ADR 0001 (cópia solta do Hospital OS), mas vale reabrir porque..._
+> _Contradiz a ADR 0001 (instalação do fluxo), mas vale reabrir porque..._

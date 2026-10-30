@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """snapshot.py: gera os sete arquivos de `docs/spec/snapshots/` a partir de
-`plataforma/` (issue #5).
+`app/` (issue #5).
 
-O IAE ainda não escolheu a stack. Enquanto `plataforma/` não existir, cada
+O Diduccio ainda não escolheu a stack. Enquanto `app/` não existir, cada
 arquivo sai com uma linha dizendo por quê. O que já dá para ler sem stack:
-  - ESTRUTURA.md: árvore de `plataforma/` até dois níveis;
-  - MIGRATIONS.md: os `.sql` de `plataforma/supabase/migrations/`;
-  - INTEGRACOES.md: as chaves dos `.env.example` de `plataforma/`.
+  - ESTRUTURA.md: árvore de `app/` até dois níveis;
+  - MIGRATIONS.md: os `.sql` de `app/supabase/migrations/`;
+  - INTEGRACOES.md: as chaves dos `.env.example` de `app/`.
 ROTAS, ENTIDADES e SCHEMA esperam a stack: quando ela chegar, o gerador de
 cada um entra aqui, no mesmo formato do snapshot do Hospital.
 
@@ -27,7 +27,7 @@ from pathlib import Path
 APP = "plataforma"
 MIGRATIONS = f"{APP}/supabase/migrations"
 SAIDA = "docs/spec/snapshots"
-SEM_APP = "A plataforma ainda não existe em `plataforma/`."
+SEM_APP = "A plataforma ainda não existe em `app/`."
 SEM_STACK = "A stack da plataforma ainda não foi escolhida; este arquivo ganha gerador quando ela chegar."
 IGNORAR = {"node_modules", ".venv", "__pycache__", ".next", "dist", "build", ".git"}
 
@@ -66,7 +66,7 @@ def integracoes(raiz: Path) -> str:
         if chaves:
             linhas += ["", f"## `{ex.relative_to(raiz).as_posix()}`", "", *(f"- `{c}`" for c in chaves)]
     if not linhas:
-        return _doc("INTEGRACOES.md", [SEM_APP if not app.is_dir() else "Nenhum `.env.example` em `plataforma/`."])
+        return _doc("INTEGRACOES.md", [SEM_APP if not app.is_dir() else "Nenhum `.env.example` em `app/`."])
     return _doc("INTEGRACOES.md", ["Chaves de ambiente lidas dos `.env.example` (só o nome, nunca o valor).", *linhas])
 
 
@@ -84,7 +84,7 @@ def gerar(raiz: Path) -> dict[str, str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Gera docs/spec/snapshots/ a partir de plataforma/.")
+    ap = argparse.ArgumentParser(description="Gera docs/spec/snapshots/ a partir de app/.")
     ap.add_argument("--check", action="store_true", help="não escreve; sai com 1 se algum arquivo mudaria")
     ap.add_argument("--root", default=".", help="raiz do repositório (default: cwd)")
     args = ap.parse_args()

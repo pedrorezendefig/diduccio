@@ -1,8 +1,8 @@
-"""Skills de planejamento e claim do IAE (issue #4).
+"""Skills de planejamento e claim do Diduccio (issue #4).
 
 Vieram do repositório do Hospital pelo MANIFESTO do kit
 `tools/instalar-fluxo/`. Estes testes travam a adaptação: o router é o
-`/ask-iae`, e nenhuma regra fala do Hospital, do diretor ou do Manual. Citar o
+`/ask-diduccio`, e nenhuma regra fala do Hospital, do diretor ou do Manual. Citar o
 Hospital como origem é permitido (a linha diz "origem").
 
 O critério do lint do cabeçalho mora no último teste de `test_lint_skills.py`,
@@ -21,7 +21,7 @@ SKILLS = Path(__file__).resolve().parent.parent / ".claude" / "skills"
 
 # As skills desta issue. `ship`, `onda-enxuta` e `deploy` são da issue #5.
 DA_ISSUE = [
-    "ask-iae",
+    "ask-diduccio",
     "to-prd",
     "to-issues",
     "pegar-issue",
@@ -60,11 +60,11 @@ def _cabecalho(arquivo: Path) -> dict:
 
 
 def test_ask_iae_e_o_router_e_nao_cita_ask_pedro_divulgar_nem_manual() -> None:
-    skill = SKILLS / "ask-iae" / "SKILL.md"
+    skill = SKILLS / "ask-diduccio" / "SKILL.md"
     assert skill.is_file()
-    assert _cabecalho(skill)["name"] == "ask-iae"
+    assert _cabecalho(skill)["name"] == "ask-diduccio"
     texto = skill.read_text(encoding="utf-8")
-    assert "/ask-iae" in texto
+    assert "/ask-diduccio" in texto
     for termo in ("/ask-pedro", "/divulgar", "Manual", "/manual"):
         assert termo not in texto, termo
     assert not (SKILLS / "ask-pedro").exists()

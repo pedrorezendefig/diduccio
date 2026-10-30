@@ -1,7 +1,7 @@
-"""Testes da adaptação do fluxo de entrega ao IAE (issue #5).
+"""Testes da adaptação do fluxo de entrega ao Diduccio (issue #5).
 
 O motor das ondas veio do Hospital (PR #10). Estes testes travam o que muda
-aqui: os agentes da onda com o nome do IAE, nenhum script apontando para a
+aqui: os agentes da onda com o nome do Diduccio, nenhum script apontando para a
 pasta do app do Hospital, e a subida terminando no merge enquanto o
 `docs/spec/deploy/project.json` não tiver plataforma.
 """
@@ -21,11 +21,11 @@ AGENTES = RAIZ / ".claude" / "agents"
 
 def test_agentes_da_onda_tem_o_nome_do_iae_e_nenhum_e_do_hospital() -> None:
     nomes = sorted(p.stem for p in AGENTES.glob("*.md"))
-    assert {"iae-implementador", "iae-revisor", "iae-corretor"} <= set(nomes)
+    assert {"diduccio-implementador", "diduccio-revisor", "diduccio-corretor"} <= set(nomes)
     assert not [n for n in nomes if n.startswith("hr-")]
     for papel in ("implementador", "revisor", "corretor"):
-        cabecalho = (AGENTES / f"iae-{papel}.md").read_text(encoding="utf-8").split("---")[1]
-        assert re.search(rf"^name: iae-{papel}$", cabecalho, re.M)
+        cabecalho = (AGENTES / f"diduccio-{papel}.md").read_text(encoding="utf-8").split("---")[1]
+        assert re.search(rf"^name: diduccio-{papel}$", cabecalho, re.M)
 
 
 def test_quem_dispara_os_agentes_chama_pelo_nome_novo() -> None:
@@ -35,10 +35,10 @@ def test_quem_dispara_os_agentes_chama_pelo_nome_novo() -> None:
     assert citam == []
 
 
-def test_lente_de_seguranca_do_revisor_protege_dado_de_aluno() -> None:
-    revisor = (AGENTES / "iae-revisor.md").read_text(encoding="utf-8")
-    assert "dado de aluno exposto" in revisor
-    assert "dado de outro aluno" in revisor
+def test_lente_de_seguranca_do_revisor_protege_dado_de_morador() -> None:
+    revisor = (AGENTES / "diduccio-revisor.md").read_text(encoding="utf-8")
+    assert "dado de morador exposto" in revisor
+    assert "dado de outra unidade" in revisor
     assert not re.search(r"paciente|Facilitador", revisor)
 
 
@@ -50,7 +50,7 @@ def test_nenhum_script_aponta_para_a_pasta_do_app_do_hospital() -> None:
 
 
 SUBIDA = RAIZ / ".claude" / "skills" / "onda-enxuta" / "scripts" / "fechar_onda.py"
-SEM_PLATAFORMA = {"schema_version": "2.0", "project": {"name": "IAE"}, "git": {"repo": "x/iae", "branch": "main"},
+SEM_PLATAFORMA = {"schema_version": "2.0", "project": {"name": "Diduccio"}, "git": {"repo": "x/diduccio", "branch": "main"},
                   "coolify": None, "services": []}
 
 
@@ -113,7 +113,7 @@ def test_subida_de_pr_de_ferramenta_mergeia_sem_cli_de_plataforma(monkeypatch, t
 
 
 def test_subida_sem_plataforma_termina_no_merge_mesmo_com_pr_do_app(monkeypatch, tmp_path: Path, capsys) -> None:
-    codigo, mergeados = _rodar_subida(monkeypatch, tmp_path, ["plataforma/app.py"])
+    codigo, mergeados = _rodar_subida(monkeypatch, tmp_path, ["app/app.py"])
     saida = capsys.readouterr().out
     assert (codigo, mergeados) == (0, [7]), saida
     assert "sem build, health nem registro" in saida
@@ -130,7 +130,7 @@ def _status(raiz: Path) -> subprocess.CompletedProcess[str]:
 def test_deploy_status_diz_que_o_projeto_ainda_nao_tem_deploy() -> None:
     feito = _status(RAIZ)
     assert feito.returncode == 0, feito.stderr
-    assert "O IAE ainda não tem deploy" in feito.stdout
+    assert "O Diduccio ainda não tem deploy" in feito.stdout
     assert "termina no merge" in feito.stdout
 
 
@@ -159,9 +159,9 @@ def test_snapshot_gera_os_sete_arquivos_e_o_check_acusa_quando_a_plataforma_muda
     assert "ainda não existe" in (pasta / "ESTRUTURA.md").read_text(encoding="utf-8")
     assert _snapshot(tmp_path, "--check").returncode == 0
 
-    (tmp_path / "plataforma/supabase/migrations").mkdir(parents=True)
-    (tmp_path / "plataforma/supabase/migrations/001_alunos.sql").write_text("select 1;", encoding="utf-8")
-    (tmp_path / "plataforma/.env.example").write_text("MUX_TOKEN_ID=\n# comentario\nSTRIPE_KEY=x\n", encoding="utf-8")
+    (tmp_path / "app/supabase/migrations").mkdir(parents=True)
+    (tmp_path / "app/supabase/migrations/001_alunos.sql").write_text("select 1;", encoding="utf-8")
+    (tmp_path / "app/.env.example").write_text("MUX_TOKEN_ID=\n# comentario\nSTRIPE_KEY=x\n", encoding="utf-8")
     checado = _snapshot(tmp_path, "--check")
     assert checado.returncode == 1 and "MIGRATIONS.md" in checado.stdout
     assert _snapshot(tmp_path).returncode == 0

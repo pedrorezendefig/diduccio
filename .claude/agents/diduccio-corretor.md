@@ -1,5 +1,5 @@
 ---
-name: iae-corretor
+name: diduccio-corretor
 description: Agente fresco que corrige um PR da /onda-enxuta depois de um veredito de revisão com must-fix, um CI vermelho ou um conflito com a main. Recebe só o PR e o motivo; nunca é o mesmo agente que escreveu o código.
 model: claude-opus-5-5
 effort: high

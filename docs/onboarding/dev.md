@@ -1,6 +1,6 @@
-# Onboarding: sócio no IAE
+# Onboarding: sócio no Diduccio
 
-Esta página leva você do clone até o IAE OS aberto no navegador, e depois explica o dia a dia. O setup do Claude Code (plugins, permissões) está em [`claude-setup.md`](./claude-setup.md).
+Esta página leva você do clone até o Diduccio OS aberto no navegador, e depois explica o dia a dia. O setup do Claude Code (plugins, permissões) está em [`claude-setup.md`](./claude-setup.md).
 
 ## A regra de ouro
 
@@ -9,7 +9,7 @@ Todo trabalho nasce de uma Issue no GitHub e termina num PR que fecha essa Issue
 - **Tem uma ideia nova?** `/grill-with-docs` (afia a ideia, que vira PRD e depois issues).
 - **Vai pegar trabalho da fila?** `/pegar-issue` (sem número lista a fila; com número pega a issue).
 
-O resto do caminho (`/tdd`, `/ship` e a subida `fechar_onda.py`) as skills encadeiam sozinhas. O IAE ainda não tem deploy, então a subida termina no merge.
+O resto do caminho (`/tdd`, `/ship` e a subida `fechar_onda.py`) as skills encadeiam sozinhas. O Diduccio ainda não tem deploy, então a subida termina no merge.
 
 ## Primeiro dia: do clone ao painel aberto
 
@@ -26,8 +26,8 @@ Antes de começar, tenha `git`, `gh`, `jq`, `python3` e o Claude Code instalados
 2. **Clone o repo:**
 
    ```bash
-   gh repo clone pedrorezendefig/iae ~/PedroDev/IAE
-   cd ~/PedroDev/IAE
+   gh repo clone pedrorezendefig/diduccio ~/PedroDev/Diduccio
+   cd ~/PedroDev/Diduccio
    ```
 
 3. **Ligue a trava da `main`** (uma vez por clone):
@@ -40,7 +40,7 @@ Antes de começar, tenha `git`, `gh`, `jq`, `python3` e o Claude Code instalados
 
 4. **Confira a máquina.** Abra o Claude Code dentro da pasta (`claude`) e rode `/setup-maquina`. Ele mostra uma tabela com `OK` e `FALTA` e o conserto de cada item.
 
-5. **Suba o IAE OS como serviço do Mac** (uma vez; ele volta sozinho quando o Mac liga):
+5. **Suba o Diduccio OS como serviço do Mac** (uma vez; ele volta sozinho quando o Mac liga):
 
    ```bash
    bash tools/workflow-dashboard/install-launchd.sh
@@ -48,11 +48,11 @@ Antes de começar, tenha `git`, `gh`, `jq`, `python3` e o Claude Code instalados
 
    Rode a partir do clone, nunca de um worktree de issue: o serviço aponta para a pasta onde o script mora. Para tirar o serviço: `bash tools/workflow-dashboard/install-launchd.sh uninstall`.
 
-6. **Abra o painel:** [http://localhost:8800](http://localhost:8800). Ele mostra as abas Issues, PRs, Produção e Documentação. A porta 8800 não briga com a do Hospital OS, então os dois rodam juntos.
+6. **Abra o painel:** [http://localhost:8801](http://localhost:8801). Ele mostra as abas Issues, PRs, Produção e Documentação. A porta 8801 não briga com a do Hospital OS, então os dois rodam juntos.
 
-   Sem o serviço (ou fora do macOS), suba na mão: `python3 tools/workflow-dashboard/serve.py --port 8800`.
+   Sem o serviço (ou fora do macOS), suba na mão: `python3 tools/workflow-dashboard/serve.py --port 8801`.
 
-7. **Pergunte o próximo passo:** `/ask-iae` diz qual skill usar em cada momento.
+7. **Pergunte o próximo passo:** `/ask-diduccio` diz qual skill usar em cada momento.
 
 O painel só lê o GitHub. Nada que você faz nele muda o repo.
 
@@ -115,9 +115,9 @@ Reproduz, minimiza, levanta hipótese, instrumenta, corrige e deixa um teste de 
    ▼
 /tdd               red, green, refactor; critérios de aceite viram testes
    ▼
-/ship              PR de ferramenta (nada em plataforma/): só o CI verde
-                   PR da plataforma: iae-revisor uma vez e CI verde
-                   must-fix ou CI vermelho chamam o iae-corretor
+/ship              PR de ferramenta (nada em app/): só o CI verde
+                   PR da plataforma: diduccio-revisor uma vez e CI verde
+                   must-fix ou CI vermelho chamam o diduccio-corretor
                    com o PR verde, roda a subida sozinho
    ▼
 fechar_onda.py     merge pela API (squash). Sem deploy ainda: sem versão, build nem health
@@ -128,7 +128,7 @@ fechar_onda.py     merge pela API (squash). Sem deploy ainda: sem versão, build
 
 | Pergunta | Olhar em |
 |---|---|
-| O que tem para fazer, o que estou fazendo? | GitHub Issues, ou a aba Issues do IAE OS |
+| O que tem para fazer, o que estou fazendo? | GitHub Issues, ou a aba Issues do Diduccio OS |
 | Qual o contexto deste trabalho? | A própria Issue (`gh issue view <N>`) |
 | O que significa cada termo do projeto? | `CONTEXT.md` |
 | Por que decidimos X? | `docs/adr/` (só vale `status: accepted`) |
@@ -151,7 +151,7 @@ fechar_onda.py     merge pela API (squash). Sem deploy ainda: sem versão, build
 | Comando | Para quê |
 |---|---|
 | `/setup-maquina` | Confere a máquina e diz o que falta |
-| `/ask-iae` | Qual skill usar agora |
+| `/ask-diduccio` | Qual skill usar agora |
 | `/grill-with-docs` | Afiar uma ideia nova |
 | `/to-prd` | A conversa vira PRD |
 | `/to-issues` | O PRD vira fatias |
@@ -166,7 +166,7 @@ fechar_onda.py     merge pela API (squash). Sem deploy ainda: sem versão, build
 ## Quando algo dá errado
 
 - **`/tdd` vermelho que não fecha?** O teste é a spec: confira o critério na Issue. Se o critério está errado, ajuste a Issue primeiro.
-- **`/ship` reprovou num gate?** O `iae-corretor` entra sozinho. Só a baixa (`ready-for-human`, com o diagnóstico na issue) volta para você.
+- **`/ship` reprovou num gate?** O `diduccio-corretor` entra sozinho. Só a baixa (`ready-for-human`, com o diagnóstico na issue) volta para você.
 - **Conflito com a `main`?** `/resolver-conflitos`.
 - **Push recusado com "Push direto na main bloqueado"?** É o hook. Crie uma branch e abra PR.
 - Na dúvida, pergunte ao Claude dentro do repo, ou abra uma Issue.

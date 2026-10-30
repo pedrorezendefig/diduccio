@@ -65,9 +65,9 @@ Se o `--remove-label` falhar porque `ready-for-agent` já não estava lá, **out
 ### 6. Criar o worktree da issue a partir da `origin/main`
 Derive o tipo do label `type:*` (feature→`feat`, fix→`fix`, etc.) e um slug curto do título. Branch determinística por número (nunca colide), num worktree próprio, nascido da `origin/main` recém-buscada (ADR 0068: a árvore principal fica na `main` e não recebe branch de trabalho):
 ```bash
-git fetch origin && git worktree add ../iae-issue-<N> -b <type>/<slug>-<N> origin/main
+git fetch origin && git worktree add ../diduccio-issue-<N> -b <type>/<slug>-<N> origin/main
 ```
-Siga o trabalho dentro de `../iae-issue-<N>`. Não dependa de `git pull` na árvore principal: pode estar semanas atrasada que a branch nasce do que está em produção agora (issue #1081).
+Siga o trabalho dentro de `../diduccio-issue-<N>`. Não dependa de `git pull` na árvore principal: pode estar semanas atrasada que a branch nasce do que está em produção agora (issue #1081).
 
 ### 7. Carregar contexto e seguir sem parar
 Carregue no contexto **O que construir** + **Critérios de aceite** (cada critério vira um teste). Leia `CONTEXT.md` e os ADRs relevantes em `docs/adr/`. Então chame a Skill tool com `tdd` (cada critério de aceite é um teste RED) e, com os testes verdes, a Skill tool com `ship`, que roda a subida sozinho (veja "Fechar o loop"). Não espere mensagem entre um e outro: pegar a issue foi a ordem.
@@ -76,13 +76,13 @@ Carregue no contexto **O que construir** + **Critérios de aceite** (cada crité
 
 Para rodar várias issues ao mesmo tempo na mesma máquina, cada sessão usa um **git worktree** próprio (sem Docker), o mesmo do passo 6:
 ```bash
-git fetch origin && git worktree add ../iae-issue-<N> -b <type>/<slug>-<N> origin/main
+git fetch origin && git worktree add ../diduccio-issue-<N> -b <type>/<slug>-<N> origin/main
 ```
-Abra o Claude Code dentro de `../iae-issue-<N>`. Veja `docs/agents/issue-tracker.md`.
+Abra o Claude Code dentro de `../diduccio-issue-<N>`. Veja `docs/agents/issue-tracker.md`.
 
 ## Fechar o loop
 
-Terminado o TDD (testes verdes), chame a Skill tool com `ship`: abre o PR com `Closes #N`, roda os gates até o PR verde (gate reprovado chama o `iae-corretor`) e roda a subida (`python3 .claude/skills/onda-enxuta/scripts/fechar_onda.py --prs <PR>`), que mergeia e faz o deploy (ADR 0068). Conflito na subida chama o `iae-corretor` com a `/resolver-conflitos` e conta tentativa; a terceira falha manda a issue para `ready-for-human` (`/ship` Passo 10). O humano só é chamado por notificação em migration, nessa terceira falha e em rollback. Ao mergear, a issue fecha e a Action de higiene (`.github/workflows/higiene-issues.yml`) remove o `in-progress` sozinha.
+Terminado o TDD (testes verdes), chame a Skill tool com `ship`: abre o PR com `Closes #N`, roda os gates até o PR verde (gate reprovado chama o `diduccio-corretor`) e roda a subida (`python3 .claude/skills/onda-enxuta/scripts/fechar_onda.py --prs <PR>`), que mergeia e faz o deploy (ADR 0068). Conflito na subida chama o `diduccio-corretor` com a `/resolver-conflitos` e conta tentativa; a terceira falha manda a issue para `ready-for-human` (`/ship` Passo 10). O humano só é chamado por notificação em migration, nessa terceira falha e em rollback. Ao mergear, a issue fecha e a Action de higiene (`.github/workflows/higiene-issues.yml`) remove o `in-progress` sozinha.
 
 Abandonou? Devolva ao pool:
 ```bash

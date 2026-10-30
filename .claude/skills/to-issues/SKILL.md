@@ -7,7 +7,7 @@ description: Quebra um plano ou PRD em fatias verticais independentes (tracer bu
 
 Break a plan into independently-grabbable issues using vertical slices (tracer bullets).
 
-> **Idioma (IAE):** título e corpo de cada issue em **pt-BR** (O que construir, Critérios de aceite). Use a terminologia de `CONTEXT.md`. Veja `CLAUDE.md`.
+> **Idioma (Diduccio):** título e corpo de cada issue em **pt-BR** (O que construir, Critérios de aceite). Use a terminologia de `CONTEXT.md`. Veja `CLAUDE.md`.
 
 Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`). Triage label = `ready-for-agent` (veja `docs/agents/triage-labels.md`). Se faltar esse contexto, leia os dois arquivos de `docs/agents/`.
 
@@ -46,7 +46,7 @@ Se nem os lotes conseguem fechar verde sozinhos, mantenha a sequência mas use u
 
 #### Paralelismo real (ADR 0068)
 
-A `/onda-enxuta` roda juntas todas as fatias desbloqueadas. O único separador de ondas é a dependência, não o arquivo (ADR 0068): a subida mergeia PR a PR, e conflito tira só aquele PR, que o `iae-corretor` rebaseia. Fatie para que elas andem juntas de verdade:
+A `/onda-enxuta` roda juntas todas as fatias desbloqueadas. O único separador de ondas é a dependência, não o arquivo (ADR 0068): a subida mergeia PR a PR, e conflito tira só aquele PR, que o `diduccio-corretor` rebaseia. Fatie para que elas andem juntas de verdade:
 
 - **Arquivo de costura:** o arquivo onde várias funcionalidades se registram (`main.py`, `config.py`, `AdminSidebar.tsx`, `fechar_onda.py` e afins). Fatias que só compartilham o arquivo andam na mesma onda. Só a dependência real separa, e o mesmo ponto é a mesma entrada: as duas fatias editam a mesma rota, o mesmo item de menu ou a mesma função, ou uma usa o que a outra cria. Cada fatia acrescentar a própria linha de `include_router` no `main.py` ou o próprio item no `AdminSidebar.tsx` não é mesmo ponto: as duas rodam juntas, e a subida PR a PR resolve o conflito de texto. Exemplo: as fatias 1 e 2 criam as rotas `/cursos` e `/alunos`, cada uma com o próprio `include_router` no `main.py`, e andam na mesma onda; a fatia 3 muda a rota `/cursos` que a 1 cria e anda depois da 1, com o `blocked_by` dela. Quando é mesmo ponto, a de depois ganha o `blocked_by` nativo da de antes (passo 5). Confira o ponto de registro antes de propor a divisão: no Mapa do terreno do PRD (comentário `## Mapa do terreno` de autor `OWNER`, `MEMBER` ou `COLLABORATOR`) ou, sem Mapa, no código (`git grep` do ponto de registro: rota, item de menu, setting).
 - **G sem bloqueio:** fatia G que não bloqueia ninguém vira duas M.
@@ -73,11 +73,11 @@ Antes de publicar, determine o **número da issue-PRD pai** (`$PRD`): a issue cr
 
 Para cada fatia aprovada, publique uma issue com `gh issue create`, usando o template de corpo abaixo (**em pt-BR**), com a label `ready-for-agent` salvo instrução em contrário. Publique em ordem de dependência (bloqueadores primeiro) pra poder criar as **dependências nativas** com números reais.
 
-**Classifique o tamanho de cada fatia** e aplique o label `fatia:P`, `fatia:M` ou `fatia:G` junto com `ready-for-agent` (uma por fatia; nunca no PRD pai). Critério: **P** = poucas horas, escopo contido, 1 camada dominante; **M** = fatia vertical completa de escopo conhecido (meio período); **G** = dia cheio ou mais (muitas camadas, UI nova ou integração externa). Labels e critério vivem em `docs/agents/triage-labels.md`; o IAE OS filtra por eles (chips `fatia:` da aba Issues), e a `/onda-enxuta` escolhe por eles o esforço do implementador (`xhigh` na G, `high` na P e na M): classifique pelo escopo, não pela pressa.
+**Classifique o tamanho de cada fatia** e aplique o label `fatia:P`, `fatia:M` ou `fatia:G` junto com `ready-for-agent` (uma por fatia; nunca no PRD pai). Critério: **P** = poucas horas, escopo contido, 1 camada dominante; **M** = fatia vertical completa de escopo conhecido (meio período); **G** = dia cheio ou mais (muitas camadas, UI nova ou integração externa). Labels e critério vivem em `docs/agents/triage-labels.md`; o Diduccio OS filtra por eles (chips `fatia:` da aba Issues), e a `/onda-enxuta` escolhe por eles o esforço do implementador (`xhigh` na G, `high` na P e na M): classifique pelo escopo, não pela pressa.
 
 **Toda issue abre com o bloco "Para os sócios"** (ADR 0068): um resumo em linguagem simples, no topo do corpo, antes da parte técnica. É a porta de entrada de quem lê as issues direto no GitHub sem abrir o código; sem ele, a parte técnica é só ruído pra essa pessoa. Formato fixo, mínimo de palavras, zero jargão:
 
-- **O que muda:** uma frase de valor, não-técnica: o que o sistema passa a fazer pelo IAE.
+- **O que muda:** uma frase de valor, não-técnica: o que o sistema passa a fazer pelo Diduccio.
 - **O que você precisa saber:** de 2 a 3 regras simples que deixem o leitor reconhecer a feature funcionando.
 
 **Humanizer antes de cada `gh issue create`** (ADR 0071): passe o corpo da fatia pela Skill tool com `humanizer` em modo embutido, com atenção ao bloco "Para os sócios". A amostra de voz é o bloco "Para os sócios" do próprio PRD pai: ele manda no tom, o humanizer só tira os cacoetes. O resto do corpo fica neutro e direto; critérios de aceite continuam verificáveis e termos do `CONTEXT.md` não mudam.
