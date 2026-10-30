@@ -36,10 +36,10 @@ const thStyle = { textAlign: 'left', padding: '16px 24px', fontSize: '12px', fon
 const thRow = { borderBottom: '1px solid' };
 const tdStyle = { padding: '16px 24px', fontSize: '14px' };
 const trStyle = { transition: '0.2s' };
-const badgeGreen = { backgroundColor: '#E5F0E7', color: '#24503A', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const badgeRed = { backgroundColor: '#F7E4DD', color: '#8E3419', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
+const badgeGreen = { backgroundColor: '#FEE4DC', color: '#B33320', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
+const badgeRed = { backgroundColor: '#F9DEE3', color: '#8F1530', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
 const paginationFooter = { padding: '15px 24px', borderTop: '1px solid', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(23, 35, 27, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
+const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(40, 22, 18, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
 const modalContent = { padding: '24px', borderRadius: '20px', width: '90%' };
 const modalHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' };
 const labelStyle = { fontSize: '11px', fontWeight: '700', marginBottom: '5px', display: 'block', textTransform: 'uppercase', color: 'var(--fg-muted)' };
@@ -256,7 +256,7 @@ export default function Piscina({ user }) {
     width: '100%',
     justifyContent: 'center',
     marginTop: '10px',
-    border: theme.isDark ? '1px solid #7BA482' : 'none'
+    border: theme.isDark ? '1px solid #EF7A5C' : 'none'
   };
 
   
@@ -1287,7 +1287,7 @@ const handleSort = (key) => {
             {f.validade ? f.validade.split('-').reverse().join('/') : "-"}
             {/* Ícone de alerta se o atestado estiver vencido */}
             {f.validade && new Date(f.validade) < new Date() && (
-              <AlertCircle size={14} color="#B4472A" title="Atestado Vencido" />
+              <AlertCircle size={14} color="#B8203F" title="Atestado Vencido" />
             )}
           </div>
         </td>
@@ -1303,12 +1303,12 @@ const handleSort = (key) => {
     fontSize: '12px',
     // Lógica de cores baseada no texto do status
     backgroundColor: 
-      f.status === 'Inativo' ? '#F7E4DD' : 
-      f.status === 'Ativo' ? '#E5F0E7' : 
+      f.status === 'Inativo' ? '#F9DEE3' : 
+      f.status === 'Ativo' ? '#FEE4DC' : 
       'var(--surface-3)', // Amarelo para 'Vencido'
     color: 
-      f.status === 'Inativo' ? '#8E3419' : 
-      f.status === 'Ativo' ? '#24503A' : 
+      f.status === 'Inativo' ? '#8F1530' : 
+      f.status === 'Ativo' ? '#B33320' : 
       'var(--fg-secondary)'  // Marrom/Dourado para 'Vencido'
   }}>
     {f.status}
@@ -1336,7 +1336,7 @@ const handleSort = (key) => {
                   position: 'absolute',
                   top: '-10px',
                   right: '-8px',
-                  color: '#B4472A',
+                  color: '#B8203F',
                   fontWeight: 'bold',
                   fontSize: '20px',
                   pointerEvents: 'none'
@@ -1387,7 +1387,7 @@ const handleSort = (key) => {
             <Edit2 size={14} /> Editar
         </div>
         
-        <div className="menu-item" style={{ color: '#B4472A' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
+        <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
             <Trash2 size={14} /> Excluir
         </div>
     </div>
@@ -1999,15 +1999,15 @@ const handleSort = (key) => {
     <div><strong>Status:</strong><br/>
       <span style={{
         display:'inline-block', padding:'4px 8px', borderRadius:8, fontWeight:700,
-        backgroundColor: selectedFesta.status === 'Ativo' ? '#E5F0E7' : selectedFesta.status === 'Inativo' ? '#F7E4DD' : 'var(--surface-3)',
-        color: selectedFesta.status === 'Ativo' ? '#24503A' : selectedFesta.status === 'Inativo' ? '#8E3419' : 'var(--fg-secondary)'
+        backgroundColor: selectedFesta.status === 'Ativo' ? '#FEE4DC' : selectedFesta.status === 'Inativo' ? '#F9DEE3' : 'var(--surface-3)',
+        color: selectedFesta.status === 'Ativo' ? '#B33320' : selectedFesta.status === 'Inativo' ? '#8F1530' : 'var(--fg-secondary)'
       }}>{selectedFesta.status || '-'}</span>
     </div>
   </div>
 
   {/* Sinaliza atestado vencido */}
   {selectedFesta.validade && new Date(selectedFesta.validade) < new Date() && (
-    <div style={{marginTop:10, color:'#B4472A', fontWeight:700, display:'flex', alignItems:'center', gap:8}}>
+    <div style={{marginTop:10, color:'#B8203F', fontWeight:700, display:'flex', alignItems:'center', gap:8}}>
       <AlertCircle size={16} /> Atestado vencido
     </div>
   )}

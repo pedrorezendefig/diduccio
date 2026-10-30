@@ -43,10 +43,10 @@ const thStyle = { textAlign: 'left', padding: '16px 24px', fontSize: '12px', fon
 const thRow = { borderBottom: '1px solid' };
 const tdStyle = { padding: '16px 24px', fontSize: '14px' };
 const trStyle = { transition: '0.2s' };
-const badgeGreen = { backgroundColor: '#E5F0E7', color: '#24503A', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const badgeRed = { backgroundColor: '#F7E4DD', color: '#8E3419', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
+const badgeGreen = { backgroundColor: '#FEE4DC', color: '#B33320', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
+const badgeRed = { backgroundColor: '#F9DEE3', color: '#8F1530', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
 const paginationFooter = { padding: '15px 24px', borderTop: '1px solid', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(23, 35, 27, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
+const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(40, 22, 18, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
 const modalContent = { padding: '24px', borderRadius: '20px', width: '90%' };
 const modalHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' };
 const labelStyle = { fontSize: '11px', fontWeight: '700', marginBottom: '5px', display: 'block', textTransform: 'uppercase', color: 'var(--fg-muted)' };
@@ -139,7 +139,7 @@ const unidadesFiltradas = unidades.filter(u =>
     width: '100%',
     justifyContent: 'center',
     marginTop: '10px',
-    border: theme.isDark ? '1px solid #7BA482' : 'none'
+    border: theme.isDark ? '1px solid #EF7A5C' : 'none'
   };
 
   
@@ -1090,7 +1090,7 @@ const verificarEAtualizarStatus = async (listaMudancas) => {
                     position: 'absolute',
                     top: '-8px',
                     right: '-6px',
-                    color: '#B4472A',
+                    color: '#B8203F',
                     fontWeight: 'bold',
                     fontSize: '18px',
                     lineHeight: '1',
@@ -1128,7 +1128,7 @@ const verificarEAtualizarStatus = async (listaMudancas) => {
     <Edit2 size={14} /> Editar
 </div>
                             
-                            <div className="menu-item" style={{ color: '#B4472A' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
+                            <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
                                 <Trash2 size={14} /> Excluir
                             </div>
                         </div>

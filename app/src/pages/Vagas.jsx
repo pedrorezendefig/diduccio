@@ -21,7 +21,7 @@ import {
 } from "../ui";
 
 // Verde da marca em RGB, para o jsPDF, que não aceita hex.
-const VERDE_PDF = [76, 128, 85];
+const VERDE_PDF = [227, 90, 58];
 const TINTA_PDF = [26, 28, 25];
 
 // `vagas` e `tags` são cadastro de VEÍCULO. Desde o 0037 a portaria também lê,

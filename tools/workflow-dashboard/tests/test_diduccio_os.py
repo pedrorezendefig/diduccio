@@ -117,7 +117,7 @@ def _token(nome):
 
 def test_paleta_da_marca_no_root():
     # marca Diduccio: o trilho é o marrom escuro, o botão cheio é o laranja queimado
-    assert (_token("brand"), _token("navy")) == ("#c25500", "#2a1a10")
+    assert (_token("brand"), _token("navy")) == ("#d4432a", "#2a1a10")
     assert "rgba(15,47,99" not in _raiz() and "rgba(8,26,58" not in _raiz()
     assert "--navy40:rgba(42,26,16,.40)" in _raiz()
 

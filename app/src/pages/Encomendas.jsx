@@ -163,7 +163,7 @@ function PhotoLightbox({ src, loading, onClose, onPrev, onNext, count, index }) 
   };
   const onMouseUp = () => { gesto.current.mode = null; setArrastando(false); };
 
-  const btn = { width: 42, height: 42, borderRadius: '50%', border: 'none', backgroundColor: 'rgba(23,35,27,0.75)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', fontSize: 22 };
+  const btn = { width: 42, height: 42, borderRadius: '50%', border: 'none', backgroundColor: 'rgba(40,22,18,0.75)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', fontSize: 22 };
 
   return (
     <div
@@ -180,7 +180,7 @@ function PhotoLightbox({ src, loading, onClose, onPrev, onNext, count, index }) 
         <>
           <button type="button" style={{ ...btn, position: 'fixed', left: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 3002 }} onClick={onPrev}>‹</button>
           <button type="button" style={{ ...btn, position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 3002 }} onClick={onNext}>›</button>
-          <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', color: 'white', fontSize: 13, backgroundColor: 'rgba(23,35,27,0.7)', padding: '4px 12px', borderRadius: 14, zIndex: 3002 }}>{index + 1} / {count}</div>
+          <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', color: 'white', fontSize: 13, backgroundColor: 'rgba(40,22,18,0.7)', padding: '4px 12px', borderRadius: 14, zIndex: 3002 }}>{index + 1} / {count}</div>
         </>
       )}
 
@@ -1002,7 +1002,7 @@ export default function Encomendas({ user }) {
         title="Ver a assinatura"
         style={{
           background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-          font: 'inherit', color: '#4C8055', fontWeight: 700,
+          font: 'inherit', color: '#E35A3A', fontWeight: 700,
           textDecoration: 'underline', textUnderlineOffset: '3px',
         }}
       >
@@ -1366,8 +1366,8 @@ export default function Encomendas({ user }) {
     const volumes = getCell(item, "QUANTIDADE_ENCOMENDA") || getCell(item, "quantidade_encomenda") || "—";
     const status = (getCell(item, "STATUS") || getCell(item, "status") || "").toString().trim();
     const statusLabel = status ? status.toUpperCase() : "—";
-    const statusColor = statusLabel === 'PENDENTE' ? 'var(--fg-secondary)' : (statusLabel === 'ENTREGUE' || statusLabel === 'RETIRADO') ? '#24503A' : statusLabel === 'ARMAZENADO' ? '#356B47' : theme.text;
-    const statusBg = statusLabel === 'PENDENTE' ? 'var(--surface-3)' : (statusLabel === 'ENTREGUE' || statusLabel === 'RETIRADO') ? '#E5F0E7' : statusLabel === 'ARMAZENADO' ? '#E5F0E7' : 'var(--surface-3)';
+    const statusColor = statusLabel === 'PENDENTE' ? 'var(--fg-secondary)' : (statusLabel === 'ENTREGUE' || statusLabel === 'RETIRADO') ? '#B33320' : statusLabel === 'ARMAZENADO' ? '#D4432A' : theme.text;
+    const statusBg = statusLabel === 'PENDENTE' ? 'var(--surface-3)' : (statusLabel === 'ENTREGUE' || statusLabel === 'RETIRADO') ? '#FEE4DC' : statusLabel === 'ARMAZENADO' ? '#FEE4DC' : 'var(--surface-3)';
     const itemId = getCell(item, "COD_ENTREGA") || getCell(item, "cod_entrega") || getCell(item, "id") || `${item.unidade_id}-${item.nome}`;
     return { unidade, nome, dataEntrada, recebidoPor, numeroFiscal, numeroEncomenda, volumes, statusLabel, statusColor, statusBg, itemId };
   };
@@ -1457,10 +1457,10 @@ export default function Encomendas({ user }) {
         @keyframes encomendas-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .encomendas-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
         .enc-new-btn { transition: transform .15s ease, box-shadow .2s ease, filter .2s ease; }
-        .enc-new-btn:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(76,128,85,0.35); }
+        .enc-new-btn:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(227,90,58,0.35); }
         .encomendas-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
         .enc-stat-card { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
-        .enc-stat-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(23,35,27,0.10); }
+        .enc-stat-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(40,22,18,0.10); }
         .encomendas-filters { display: flex; gap: 15px; margin-bottom: 20px; }
         .encomendas-modal-content { width: min(100%, 520px); }
         .encomendas-form-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; }
@@ -1469,7 +1469,7 @@ export default function Encomendas({ user }) {
         .encomendas-table-wrapper { width: 100%; overflow-x: auto; }
         .encomendas-table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: auto; }
         .encomendas-table tbody tr { transition: background .15s ease; }
-        .encomendas-table tbody tr:hover { background: ${theme.isDark ? 'rgba(139,143,137,0.07)' : 'rgba(76,128,85,0.04)'}; }
+        .encomendas-table tbody tr:hover { background: ${theme.isDark ? 'rgba(139,143,137,0.07)' : 'rgba(227,90,58,0.04)'}; }
         .enc-details-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 22px; padding: 22px 24px; overflow-y: auto; flex: 1; min-height: 0; }
         .enc-mobile-list { display: none; }
         @keyframes enc-modal-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -1478,15 +1478,15 @@ export default function Encomendas({ user }) {
         .enc-modal-body { padding: 20px 22px; overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
         .enc-modal-footer { padding: 14px 22px; border-top: 1px solid; flex-shrink: 0; }
         .enc-close-btn { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid; background: none; transition: background .2s ease, color .2s ease; flex-shrink: 0; }
-        .enc-close-btn:hover { background: rgba(180,71,42,0.12); color: #B4472A !important; }
+        .enc-close-btn:hover { background: rgba(180,71,42,0.12); color: #B8203F !important; }
         .enc-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
-        .enc-modal-body input:focus, .enc-modal-body select:focus, .enc-details-grid input:focus { border-color: #4C8055 !important; box-shadow: 0 0 0 3px rgba(76,128,85,0.15) !important; }
+        .enc-modal-body input:focus, .enc-modal-body select:focus, .enc-details-grid input:focus { border-color: #E35A3A !important; box-shadow: 0 0 0 3px rgba(227,90,58,0.15) !important; }
         .enc-field-card { border-radius: 14px; border: 1px solid; padding: 16px; }
         .enc-card { animation: encomendas-fade .25s ease; transition: transform .15s ease, box-shadow .2s ease; }
         .enc-card:active { transform: scale(0.99); }
         .enc-ver-btn { transition: background .2s ease, border-color .2s ease, color .2s ease; }
-        .enc-ver-btn:hover { background: ${theme.isDark ? 'rgba(139,143,137,0.10)' : 'rgba(76,128,85,0.06)'} !important; border-color: #4C8055 !important; color: #4C8055 !important; }
-        .encomendas-error { color: #8E3419; font-size: 12px; margin-top: 4px; }
+        .enc-ver-btn:hover { background: ${theme.isDark ? 'rgba(139,143,137,0.10)' : 'rgba(227,90,58,0.06)'} !important; border-color: #E35A3A !important; color: #E35A3A !important; }
+        .encomendas-error { color: #8F1530; font-size: 12px; margin-top: 4px; }
         .enc-foto-tile {
           position: relative; overflow: hidden; flex-shrink: 0;
           width: 72px; height: 72px; border-radius: 10px; border: 2px dashed;
@@ -1505,7 +1505,7 @@ export default function Encomendas({ user }) {
         .enc-foto-x {
           position: absolute; top: 2px; right: 2px; z-index: 1;
           width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
-          background: #B4472A; color: #fff; cursor: pointer;
+          background: #B8203F; color: #fff; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
         }
         .enc-ponto {
@@ -1736,7 +1736,7 @@ export default function Encomendas({ user }) {
           <div className="encomendas-modal-content enc-modal" style={{ backgroundColor: theme.bgCard, color: theme.text, maxWidth: '540px', width: '95%' }}>
             <div className="enc-modal-header" style={{ borderColor: theme.border }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#356B47', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(76,128,85,0.3)' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#D4432A', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(227,90,58,0.3)' }}>
                   <Package size={22} color="white" />
                 </div>
                 <div>
@@ -1788,10 +1788,10 @@ export default function Encomendas({ user }) {
 
               {/* SELEÇÃO DE MORADOR (SE TIVER MAIS DE 1) */}
               {formData.id_unidade && moradoresDaUnidade.length > 1 && (
-                <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#4C805515', border: '1px solid #4C805530' }}>
-                  <label style={{ ...labelStyle, color: '#4C8055' }}>Múltiplos moradores. Selecione o destinatário:</label>
+                <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#E35A3A15', border: '1px solid #E35A3A30' }}>
+                  <label style={{ ...labelStyle, color: '#E35A3A' }}>Múltiplos moradores. Selecione o destinatário:</label>
                   <select 
-                    style={{ ...selectStyle, width: '100%', backgroundColor: theme.bgBody, color: theme.text, borderColor: '#4C8055' }}
+                    style={{ ...selectStyle, width: '100%', backgroundColor: theme.bgBody, color: theme.text, borderColor: '#E35A3A' }}
                     value={formData.id_morador}
                     onChange={e => handleMoradorSelect(e.target.value)}
                   >
@@ -1869,7 +1869,7 @@ export default function Encomendas({ user }) {
                 const itemErr = Array.isArray(formErrors.itens) ? formErrors.itens[idx] : null;
                 return (
                   <div key={idx} style={{ border: `1px solid ${theme.border}`, borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#4C8055', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#E35A3A', textTransform: 'uppercase' }}>
                       Encomenda {idx + 1} de {formData.itens.length}
                     </div>
 
@@ -1967,7 +1967,7 @@ export default function Encomendas({ user }) {
             <div className="enc-modal-footer" style={{ borderColor: theme.border, backgroundColor: theme.bgCard }}>
               <button
                 className="enc-new-btn"
-                style={{ width: '100%', background: loadingGlobal ? 'var(--fg-muted)' : '#356B47', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '700', cursor: loadingGlobal ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(76,128,85,0.3)' }}
+                style={{ width: '100%', background: loadingGlobal ? 'var(--fg-muted)' : '#D4432A', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '700', cursor: loadingGlobal ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(227,90,58,0.3)' }}
                 onClick={handleSave}
                 disabled={loadingGlobal}
               >
@@ -1995,7 +1995,7 @@ export default function Encomendas({ user }) {
           <div className="enc-modal" style={{ backgroundColor: theme.bgCard, color: theme.text, maxWidth: '920px', width: '95%' }}>
             <div className="enc-modal-header" style={{ borderColor: theme.border }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#356B47', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(76,128,85,0.3)', flexShrink: 0 }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#D4432A', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(227,90,58,0.3)', flexShrink: 0 }}>
                   <Package size={22} color="white" />
                 </div>
                 <div style={{ minWidth: 0 }}>
@@ -2082,7 +2082,7 @@ export default function Encomendas({ user }) {
                         className="enc-redondo enc-ponto"
                         aria-label={`Foto ${idx + 1}`}
                         onClick={() => setSelectedPhotoIndex(idx)}
-                        style={{ backgroundColor: idx === selectedPhotoIndex ? '#4C8055' : theme.border, transition: 'all 0.2s' }}
+                        style={{ backgroundColor: idx === selectedPhotoIndex ? '#E35A3A' : theme.border, transition: 'all 0.2s' }}
                       />
                     ))}
                   </div>
@@ -2095,7 +2095,7 @@ export default function Encomendas({ user }) {
                 {/* Card Destinatário */}
                 <div style={{ padding: '16px', borderRadius: '14px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, transition: 'all 0.2s' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <User size={18} color="#4C8055" />
+                    <User size={18} color="#E35A3A" />
                     <span style={{ fontSize: '12px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>Destinatário</span>
                   </div>
                   <div style={{ fontSize: '16px', fontWeight: '700', color: theme.text, marginBottom: '8px' }}>{getCell(selectedDetails, 'NOME') || '—'}</div>
@@ -2128,8 +2128,8 @@ export default function Encomendas({ user }) {
                       {(() => {
                         const s = (getCell(selectedDetails, 'STATUS') || getCell(selectedDetails, 'status') || '—').toString().toUpperCase();
                         const isEntregue = s === 'ENTREGUE' || s === 'RETIRADO';
-                        const sColor = s === 'PENDENTE' ? 'var(--fg-secondary)' : isEntregue ? '#24503A' : s === 'ARMAZENADO' ? '#356B47' : theme.text;
-                        const sBg = s === 'PENDENTE' ? 'var(--surface-3)' : isEntregue ? '#E5F0E7' : s === 'ARMAZENADO' ? '#E5F0E7' : 'var(--surface-3)';
+                        const sColor = s === 'PENDENTE' ? 'var(--fg-secondary)' : isEntregue ? '#B33320' : s === 'ARMAZENADO' ? '#D4432A' : theme.text;
+                        const sBg = s === 'PENDENTE' ? 'var(--surface-3)' : isEntregue ? '#FEE4DC' : s === 'ARMAZENADO' ? '#FEE4DC' : 'var(--surface-3)';
                         return <span style={{ ...badgeStyle, backgroundColor: sBg, color: sColor }}>{s}</span>;
                       })()}
                     </div>
@@ -2168,7 +2168,7 @@ export default function Encomendas({ user }) {
                 {/* Card Saída */}
                 <div style={{ padding: '16px', borderRadius: '14px', backgroundColor: theme.bg, border: `1px solid ${theme.border}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <CheckCircle2 size={18} color="#4C8055" />
+                    <CheckCircle2 size={18} color="#E35A3A" />
                     <span style={{ fontSize: '12px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>Dados de Saída</span>
                   </div>
                   {/* Quando a foto na tela pertence a uma nota, o card fala
@@ -2261,7 +2261,7 @@ export default function Encomendas({ user }) {
                 {(getCell(selectedDetails, 'STATUS') || getCell(selectedDetails, 'status') || '').toString().toUpperCase() === 'ARMAZENADO' && (
                   <div style={{ padding: '16px', borderRadius: '14px', backgroundColor: theme.bg, border: `1px solid ${theme.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                      <Archive size={18} color="#356B47" />
+                      <Archive size={18} color="#D4432A" />
                       <span style={{ fontSize: '12px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>Dados de Armazenamento</span>
                     </div>
                     <div style={{ display: 'grid', gap: '10px', fontSize: '13px' }}>
@@ -2288,8 +2288,8 @@ export default function Encomendas({ user }) {
                     <button
                       type="button"
                       onClick={() => handleResendWhatsapp(selectedDetails)}
-                      style={{ width: '100%', padding: '12px 18px', borderRadius: '12px', border: '1px solid #4C8055', backgroundColor: 'transparent', color: '#4C8055', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => { e.target.style.backgroundColor = '#4C805515'; }}
+                      style={{ width: '100%', padding: '12px 18px', borderRadius: '12px', border: '1px solid #E35A3A', backgroundColor: 'transparent', color: '#E35A3A', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.target.style.backgroundColor = '#E35A3A15'; }}
                       onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
                     >
                       📱 Reenviar Notificação
@@ -2299,7 +2299,7 @@ export default function Encomendas({ user }) {
                     <button
                       type="button"
                       onClick={() => handleAbrirArmazenar(selectedDetails)}
-                      style={{ width: '100%', padding: '12px 18px', borderRadius: '12px', border: 'none', backgroundColor: '#356B47', color: 'white', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                      style={{ width: '100%', padding: '12px 18px', borderRadius: '12px', border: 'none', backgroundColor: '#D4432A', color: 'white', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
                     >
                       📦 Armazenar
                     </button>
@@ -2315,7 +2315,7 @@ export default function Encomendas({ user }) {
                       padding: '14px 18px',
                       borderRadius: '12px',
                       border: 'none',
-                      backgroundColor: ['RETIRADO', 'ENTREGUE'].includes((getCell(selectedDetails, 'STATUS') || getCell(selectedDetails, 'status') || '').toString().toUpperCase()) ? theme.border : '#4C8055',
+                      backgroundColor: ['RETIRADO', 'ENTREGUE'].includes((getCell(selectedDetails, 'STATUS') || getCell(selectedDetails, 'status') || '').toString().toUpperCase()) ? theme.border : '#E35A3A',
                       color: ['RETIRADO', 'ENTREGUE'].includes((getCell(selectedDetails, 'STATUS') || getCell(selectedDetails, 'status') || '').toString().toUpperCase()) ? theme.textSecondary : 'white',
                       fontWeight: '700',
                       cursor: ['RETIRADO', 'ENTREGUE'].includes((getCell(selectedDetails, 'STATUS') || getCell(selectedDetails, 'status') || '').toString().toUpperCase()) ? 'not-allowed' : 'pointer',
@@ -2342,7 +2342,7 @@ export default function Encomendas({ user }) {
                     <button
                       type="button"
                       onClick={() => setExcluindo(selectedDetails)}
-                      style={{ width: '100%', padding: '12px 18px', borderRadius: '12px', border: '1px solid #B4472A', backgroundColor: 'transparent', color: '#B4472A', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      style={{ width: '100%', padding: '12px 18px', borderRadius: '12px', border: '1px solid #B8203F', backgroundColor: 'transparent', color: '#B8203F', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
                       <Trash2 size={16} /> Excluir cadastro
                     </button>
@@ -2417,7 +2417,7 @@ export default function Encomendas({ user }) {
                   onClick={handleConfirmArmazenar}
                   disabled={!armazenarLocal.trim() || !armazenarPor.trim() || armazenarLoading}
                   style={{
-                    backgroundColor: !armazenarLocal.trim() || !armazenarPor.trim() || armazenarLoading ? 'var(--fg-muted)' : '#356B47',
+                    backgroundColor: !armazenarLocal.trim() || !armazenarPor.trim() || armazenarLoading ? 'var(--fg-muted)' : '#D4432A',
                     color: 'white', border: 'none', padding: '12px 20px', borderRadius: '12px',
                     cursor: !armazenarLocal.trim() || !armazenarPor.trim() || armazenarLoading ? 'not-allowed' : 'pointer',
                     fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px'
@@ -2471,7 +2471,7 @@ export default function Encomendas({ user }) {
                 <p style={{ margin: '10px 0 0', color: theme.textSecondary, fontSize: '13px' }}>Preparando a mensagem...</p>
               )}
               {pendingWhatsapp.cod === null && !whatsappCodLoading && (
-                <p style={{ margin: '10px 0 0', color: '#B4472A', fontSize: '13px' }}>Não foi possível preparar a mensagem ainda. Aguarde alguns segundos e tente novamente.</p>
+                <p style={{ margin: '10px 0 0', color: '#B8203F', fontSize: '13px' }}>Não foi possível preparar a mensagem ainda. Aguarde alguns segundos e tente novamente.</p>
               )}
               <div style={{ marginTop: '18px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button
@@ -2549,7 +2549,7 @@ export default function Encomendas({ user }) {
             </div>
             <div style={{ padding: '6px 0' }}>
               {temRetiradaAssinada(excluindo) ? (
-                <p style={{ margin: '0 0 16px', color: '#B4472A', lineHeight: 1.6 }}>
+                <p style={{ margin: '0 0 16px', color: '#B8203F', lineHeight: 1.6 }}>
                   Esta encomenda já tem retirada assinada — inteira ou parcial.
                   Ela não pode ser excluída: o comprovante ficaria falando de um
                   pacote que o sistema não conhece mais.
@@ -2571,7 +2571,7 @@ export default function Encomendas({ user }) {
                   type="button"
                   onClick={handleExcluir}
                   disabled={excluindoOcupado || temRetiradaAssinada(excluindo)}
-                  style={{ backgroundColor: (excluindoOcupado || temRetiradaAssinada(excluindo)) ? 'var(--fg-muted)' : '#B4472A', color: 'white', border: 'none', padding: '12px 18px', borderRadius: '12px', cursor: (excluindoOcupado || temRetiradaAssinada(excluindo)) ? 'not-allowed' : 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+                  style={{ backgroundColor: (excluindoOcupado || temRetiradaAssinada(excluindo)) ? 'var(--fg-muted)' : '#B8203F', color: 'white', border: 'none', padding: '12px 18px', borderRadius: '12px', cursor: (excluindoOcupado || temRetiradaAssinada(excluindo)) ? 'not-allowed' : 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
                 >{excluindoOcupado ? <><Loader2 style={buttonSpinnerStyle} size={18} /> Excluindo...</> : 'Excluir'}</button>
               </div>
             </div>
@@ -2612,7 +2612,7 @@ export default function Encomendas({ user }) {
                   type="button"
                   autoFocus
                   onClick={() => setAnotarInfo(null)}
-                  style={{ backgroundColor: '#4C8055', color: 'white', border: 'none', padding: '12px 22px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ backgroundColor: '#E35A3A', color: 'white', border: 'none', padding: '12px 22px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}
                 >Anotei</button>
               </div>
             </div>

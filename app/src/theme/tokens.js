@@ -33,19 +33,19 @@ export const ESCURO = {
 };
 
 export const MARCA = {
-  "brand-50":  "#F5FAF6",
-  "brand-100": "#E5F0E7",
-  "brand-200": "#CDE0D0",
-  "brand-300": "#ACC7B0",
-  "brand-400": "#7BA482",
-  "brand-500": "#4C8055",
-  "brand-600": "#356B47",
-  "brand-700": "#24503A",
-  "brand-800": "#18391F",
-  "brand-900": "#0F2414",
-  "alert-400": "#D07551",
-  "alert-600": "#B4472A",
-  "alert-700": "#8E3419",
+  "brand-50":  "#FFF4F1",
+  "brand-100": "#FEE4DC",
+  "brand-200": "#FCC8B9",
+  "brand-300": "#F7A48E",
+  "brand-400": "#EF7A5C",
+  "brand-500": "#E35A3A",
+  "brand-600": "#D4432A",
+  "brand-700": "#B33320",
+  "brand-800": "#8C2616",
+  "brand-900": "#5E180D",
+  "alert-400": "#D9607A",
+  "alert-600": "#B8203F",
+  "alert-700": "#8F1530",
   // Âmbar da contagem de tempo do mapa da portaria. Ver o comentário em
   // tokens.css: existe para separar "correndo" de "esgotado".
   "aviso-100": "#FBEFD2",

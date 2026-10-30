@@ -79,7 +79,7 @@ export default function Aprovacao() {
       borderBottom: '1px solid var(--border-strong)'
     },
     btnApprove: {
-      backgroundColor: '#356B47',
+      backgroundColor: '#D4432A',
       color: 'white',
       border: 'none',
       padding: '16px 24px',
@@ -94,8 +94,8 @@ export default function Aprovacao() {
     },
     btnReject: {
       backgroundColor: 'transparent',
-      color: '#B4472A',
-      border: '1px solid #B4472A',
+      color: '#B8203F',
+      border: '1px solid #B8203F',
       padding: '16px 24px',
       borderRadius: '12px',
       fontWeight: 'bold',
@@ -124,20 +124,20 @@ export default function Aprovacao() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--fg-muted)', cursor: 'pointer' }}>
             <ArrowLeft size={18} /> <span>Voltar</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#7BA482', fontSize: '12px', fontWeight: 'bold' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#EF7A5C', fontSize: '12px', fontWeight: 'bold' }}>
             <ShieldCheck size={16} /> PORTAL DE AUDITORIA
           </div>
         </div>
 
         <h1 style={{ fontSize: isMobile ? '24px' : '32px', fontWeight: '900', marginBottom: '8px' }}>
-          Aprovação <span style={{ color: '#4C8055' }}>#{idSolicitacao}</span>
+          Aprovação <span style={{ color: '#E35A3A' }}>#{idSolicitacao}</span>
         </h1>
         <p style={{ color: 'var(--fg-muted)', marginBottom: '30px' }}>Validação de documento oficial de compras e suprimentos.</p>
 
         {/* Informações Principais */}
         <div style={s.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-            <Info size={18} color="#4C8055" />
+            <Info size={18} color="#E35A3A" />
             <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>INFORMAÇÕES DA SOLICITAÇÃO</h2>
           </div>
           <div style={s.grid}>
@@ -168,7 +168,7 @@ export default function Aprovacao() {
         {/* Tabela de Itens */}
         <div style={s.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
-            <Package size={18} color="#4C8055" />
+            <Package size={18} color="#E35A3A" />
             <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>ITENS DA REQUISIÇÃO</h2>
           </div>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -196,7 +196,7 @@ export default function Aprovacao() {
           </div>
           <div style={{ textAlign: 'right', marginTop: '20px' }}>
             <span style={s.label}>Valor Total</span>
-            <span style={{ fontSize: '28px', fontWeight: '900', color: '#4C8055' }}>R$ 25,00</span>
+            <span style={{ fontSize: '28px', fontWeight: '900', color: '#E35A3A' }}>R$ 25,00</span>
           </div>
         </div>
 

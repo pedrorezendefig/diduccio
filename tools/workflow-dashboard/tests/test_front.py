@@ -62,8 +62,8 @@ def test_tokens_definem_a_paleta_da_marca():
     for hexa in (
         "#ffffff",  # canvas e cartão
         "#2a1a10",  # marrom escuro do trilho
-        "#c25500",  # laranja queimado do botão cheio e do estado ligado
-        "#fdeee2",  # lavado laranja da aba ativa
+        "#d4432a",  # laranja queimado do botão cheio e do estado ligado
+        "#fee4dc",  # lavado laranja da aba ativa
         "#1d1611",  # tinta
         "#6f6259",  # tinta suave, quente
         "#ece3da",  # hairline quente

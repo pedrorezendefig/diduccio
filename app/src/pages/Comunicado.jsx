@@ -36,7 +36,7 @@ export default function Comunicado() {
 
   // Verde da marca ViT. O comunicado impresso já nascia verde-escuro,
   // então alinhar ao token não muda a identidade do documento.
-  const COR_TURQUESA = "#24503A";
+  const COR_TURQUESA = "#B33320";
 
   // Tintas fixas do documento. A folha e branca nos dois temas, entao nada
   // aqui pode usar var(--fg-*): no escuro o texto saia branco no branco,

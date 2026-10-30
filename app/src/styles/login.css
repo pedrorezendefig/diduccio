@@ -23,7 +23,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(90% 60% at 50% -10%, rgba(123, 164, 130, .24), transparent 60%);
+  background: radial-gradient(90% 60% at 50% -10%, rgba(239, 122, 92, .24), transparent 60%);
 }
 
 /* Sem opacity aqui: ela multiplicaria a das janelas e as luzes nasceriam

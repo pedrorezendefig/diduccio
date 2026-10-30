@@ -10,10 +10,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
 
 :root{
-  /* paleta da marca Diduccio: laranja queimado, marrom escuro, neutros quentes e branco.
-     --navy é o marrom do trilho e dos títulos; --brand é o laranja do botão cheio e do estado ligado;
+  /* paleta da marca Diduccio: vermelho claro (o mesmo brand-600 do app), marrom escuro, neutros quentes e branco.
+     --navy é o marrom do trilho e dos títulos; --brand é o vermelho do botão cheio e do estado ligado;
      --sand e --taupe são os neutros quentes, só em detalhe */
-  --navy:#2a1a10; --brand:#c25500; --brand-light:#ee8a3a; --teal:#8a3d00;
+  --navy:#2a1a10; --brand:#d4432a; --brand-light:#ef7a5c; --teal:#b33320;
   --sand:#e9d9cc; --taupe:#a08572;
   --canvas:#ffffff; --bg:#ffffff; --surface:#faf5f0; --ink:#1d1611; --ink-soft:#6f6259;
   --ghost:#ece3da; --hairline:#ece3da; --on-navy:#ffffff;
@@ -33,7 +33,7 @@
   --purple:#6d5bd0; --purple-wash:#eae7f8;
   --blue:#0b6e97; --blue-wash:#e0eef4;
   --coral:#b4552d; --coral-wash:#f6e8df;
-  --brand-wash:#fdeee2;
+  --brand-wash:#fee4dc;
   /* aliases estruturais: componentes herdados leem estes nomes */
   --paper:var(--bg); --paper-2:var(--surface); --card:#ffffff;
   --indigo:var(--brand); --indigo-2:var(--brand-light); --indigo-wash:var(--brand-wash);
