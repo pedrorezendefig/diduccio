@@ -31,6 +31,14 @@ export default defineConfig([
         'error',
         { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' },
       ],
+      // Assinatura, DriveImage e RetiradaDialog exportam helpers ao lado do
+      // componente de propósito (a função e o componente mudam juntos). O
+      // preset do Vite marca isso como erro; aqui é aviso: o único efeito é o
+      // Fast Refresh recarregar a página inteira nesses três arquivos.
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
     },
   },
   {

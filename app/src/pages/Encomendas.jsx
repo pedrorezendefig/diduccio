@@ -94,9 +94,6 @@ function PhotoLightbox({ src, loading, onClose, onPrev, onNext, count, index }) 
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const gesto = useRef({ mode: null, startDist: 0, startScale: 1, startX: 0, startY: 0, origX: 0, origY: 0, lastTap: 0 });
 
-  // Trocou de foto → reseta zoom/posição
-  useEffect(() => { setScale(1); setPos({ x: 0, y: 0 }); }, [src]);
-
   /**
    * Dedo (ou mouse) encostado agora.
    *
@@ -1985,6 +1982,7 @@ export default function Encomendas({ user }) {
         <div style={modalOverlay}>
           {photoZoomOpen && (
             <PhotoLightbox
+              key={photoSrc}
               src={photoSrc}
               loading={photoLoading}
               count={selectedPhotoUrls.length}

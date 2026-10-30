@@ -4,7 +4,6 @@ import {
 } from "lucide-react";
 import { clearSessionToken } from "../auth/session";
 import { listar } from "../api/db";
-import { supabase } from "../api/supabase";
 import { chamarEdgeFunction } from "../api/edge";
 import { problemaDaSenha } from "../lib/senha";
 import {

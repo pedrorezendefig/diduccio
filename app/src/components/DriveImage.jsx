@@ -196,8 +196,9 @@ export function DriveImage({ source, localSrc, alt = "", style }) {
   // `extrairFileIdDrive` e sairia buscando um id que não existe.
   const fileId = directSrc || direta ? "" : extrairFileIdDrive(source);
   const [fetchedSrc, setFetchedSrc] = useState("");
-  const [falhou, setFalhou] = useState(false);
-  useEffect(() => { setFalhou(false); }, [directSrc, fetchedSrc]);
+  // Guarda QUAL src falhou, e não um booleano: trocar de src já desfaz a
+  // falha sem precisar de um efeito que zere estado.
+  const [srcFalho, setSrcFalho] = useState("");
   useEffect(() => {
     if (!fileId) return; // nada a buscar; o directSrc/placeholder cuida da exibição
     let cancelled = false;
@@ -208,11 +209,12 @@ export function DriveImage({ source, localSrc, alt = "", style }) {
     });
     return () => { cancelled = true; };
   }, [fileId]);
-  const src = falhou ? PIXEL_TRANSPARENTE : (directSrc || fetchedSrc || PIXEL_TRANSPARENTE);
+  const candidato = directSrc || fetchedSrc || PIXEL_TRANSPARENTE;
+  const src = srcFalho && srcFalho === candidato ? PIXEL_TRANSPARENTE : candidato;
   // Rede de segurança para o que a extensão não previu: link expirado, arquivo
   // corrompido, tipo inesperado. Melhor o espaço vazio com "VER ARQUIVO" do que
   // um ícone de erro do navegador.
-  return <img src={src} alt={alt} style={style} onError={() => setFalhou(true)} />
+  return <img src={src} alt={alt} style={style} onError={() => setSrcFalho(candidato)} />
 }
 
 /**
