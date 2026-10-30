@@ -1,0 +1,64 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Variáveis de ambiente (segredos)
+.env
+.env.*
+!.env.example
+# .env.demo só liga o modo demonstração — não guarda segredo, entra no repo.
+!.env.demo
+
+# Diretórios de scratch das ferramentas (planejamento/brainstorm)
+.planning/
+.superpowers/
+
+# Backend Apps Script (gerenciado via clasp, fora do versionamento do front)
+appscript/
+
+# Documentos de planejamento (specs/plans internos)
+docs/superpowers/
+
+# Migração de dados: os scripts gerados embutem CPF/telefone/e-mail dos moradores
+# reais, além do token do backend. Ficam só na máquina — nunca versionar.
+# A barra inicial ancora na raiz: sem ela o padrão casaria também com
+# scripts/migracao/, que é código e precisa ser versionado.
+/migracao/
+
+# Relatório de segurança: descreve falhas ainda abertas em produção e cita o
+# token do sistema. Fora do repositório.
+SECURITY.md
+
+# Dump da planilha de produção: 317 moradores com CPF, fichas da piscina,
+# hashes de senha dos usuários e o log inteiro. Nunca versionar.
+micracao_dados/
+
+# Senhas provisórias das contas do Supabase Auth, geradas por
+# scripts/migracao/criar-usuarios.mjs. Distribuir e apagar.
+senhas-provisorias.txt
+
+# Estado local da CLI do Supabase: guarda a qual projeto ESTA máquina está
+# ligada. Não é segredo (o ref aparece na URL da API), mas é estado de máquina,
+# não do projeto — versionar faz o link de um dev sobrescrever o do outro.
+supabase/.temp/

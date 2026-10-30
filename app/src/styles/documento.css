@@ -1,0 +1,300 @@
+/* =========================================================================
+   ViT: arquétipo Documento (Processos, Comunicado, Assembleia, Compras).
+   Leitura, passo a passo e conteúdo longo.
+   Depende de tokens.css e ui.css.
+   ========================================================================= */
+
+/* ======================= PROCESSOS ======================= */
+
+.proc-categoria { margin-bottom: var(--space-10); }
+.proc-categoria:last-child { margin-bottom: 0; }
+
+.proc-categoria__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.proc-categoria__icone {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--brand-100);
+  color: var(--fg-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proc-categoria__nome {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  margin: 0;
+}
+.proc-categoria__contagem {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.proc-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.proc-guia {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* O acordeão inteiro é um <button> dentro de <h3>: navegável por teclado e
+   anunciado como cabeçalho pelo leitor de tela. */
+.proc-guia__botao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-5) var(--space-6);
+  border: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  color: var(--fg-default);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.proc-guia__botao:hover { background: var(--bg-hover); }
+
+.proc-guia__icone {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--brand-100);
+  color: var(--fg-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proc-guia__texto { flex: 1; min-width: 0; }
+.proc-guia__titulo {
+  display: block;
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  font-weight: 600;
+  color: var(--fg-heading);
+}
+.proc-guia__resumo {
+  display: block;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+.proc-guia__seta {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+  transition: transform var(--dur-base) var(--ease);
+}
+.proc-guia__seta--aberta { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  .proc-guia__seta { transition: none; }
+}
+
+.proc-guia__corpo {
+  padding: 0 var(--space-6) var(--space-7);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-6);
+}
+
+/* ---- Passos numerados ---- */
+
+.proc-passos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: passo;
+}
+.proc-passo {
+  display: flex;
+  gap: var(--space-5);
+  position: relative;
+  padding-bottom: var(--space-7);
+}
+.proc-passo:last-child { padding-bottom: 0; }
+
+/* Linha vertical ligando os passos: desenhada com ::before para não precisar
+   de um elemento vazio só para isso. */
+.proc-passo:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 34px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--border);
+}
+
+/* ======================= SAÍDAS DO COMUNICADO ======================= */
+
+/* Estavam num menu "..." feito de <div onClick>: sem foco, sem teclado e sem
+   rótulo visível — por isso ninguém achava como salvar. Viraram botões com
+   nome e explicação do que cada um faz. */
+.com-saidas { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.com-saida {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease),
+              background-color var(--dur-fast) var(--ease);
+}
+.com-saida:hover { background: var(--bg-hover); border-color: var(--brand-400); }
+.com-saida:active { transform: scale(.995); }
+.com-saida > svg { flex-shrink: 0; color: var(--fg-brand); }
+.com-saida > span { min-width: 0; }
+.com-saida strong { display: block; font-size: var(--text-md); font-weight: 600; }
+.com-saida small {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* ======================= PASSO A PASSO ======================= */
+
+.proc-passo__numero {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--brand-600);
+  color: var(--fg-on-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+  font-weight: 600;
+  z-index: 1;
+}
+.proc-passo__conteudo { flex: 1; min-width: 0; padding-top: var(--space-2); }
+.proc-passo__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--fg-heading);
+  margin-bottom: var(--space-2);
+}
+.proc-passo__titulo svg { color: var(--fg-brand); flex-shrink: 0; }
+.proc-passo__texto {
+  display: block;
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-secondary);
+  max-width: 68ch;
+}
+
+/* ---- Glossário de campos ---- */
+
+.proc-campos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+}
+.proc-campo {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  padding: var(--space-5);
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.proc-campo__icone {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--brand-100);
+  color: var(--fg-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proc-campo__nome {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--fg-heading);
+}
+.proc-campo__texto {
+  margin: 2px 0 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-secondary);
+  max-width: 68ch;
+}
+
+@media (max-width: 768px) {
+  .proc-guia__botao { padding: var(--space-5); gap: var(--space-4); min-height: 64px; }
+  .proc-guia__corpo { padding: var(--space-6) var(--space-5); }
+  .proc-passo { gap: var(--space-4); }
+  .proc-campo { padding: var(--space-4); gap: var(--space-4); }
+}
+
+/* ======================= DETALHE DA PISCINA (documento) ======================= */
+
+/* O corpo do modal já tem o recuo; a grade encosta nas bordas para a coluna
+   do cartão poder ter fundo próprio. */
+.pis-doc .vit-modal__body { padding: 0; }
+
+.pis-doc__grade {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Fundo diferente separa o documento do cadastro sem precisar de moldura. */
+.pis-doc__cartao {
+  padding: var(--space-8);
+  border-right: 1px solid var(--border);
+  background: var(--bg-app);
+}
+.pis-doc__dados { padding: var(--space-8); min-width: 0; }
+
+@media (max-width: 820px) {
+  /* Duas colunas aqui dariam menos de 250px para os dados. O cartão sobe e os
+     dados ficam com a largura inteira. */
+  .pis-doc__grade { grid-template-columns: minmax(0, 1fr); }
+  .pis-doc__cartao {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+@media (max-width: 560px) {
+  .pis-doc__cartao, .pis-doc__dados { padding: var(--space-6); }
+}

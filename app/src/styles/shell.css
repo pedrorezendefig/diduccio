@@ -1,0 +1,344 @@
+/* =========================================================================
+   ViT shell: sidebar, topbar mobile e tela de entrada.
+   Depende de tokens.css. Só var(--token), nenhum hex literal.
+   ========================================================================= */
+
+/* ======================= SIDEBAR ======================= */
+
+.vit-sidebar {
+  width: 244px;
+  flex-shrink: 0;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-7) var(--space-5);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.vit-sidebar__marca {
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-8);
+  flex-shrink: 0;
+}
+
+.vit-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0 calc(var(--space-3) * -1);
+  padding: 0 var(--space-3);
+}
+
+/* Categoria é botão: clicar recolhe a seção. A área clicável cobre a linha
+   inteira, não só as letras, senão vira um alvo de 6px de altura. */
+.vit-sidebar__cat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin: var(--space-7) 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-weight: 600;
+  color: var(--fg-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease),
+              background-color var(--dur-fast) var(--ease);
+}
+.vit-sidebar__cat:first-child { margin-top: 0; }
+.vit-sidebar__cat:hover { color: var(--fg-default); background: var(--bg-hover); }
+
+.vit-sidebar__cat-texto { flex: 1; min-width: 0; }
+
+.vit-sidebar__seta {
+  flex-shrink: 0;
+  transition: transform var(--dur-base) var(--ease);
+}
+/* Recolhida: a seta aponta para a direita, indicando que há algo a abrir. */
+.vit-sidebar__cat--fechada .vit-sidebar__seta { transform: rotate(-90deg); }
+
+/* Com a seção fechada o item ativo fica invisível: o título herda o destaque
+   para não se perder a referência de onde se está no sistema. */
+.vit-sidebar__cat--marcada { color: var(--fg-brand); }
+.vit-sidebar__cat--marcada::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  flex-shrink: 0;
+}
+
+.vit-sidebar__lista { list-style: none; padding: 0; margin: 0; }
+
+.vit-navitem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-4) var(--space-4);
+  margin-bottom: var(--space-1);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  font-weight: 500;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.vit-navitem:hover { background: var(--bg-hover); color: var(--fg-default); }
+
+/* Ativo: fundo de marca mais barra interna. A barra usa box-shadow inset
+   para não deslocar o conteúdo como uma border-left faria. */
+.vit-navitem[aria-current="page"] {
+  background: var(--bg-active);
+  color: var(--fg-brand);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--brand-500);
+}
+
+.vit-navitem__icone { display: flex; flex-shrink: 0; }
+.vit-navitem__texto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Contador ao vivo: a portaria quer saber quantos itens esperam antes de clicar. */
+.vit-navitem__contador {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 1px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+}
+.vit-navitem[aria-current="page"] .vit-navitem__contador {
+  background: var(--brand-200);
+  color: var(--brand-700);
+}
+.vit-navitem__contador--alerta {
+  background: var(--alert-100);
+  color: var(--alert-700);
+}
+
+/* ---- Rodapé de perfil ---- */
+
+.vit-sidebar__perfil {
+  margin-top: auto;
+  padding-top: var(--space-6);
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* O rodapé é um controle, não o fim de uma lista: ganha superfície e borda
+   próprias, para se destacar do fundo da lateral em vez de só ficar embaixo
+   de um filete. */
+.vit-perfil {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+.vit-perfil:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.vit-perfil--aberto { background: var(--bg-active); border-color: var(--brand-400); }
+
+.vit-perfil__avatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--brand-700);
+  color: var(--fg-on-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+.vit-perfil__texto { flex: 1; min-width: 0; }
+
+.vit-perfil__nome {
+  display: block;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--fg-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Caixa normal e não versalete: o cargo é informação, não etiqueta de seção.
+   Em caixa alta ele competia com o nome logo acima. */
+.vit-perfil__cargo {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vit-perfil__seta {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+.vit-perfil--aberto .vit-perfil__seta { color: var(--fg-brand); }
+
+.vit-menu {
+  position: absolute;
+  bottom: calc(100% - var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-3);
+}
+.vit-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-4) var(--space-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--fg-default);
+  cursor: pointer;
+  text-align: left;
+}
+.vit-menu__item:hover { background: var(--bg-hover); }
+.vit-menu__item--sair { color: var(--fg-danger); }
+.vit-menu__sep {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-3) 0;
+  border: none;
+}
+
+/* ======================= TOPBAR E GAVETA MOBILE ======================= */
+
+.vit-topbar { display: none; }
+
+@media (max-width: 768px) {
+  .vit-topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    height: 56px;
+    padding: 0 var(--space-5);
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+  }
+  .vit-topbar__menu {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-left: calc(var(--space-3) * -1);
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-md);
+    color: var(--fg-default);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .vit-topbar__menu:hover { background: var(--bg-hover); }
+  .vit-topbar__titulo {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    letter-spacing: var(--track-tight);
+    color: var(--fg-heading);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A sidebar vira gaveta deslizante. */
+  .vit-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1100;
+    width: 272px;
+    transform: translateX(-100%);
+    transition: transform var(--dur-slow) var(--ease);
+    box-shadow: var(--shadow-lg);
+  }
+  .vit-sidebar--aberta { transform: translateX(0); }
+
+  .vit-gaveta-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 20, 17, .5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vit-sidebar { transition: none; }
+}
+
+/* ======================= SKIP LINK E MAIN ======================= */
+
+.vit-layout { display: flex; min-height: 100dvh; width: 100%; }
+
+.vit-main {
+  flex: 1;
+  min-width: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: var(--space-8);
+  background: var(--bg-app);
+}
+@media (max-width: 768px) {
+  .vit-layout { flex-direction: column; }
+  .vit-main { height: auto; padding: var(--space-6) var(--space-5); }
+}
+
+/* A tela de entrada saiu daqui: virou o arquétipo "Balcão" e vive em
+   src/styles/login.css. */

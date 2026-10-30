@@ -1,0 +1,451 @@
+/* =========================================================================
+   ViT: Painel (arquétipo "Bento").
+   Grade assimétrica: uma célula grande para o gráfico, células menores para
+   os números. Depende de tokens.css e ui.css.
+   Todo bloco multicoluna declara aqui mesmo o que faz abaixo de 768px.
+   ========================================================================= */
+
+/* ======================= GRADE ======================= */
+
+/* Doze colunas, não três iguais: a grade de colunas idênticas é o padrão de
+   todo painel genérico e desperdiça a tela larga. */
+.dash-bento {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.dash-celula {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-7);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.dash-celula--grafico { grid-column: span 8; }
+.dash-celula--lado    { grid-column: span 4; }
+.dash-celula--larga   { grid-column: span 7; }
+.dash-celula--media   { grid-column: span 5; }
+.dash-celula--cheia   { grid-column: 1 / -1; }
+
+.dash-celula__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+
+/* auto-fit e não um número fixo de colunas: o painel mostra 2, 3 ou 4 números
+   conforme o cargo, e com coluna fixa sobraria buraco na linha. */
+.dash-numeros {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: var(--space-6);
+}
+
+/* ======================= CÉLULA DE NÚMERO ======================= */
+
+.dash-num { gap: var(--space-4); }
+.dash-num__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+.dash-num__rotulo {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  color: var(--fg-muted);
+}
+.dash-num__icone { color: var(--fg-muted); flex-shrink: 0; }
+.dash-num__valor {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: var(--track-tighter);
+  color: var(--fg-heading);
+  font-variant-numeric: tabular-nums;
+}
+.dash-num__valor--alerta { color: var(--fg-danger); }
+.dash-num__dica {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* Uma célula sólida por painel: diz qual número é o principal sem precisar de
+   tamanho maior nem de seta. */
+.dash-num--escura {
+  background: var(--brand-800);
+  border-color: transparent;
+}
+.dash-num--escura .dash-num__rotulo,
+.dash-num--escura .dash-num__dica,
+.dash-num--escura .dash-num__icone { color: var(--brand-300); }
+.dash-num--escura .dash-num__valor { color: var(--fg-on-brand); }
+
+@media (max-width: 600px) {
+  /* Empilhada, cada célula fica alta e quatro delas empurram o resto para
+     fora da dobra. Vira linha: rótulo à esquerda, valor à direita. */
+  .dash-num {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+    padding: var(--space-6);
+  }
+  .dash-num__topo {
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .dash-num__icone { display: none; }
+  .dash-num__valor { font-size: 28px; }
+  .dash-num__dica { display: none; }
+}
+
+/* ======================= AGENDA DE HOJE ======================= */
+
+.dash-agenda { margin-bottom: var(--space-8); }
+
+.dash-hoje { list-style: none; margin: 0; padding: 0; }
+.dash-hoje__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+}
+.dash-hoje__item:last-child { border-bottom: none; }
+.dash-hoje__hora {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-brand);
+  padding-top: 1px;
+}
+.dash-hoje__quem {
+  display: block;
+  font-weight: 600;
+  font-size: var(--text-md);
+  color: var(--fg-default);
+}
+.dash-hoje__assunto {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* ======================= OCUPAÇÃO ======================= */
+
+.dash-ocupacao--abaixo {
+  padding-top: var(--space-7);
+  border-top: 1px solid var(--border);
+}
+.dash-ocupacao__titulo { margin-bottom: var(--space-6); }
+
+.dash-ocupacao__alerta {
+  margin: var(--space-7) 0 0;
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--alert-50);
+  color: var(--alert-700);
+  font-size: var(--text-sm);
+}
+
+.dash-rosca {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  flex-wrap: wrap;
+}
+.dash-rosca__grafico { position: relative; width: 104px; height: 104px; flex-shrink: 0; }
+.dash-rosca__grafico svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dash-rosca__centro {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+.dash-rosca__valor {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--fg-heading);
+}
+.dash-rosca__label { display: block; font-size: var(--text-xs); color: var(--fg-muted); }
+.dash-rosca__seg { animation: dash-aparece var(--dur-slow) var(--ease) both; }
+
+/* ======================= BARRINHAS ======================= */
+
+.dash-barrinha-bloco + .dash-barrinha-bloco { margin-top: var(--space-6); }
+.dash-barrinha__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-3);
+}
+.dash-barrinha__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--fg-default);
+}
+.dash-barrinha {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+.dash-barrinha__preenchida {
+  height: 100%;
+  border-radius: inherit;
+  transform-origin: left;
+  animation: dash-cresce var(--dur-slow) var(--ease) both;
+}
+@keyframes dash-cresce { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.dash-status { display: flex; flex-direction: column; gap: var(--space-6); }
+
+/* ======================= RELATÓRIOS ======================= */
+
+.dash-relatorios__controles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.dash-relatorios__ano { width: auto; min-width: 96px; height: 34px; }
+
+.dash-chips { display: flex; gap: var(--space-3); overflow-x: auto; scrollbar-width: none; }
+.dash-chips::-webkit-scrollbar { display: none; }
+.dash-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.dash-chip:hover { background: var(--bg-hover); color: var(--fg-default); }
+.dash-chip[aria-selected="true"] {
+  background: var(--bg-active);
+  border-color: var(--brand-400);
+  color: var(--fg-brand);
+  font-weight: 600;
+}
+
+/* Total do período e comparação com o ano anterior, antes do gráfico: o
+   número que se procura primeiro não deveria exigir somar barras com o olho. */
+.dash-comparativo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+.dash-comparativo__rotulo {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  color: var(--fg-muted);
+}
+.dash-comparativo__valor {
+  display: block;
+  margin-top: var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-2xl);
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  font-variant-numeric: tabular-nums;
+}
+.dash-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  color: var(--fg-brand);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dash-delta--queda { background: var(--alert-50); color: var(--alert-700); }
+
+/* ======================= GRÁFICOS ======================= */
+
+.dash-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
+  margin-bottom: var(--space-6);
+}
+.dash-legenda__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+}
+.dash-legenda__cor { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+/* A série do ano anterior é linha tracejada no gráfico; a legenda repete a
+   forma, senão o quadrado sugere mais uma barra. */
+.dash-legenda__linha { width: 16px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+.dash-legenda__total { margin-left: auto; font-size: var(--text-md); color: var(--fg-default); }
+
+/* Altura reservada: sem ela o gráfico pula quando a faixa aparece. */
+.dash-banner { min-height: 34px; margin-bottom: var(--space-3); }
+.dash-banner__caixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+
+.dash-grafico-rolagem { overflow-x: auto; scrollbar-width: none; }
+.dash-grafico-rolagem::-webkit-scrollbar { display: none; }
+.dash-grafico { width: 100%; height: auto; display: block; }
+
+.dash-barra {
+  transform-origin: bottom;
+  animation: dash-sobe var(--dur-slow) var(--ease) both;
+}
+@keyframes dash-sobe { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+
+.dash-linha { animation: dash-aparece var(--dur-slow) var(--ease) both; }
+@keyframes dash-aparece { from { opacity: 0; } to { opacity: 1; } }
+
+/* ======================= LISTAS ======================= */
+
+.dash-secao__titulo {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  margin: 0;
+}
+.dash-secao__nota {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+.dash-lista { list-style: none; margin: 0; padding: 0; }
+.dash-lista__item { padding: var(--space-6) 0; border-bottom: 1px solid var(--border); }
+.dash-lista__item:last-child { border-bottom: none; }
+.dash-lista__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+.dash-lista__quando {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+.dash-lista__texto { margin: 0; font-size: var(--text-md); color: var(--fg-secondary); }
+
+.dash-reservas { list-style: none; margin: 0; padding: 0; }
+.dash-reserva {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+}
+.dash-reserva:last-child { border-bottom: none; }
+.dash-reserva__data {
+  flex-shrink: 0;
+  width: 46px;
+  padding: var(--space-3) 0;
+  text-align: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+.dash-reserva__mes {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--track-label);
+  color: var(--fg-muted);
+}
+.dash-reserva__dia {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--fg-heading);
+}
+.dash-reserva__tipo { display: block; font-weight: 600; font-size: var(--text-md); color: var(--fg-default); }
+.dash-reserva__quem { display: block; font-size: var(--text-sm); color: var(--fg-muted); }
+
+/* ======================= TELAS ESTREITAS ======================= */
+
+@media (max-width: 1200px) {
+  /* Abaixo disto a grade de 12 não tem largura para duas células grandes lado
+     a lado sem espremer o gráfico. Cada uma passa a ocupar a linha. */
+  .dash-celula--grafico,
+  .dash-celula--lado,
+  .dash-celula--larga,
+  .dash-celula--media { grid-column: 1 / -1; }
+}
+
+@media (max-width: 768px) {
+  .dash-bento, .dash-numeros { gap: var(--space-5); }
+  .dash-celula { padding: var(--space-6); border-radius: var(--radius-lg); }
+  /* O gráfico tem 760 de viewBox: abaixo disso as colunas ficam ilegíveis,
+     então rola na horizontal em vez de espremer doze meses em 320px. */
+  .dash-grafico-rolagem .dash-grafico { min-width: 620px; }
+  .dash-reserva { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-barra, .dash-linha, .dash-rosca__seg, .dash-barrinha__preenchida { animation: none; }
+}

@@ -1,0 +1,123 @@
+/* =========================================================================
+   ViT base: fontes, reset, foco, comportamentos globais.
+   Depende de tokens.css, que precisa ser importado antes.
+   Os arquivos de fonte são gerados por scripts/fetch-fonts.mjs.
+   ========================================================================= */
+
+/* Archivo e Instrument Sans são variáveis: uma face por família, com faixa
+   de peso. IBM Plex Mono é estática: uma face por peso. */
+
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 600 800;
+  font-display: swap;
+  src: url("/fonts/archivo-var.woff2") format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/instrument-sans-var.woff2") format("woff2-variations");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-600.woff2") format("woff2");
+}
+
+/* ---- Reset ---- */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root { height: 100%; width: 100%; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-default);
+  background-color: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--fg-heading);
+  letter-spacing: var(--track-tight);
+  text-wrap: balance;
+}
+
+/* Todo número alinha em coluna. Sem isto a tabela muda de largura ao atualizar. */
+table, td, th, input, output, time, .num, [data-num] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Foco visível em tudo que é interativo. Nunca outline:none sem substituto. ---- */
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Link de pular para o conteúdo, visível só ao receber foco pelo teclado ---- */
+
+.pular-para-conteudo {
+  position: absolute;
+  left: -9999px;
+  top: var(--space-4);
+  z-index: 9999;
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-surface);
+  color: var(--fg-brand);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+}
+.pular-para-conteudo:focus {
+  left: var(--space-4);
+}
+
+/* ---- Ícone girando ---- */
+
+/* Cinco telas já usavam `animate-spin` num <Loader2> — nome de utilitário do
+   Tailwind, que este projeto não usa. A classe não existia em lugar nenhum, e o
+   resultado era um ícone de carregamento parado: o pior sinal possível, porque
+   parece a tela travada. A regra de movimento reduzido logo abaixo já derruba
+   esta animação para quem pede. */
+.animate-spin { animation: vitSpin .8s linear infinite; }
+
+/* ---- Movimento reduzido ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

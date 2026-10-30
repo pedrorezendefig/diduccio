@@ -1,0 +1,390 @@
+/* =========================================================================
+   ViT: arquétipo Cadastro (Unidades, Moradores, Vagas, Usuários).
+   Barra de filtros, paginação e grade de formulário.
+   Depende de tokens.css e ui.css.
+   ========================================================================= */
+
+/* ======================= FILTROS ======================= */
+
+.cad-filtros {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.cad-filtros__busca {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.cad-filtros__lupa {
+  position: absolute;
+  left: var(--space-5);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+.cad-filtros__busca .vit-input { padding-left: var(--space-9); }
+
+.cad-filtros .vit-select { width: auto; min-width: 168px; flex: 0 1 auto; }
+
+@media (max-width: 768px) {
+  /* A busca ocupa a linha inteira; os selects dividem a linha seguinte em
+     duas colunas, para não virar uma pilha de quatro campos. */
+  .cad-filtros {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+  }
+  .cad-filtros__busca { grid-column: 1 / -1; }
+  .cad-filtros .vit-select { width: 100%; min-width: 0; }
+  .cad-filtros > .vit-btn { grid-column: 1 / -1; width: 100%; }
+}
+
+/* ======================= PAGINAÇÃO ======================= */
+
+.cad-paginacao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  flex-wrap: wrap;
+}
+.cad-paginacao__info {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.cad-paginacao__controles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.cad-paginacao__tamanho { width: auto; min-width: 156px; }
+.cad-paginacao__pagina {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  min-width: 72px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .cad-paginacao {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-5);
+  }
+  .cad-paginacao__info { text-align: center; }
+  .cad-paginacao__controles { justify-content: space-between; }
+  .cad-paginacao__tamanho { flex: 1; min-width: 0; }
+}
+
+/* ======================= FORMULÁRIO EM MODAL ======================= */
+
+/* minmax(0, 1fr) e não 1fr: "1fr" equivale a minmax(auto, 1fr), e o mínimo
+   "auto" impede a coluna de encolher abaixo do conteúdo. Era o que fazia
+   modelo e placa vazarem do modal em tela estreita. */
+.cad-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  min-width: 0;
+}
+/* Item de grid e de flex nasce com min-width:auto, que também bloqueia o
+   encolhimento. Zerar em todos os filhos. */
+.cad-form > * { min-width: 0; }
+.cad-form__largo { grid-column: 1 / -1; }
+
+.cad-form__nota {
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+@media (max-width: 768px) {
+  /* Campo lado a lado em tela estreita fica com 140px de largura útil:
+     ilegível para nome de morador e valor monetário. Uma coluna só. */
+  .cad-form { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+}
+
+/* ======================= CAMPO DE SENHA ======================= */
+
+.cad-senha { position: relative; display: block; }
+.cad-senha .vit-input { padding-right: var(--space-10); }
+.cad-senha__olho {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.cad-senha__olho:hover { color: var(--fg-default); background: var(--bg-hover); }
+@media (max-width: 768px) {
+  .cad-senha__olho { width: 38px; height: 38px; }
+}
+
+/* ======================= SEGREDO DE EXIBIÇÃO ÚNICA ======================= */
+
+/* Senha temporária: precisa ser lida e copiada, não pode sumir sozinha.
+   Por isso vive em modal com confirmação explícita, nunca em Toast. */
+.cad-segredo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-md);
+}
+.cad-segredo__valor {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--brand-700);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+@media (max-width: 768px) {
+  .cad-segredo { flex-direction: column; align-items: stretch; }
+  .cad-segredo__valor { text-align: center; }
+}
+
+/* ======================= DETALHE EM MODAL ======================= */
+
+.cad-detalhe { margin: 0; }
+.cad-detalhe__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-6);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+.cad-detalhe__linha:last-child { border-bottom: none; }
+.cad-detalhe__rotulo {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+.cad-detalhe__valor {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--fg-default);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.cad-detalhe__valor--mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 480px) {
+  /* Rótulo e valor lado a lado espremem e-mail longo. Empilha. */
+  .cad-detalhe__linha { flex-direction: column; gap: var(--space-2); }
+  .cad-detalhe__valor { text-align: left; }
+}
+
+/* ======================= VAGAS ======================= */
+
+.vag-placa {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+
+/* Agrupa carro e moto no formulário: sem a moldura, oito campos viram
+   uma parede indistinguível.
+   min-width:0 é obrigatório: fieldset tem min-width:min-content intrínseco
+   e, sem isso, se recusa a encolher e vaza para fora do modal no celular. */
+.vag-bloco {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  margin: 0;
+}
+@media (max-width: 768px) {
+  .vag-bloco { padding: var(--space-4) var(--space-5) var(--space-5); }
+}
+.vag-bloco__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-brand);
+}
+
+/* ======================= FILTROS EM PÍLULA (reservas) ======================= */
+
+/* As páginas de reserva filtram por status, pagamento e divergência com
+   pílulas. Estava duplicado em quatro páginas, cada uma com seus hex. */
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 34px;
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.filter-pill:hover { background: var(--bg-hover); color: var(--fg-default); }
+.filter-pill.active {
+  background: var(--bg-active);
+  border-color: var(--brand-400);
+  color: var(--fg-brand);
+  font-weight: 600;
+}
+@media (max-width: 768px) {
+  .filter-pill { min-height: 40px; }
+}
+
+/* Divergência é a única pílula que sinaliza problema, não categoria: usa a cor
+   de alerta. Antes o verde de marca ia inline no backgroundColor e o texto
+   continuava em --fg-secondary, ou seja, ficava ilegível quando ativa. */
+.filter-pill--alerta.active {
+  background: var(--alert-50);
+  border-color: var(--alert-400);
+  color: var(--alert-700);
+}
+
+/* ======================= COLUNAS DA EXPORTAÇÃO ======================= */
+
+/* Eram <div onClick>: não recebiam foco nem respondiam ao Enter, então quem
+   navega por teclado não conseguia escolher coluna nenhuma. Viraram <button>
+   com aria-pressed. */
+.exp-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+@media (max-width: 560px) {
+  .exp-colunas { grid-template-columns: minmax(0, 1fr); }
+}
+
+.exp-coluna {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease),
+              background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.exp-coluna:hover { background: var(--bg-hover); }
+.exp-coluna span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-coluna svg { flex-shrink: 0; color: var(--border-strong); }
+
+.exp-coluna--marcada {
+  border-color: var(--brand-400);
+  background: var(--bg-active);
+  color: var(--fg-brand);
+  font-weight: 600;
+}
+.exp-coluna--marcada svg { color: var(--fg-brand); }
+
+/* Barra de filtros das reservas: mesma linguagem do arquétipo Cadastro. */
+.res-filtros {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.res-filtros__linha {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.res-filtros__linha + .res-filtros__linha {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-5);
+}
+.res-filtros__grupo {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+/* As pílulas rolam na horizontal em vez de quebrar em três linhas. */
+.res-filtros__rolagem {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+.res-filtros__rolagem::-webkit-scrollbar { display: none; }
+.res-filtros__rolagem > * { flex: 0 0 auto; }
+
+.res-filtros__rotulo {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-weight: 600;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+.res-filtros__divisor {
+  width: 1px;
+  align-self: stretch;
+  min-height: 24px;
+  background: var(--border);
+}
+
+@media (max-width: 768px) {
+  .res-filtros { padding: var(--space-5); gap: var(--space-4); }
+  .res-filtros__linha { flex-direction: column; align-items: stretch; gap: var(--space-4); }
+  .res-filtros__divisor { display: none; }
+  .res-filtros__rolagem { width: 100%; }
+}

@@ -1,0 +1,200 @@
+/* =========================================================================
+   ViT: tela de acesso (arquétipo "Balcão").
+   Cartão claro sobre o verde da marca, com o skyline no rodapé do palco.
+   Depende de tokens.css e ui.css.
+   ========================================================================= */
+
+/* ======================= PALCO ======================= */
+
+/* Verde fixo nos dois temas: é a cor da marca, não uma superfície do sistema.
+   Por isso usa a rampa direta e não --bg-app. */
+.vit-login {
+  position: relative;
+  overflow: hidden;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-9) var(--space-6);
+  background: var(--brand-900);
+}
+
+/* Luz vinda de um ponto só, coerente com as sombras do resto do sistema. */
+.vit-login::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 60% at 50% -10%, rgba(123, 164, 130, .24), transparent 60%);
+}
+
+/* Sem opacity aqui: ela multiplicaria a das janelas e as luzes nasceriam
+   lavadas. Quem controla o brilho é cada retângulo. */
+.vit-login__skyline {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -1px;
+  width: min(1400px, 130%);
+  height: min(34vh, 264px);
+}
+
+/* Véu na base, para o rodapé do palco não cruzar janelas acesas. Vem depois
+   de tudo no DOM, então o cartão precisa de z-index para ficar na frente. */
+.vit-login::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  background: linear-gradient(to top, rgba(15, 36, 20, .92), rgba(15, 36, 20, 0) 78%);
+  pointer-events: none;
+}
+
+/* ======================= JANELAS ======================= */
+
+/* Anima só opacity: é composta na GPU e não força layout nem repaint de
+   geometria. Com 287 janelas, animar qualquer outra propriedade travaria. */
+.vit-jan { opacity: .06; }
+.vit-jan--fixa { opacity: .8; }
+.vit-jan--anima {
+  animation-name: vit-acende;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+/* Janelas do skyline de CARREGAMENTO.
+ *
+ * O componente escreve o atraso de cada janela em linha, crescendo com o x,
+ * para a luz varrer da esquerda para a direita. Só que não havia regra nenhuma
+ * para esta classe: sem `animation-name` nada se movia, e sem `fill` os
+ * retângulos saíam PRETOS, porque preto é o padrão do SVG.
+ *
+ * Não aparecia para ninguém porque `SkylineCarga` ainda não é usada em tela
+ * nenhuma — só nos testes. Fica correta para o dia em que for.
+ */
+.vit-jan-carga {
+  fill: #FBFAF8;
+  opacity: .08;
+  animation: vit-varre 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vit-jan-carga { animation: none; opacity: .5; }
+}
+
+/* Acende e apaga rápido, como as outras: a onda é feita pelo atraso, não por
+   um fade longo. */
+@keyframes vit-varre {
+  0%, 55%, 100% { opacity: .08; }
+  15%, 40%      { opacity: .9; }
+}
+
+/* A troca acontece em 2% do ciclo (~250ms num ciclo de 13s): luz de casa liga
+   e desliga, não respira. Fade longo pareceria pulsação.
+   A duração e o atraso de cada janela vão inline, vindos de Skyline.jsx. */
+@keyframes vit-acende {
+  0%, 44%   { opacity: .06; }
+  46%, 94%  { opacity: .82; }
+  96%, 100% { opacity: .06; }
+}
+
+/* ======================= CARTÃO ======================= */
+
+.vit-login__cartao {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 680px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-10) var(--space-10) var(--space-8);
+}
+/* Aro interno de 1px: sem ele o cartão claro cola no verde e perde a borda. */
+.vit-login__cartao::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, .14);
+}
+[data-theme="dark"] .vit-login__cartao { border: 1px solid var(--border); }
+
+.vit-login__marca {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+.vit-login__cliente { margin-left: auto; }
+
+.vit-login__titulo {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  margin: 0 0 var(--space-3);
+}
+.vit-login__nota {
+  font-size: var(--text-md);
+  color: var(--fg-secondary);
+  margin: 0 0 var(--space-7);
+}
+
+/* ======================= FORMULÁRIO ======================= */
+
+/* Campo de senha usa o mesmo espaçamento vertical do vit-field entre os dois
+   campos; nada extra precisa ser declarado aqui além do respiro do botão. */
+.vit-login form .vit-field + .vit-field { margin-top: var(--space-6); }
+
+/* ======================= RODAPÉ ======================= */
+
+.vit-login__pe {
+  margin: var(--space-8) 0 0;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+  user-select: none;
+}
+
+/* ======================= MOVIMENTO REDUZIDO ======================= */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Congela num padrão fixo: a cidade continua com luz, só para de piscar. */
+  .vit-jan--anima { animation: none; opacity: .5; }
+}
+
+/* ======================= TABLET / CELULAR ======================= */
+
+/* Vem antes do breakpoint de 520px de propósito: em cascata, a regra mais
+   estreita precisa vir depois para vencer o empate de especificidade. */
+@media (max-width: 768px) {
+  /* Entre o cartão flutuante e o modo tela cheia: reduz o respiro lateral
+     para o formulário não ficar espremido contra a borda. */
+  .vit-login { padding: var(--space-7) var(--space-5); }
+  .vit-login__cartao { padding: var(--space-8) var(--space-7) var(--space-7); }
+}
+
+@media (max-width: 520px) {
+  /* O cartão vira a tela inteira: cartão flutuante em 390px desperdiça a
+     largura útil. */
+  .vit-login { padding: 0; place-items: stretch; }
+  .vit-login__cartao {
+    max-width: none;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    padding: var(--space-10) var(--space-7) var(--space-9);
+    display: flex;
+    flex-direction: column;
+  }
+  .vit-login__cartao::after { display: none; }
+
+  /* Prédios e véu ficariam atrás do cartão: só custo de render. */
+  .vit-login__skyline { display: none; }
+  .vit-login::after { display: none; }
+}

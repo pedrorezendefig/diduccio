@@ -1,0 +1,15 @@
+-- `meu_perfil()` deixa de existir.
+--
+-- Ela existia por um motivo que acabou: o nome de quem entrou não vem no JWT, e
+-- a tabela `usuarios` é fechada, então o login precisava de uma função
+-- `security definer` para buscar nome e cargo da própria pessoa. Sem isso o
+-- painel não carregava — o Dashboard só busca dados quando há nome.
+--
+-- Desde o 0023 o login acontece na Edge Function `entrar`, que já lê nome e
+-- cargo com a service role e devolve tudo na mesma resposta. Nenhum ponto do
+-- sistema chama mais `meu_perfil` — conferido em src/ e scripts/.
+--
+-- Função que não é usada por ninguém e roda com privilégio elevado é só
+-- superfície: ela aparece no /rest/v1/rpc, qualquer autenticado a chama, e o
+-- linter do Supabase avisa sobre ela com razão. Apagar é melhor que explicar.
+drop function if exists public.meu_perfil();

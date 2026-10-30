@@ -1,0 +1,46 @@
+-- A view `receitas_reservas` deixa de existir.
+--
+-- Substitui a decisão registrada no 0022 ("FICA COMO ESTÁ"). Aquela análise
+-- continua correta no que dizia — a view era segura, e isso foi medido com
+-- sessão real de cada cargo. O que mudou não foi o risco de hoje: foi a
+-- avaliação de quanto esse desenho custa para continuar seguro amanhã.
+--
+-- O que a view fazia: o gráfico de receita do painel soma `valor_taxa` de
+-- festas e churrasqueira. Essas duas tabelas são `so_administrativo` no 0015
+-- porque cada linha carrega cpf, rg, telefone e nome de quem reservou. O
+-- conselheiro precisa ver os VALORES e não pode ver as PESSOAS. A view resolvia
+-- isso projetando só data, valor e pago, e rodando com `security_invoker = off`
+-- para poder ler as tabelas que o conselheiro não lê.
+--
+-- Por que sai:
+--
+--   1. O que separava o porteiro da receita do condomínio era um `where` DENTRO
+--      da view. Este projeto já publicou essa view SEM o `where`: foi o 0010, e
+--      só o `create or replace view` do 0015 fechou. Um `create or replace`
+--      distraído reabre de novo — sem erro, sem quebrar tela nenhuma, e sem
+--      nada no front-end para perceber. O modo de falha não é hipotético; já
+--      aconteceu uma vez neste arquivo.
+--
+--   2. `security_invoker = off` é invisível de fora. Quem lê `select ... from
+--      receitas_reservas` não tem como saber que ali o RLS não vale.
+--
+--   3. Era o último objeto do banco a ignorar RLS de propósito. Enquanto ele
+--      existisse, o aviso do linter ficava ligado — e um aviso que a gente
+--      aprende a ignorar deixa de avisar quando o próximo for de verdade.
+--
+-- Para onde foi: a Edge Function `receita`. Lá a autorização é a primeira
+-- coisa que roda (lista de permissão, cargo lido do JWT validado no servidor) e
+-- a lista de colunas é literal — não existe `select *` para alguém esquecer de
+-- filtrar. É o mesmo caminho que login, IA e gestão de usuários já seguem.
+--
+-- Não há perda de permissão: a função aceita exatamente o mesmo conjunto de
+-- cargos que o `where` da view aceitava (`eh_administrativo() or
+-- eh_conselheiro()`), e o painel recebe as mesmas colunas — mais `status`, que
+-- não é dado pessoal e que a view não projetava, motivo pelo qual o relatório
+-- "Status" aparecia vazio para o conselheiro.
+--
+-- Ordem importa: aplique este arquivo DEPOIS de publicar a função
+-- (`npx supabase functions deploy receita`). Entre uma coisa e outra, o gráfico
+-- do conselheiro fica vazio — nada mais que isso, e nenhuma outra tela usa a
+-- view.
+drop view if exists public.receitas_reservas;

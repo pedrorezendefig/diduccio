@@ -1,0 +1,156 @@
+/* =========================================================================
+   ViT design tokens
+   Fonte da verdade para CSS. O espelho em JS vive em src/theme/tokens.js e é
+   verificado por src/__tests__/tokens.sync.test.js. Ao mudar um valor aqui,
+   mudar no espelho também, senão o teste falha.
+   ========================================================================= */
+
+:root {
+  /* ---- Marca ---- */
+  --brand-50:  #F5FAF6;
+  --brand-100: #E5F0E7;
+  --brand-200: #CDE0D0;
+  --brand-300: #ACC7B0;
+  --brand-400: #7BA482;
+  --brand-500: #4C8055;
+  --brand-600: #356B47;
+  --brand-700: #24503A;
+  --brand-800: #18391F;
+  --brand-900: #0F2414;
+
+  /* ---- Alerta: único segundo acento, só para estado negativo real ---- */
+  --alert-50:  #FCF4F1;
+  --alert-100: #F7E4DD;
+  --alert-200: #EBC7B9;
+  --alert-400: #D07551;
+  --alert-600: #B4472A;
+  --alert-700: #8E3419;
+
+  /* ---- Aviso: âmbar, e SÓ para contagem de tempo ----
+     Terceiro acento num sistema que tinha dois de propósito. A justificativa é
+     estreita: no mapa da portaria, "o tempo está correndo" e "o tempo acabou"
+     precisam ser distinguíveis à distância, e amarelo→vermelho é a única
+     convenção que se lê sem legenda. Com dois tons de laranja da rampa de
+     alerta os dois estados viravam o mesmo estado.
+     Não usar em botão, selo ou texto fora da contagem de tempo. */
+  --aviso-50:  #FDF8EC;
+  --aviso-100: #FBEFD2;
+  --aviso-200: #F0DCA8;
+  --aviso-400: #E0A428;
+  --aviso-600: #B07B06;
+  --aviso-700: #6B4A05;
+
+  /* ---- Neutros ---- */
+  --paper:         #FBFAF8;
+  --surface:       #FFFFFF;
+  --surface-2:     #F3F2EE;
+  --surface-3:     #EDEBE5;
+  --border:        #E4E2DB;
+  --border-strong: #D3D0C7;
+  --text-muted:     #8B8F89;
+  --text-secondary: #63675F;
+  --text:           #1A1C19;
+  --ink:            #10120F;
+
+  /* ---- Semânticos: é isto que o código consome ---- */
+  --bg-app:        var(--paper);
+  --bg-surface:    var(--surface);
+  --bg-sidebar:    var(--surface-2);
+  --bg-hover:      var(--surface-3);
+  --bg-active:     var(--brand-100);
+  --fg-default:    var(--text);
+  --fg-secondary:  var(--text-secondary);
+  --fg-muted:      var(--text-muted);
+  --fg-heading:    var(--ink);
+  --fg-brand:      var(--brand-700);
+  --fg-danger:     var(--alert-600);
+  --fg-aviso:      var(--aviso-600);
+
+  /* Texto sobre fundo de marca (brand-600/700/800/900 e alert-600).
+     NÃO é redefinido no tema escuro, e é essa a razão de existir: a rampa da
+     marca não inverte, então usar --paper aqui deixava texto quase preto
+     sobre verde escuro no modo escuro — em todo botão primário, selo de
+     marca e avatar. Coberto por src/__tests__/contraste.test.js. */
+  --fg-on-brand:   #FBFAF8;
+
+  --btn-primary-bg: var(--brand-600);
+  --btn-primary-fg: var(--fg-on-brand);
+  --btn-danger-bg:  var(--alert-600);
+  --focus-ring:    0 0 0 3px rgba(76, 128, 85, .35);
+
+  /* ---- Tipografia ---- */
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-ui:      "Instrument Sans", system-ui, sans-serif;
+  --font-mono:    "IBM Plex Mono", ui-monospace, monospace;
+
+  --text-xs:   11px;  --leading-xs:   16px;
+  --text-sm:   12px;  --leading-sm:   18px;
+  --text-base: 13px;  --leading-base: 20px;
+  --text-md:   14px;  --leading-md:   21px;
+  --text-lg:   16px;  --leading-lg:   24px;
+  --text-xl:   20px;  --leading-xl:   26px;
+  --text-2xl:  25px;  --leading-2xl:  30px;
+  --text-3xl:  31px;  --leading-3xl:  36px;
+
+  --track-label: .08em;
+  --track-tight: -.02em;
+  --track-tighter: -.03em;
+
+  /* ---- Espaço: escala de 4 ---- */
+  --space-1: 2px;   --space-2: 4px;   --space-3: 6px;   --space-4: 8px;
+  --space-5: 12px;  --space-6: 16px;  --space-7: 20px;  --space-8: 24px;
+  --space-9: 32px;  --space-10: 40px; --space-11: 48px; --space-12: 64px;
+
+  /* ---- Raio: 4 valores, por função ---- */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-full: 999px;
+
+  /* ---- Sombra: tingida de verde, nunca preto puro ---- */
+  --shadow-sm: 0 1px 2px rgba(23, 35, 27, .06);
+  --shadow-md: 0 4px 12px -2px rgba(23, 35, 27, .10);
+  --shadow-lg: 0 16px 40px -8px rgba(23, 35, 27, .18);
+
+  /* ---- Movimento ---- */
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+}
+
+[data-theme="dark"] {
+  --paper:         #0F1411;
+  --surface:       #161C18;
+  --surface-2:     #1D251F;
+  --surface-3:     #243029;
+  --border:        #2A332C;
+  --border-strong: #3A463D;
+  --text-muted:     #6E7A70;
+  --text-secondary: #9BA79D;
+  --text:           #EAEFEA;
+  --ink:            #FFFFFF;
+
+  --alert-50:  #241511;
+  --alert-100: #33201A;
+  --alert-200: #4A2E24;
+  --alert-700: #E09877;
+
+  /* Mesma inversão da rampa de alerta: os fundos escurecem, o tom de texto
+     clareia, e o -400/-600 fica igual nos dois temas. */
+  --aviso-50:  #241D0E;
+  --aviso-100: #33280F;
+  --aviso-200: #4A3A16;
+  --aviso-700: #EFC978;
+
+  --bg-active:  #1C2E22;
+  --fg-brand:   var(--brand-300);
+  --fg-danger:  var(--alert-400);
+  --fg-aviso:   var(--aviso-400);
+  --focus-ring: 0 0 0 3px rgba(123, 164, 130, .40);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .32);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, .44);
+  --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, .56);
+}

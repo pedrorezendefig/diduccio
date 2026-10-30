@@ -1,0 +1,24 @@
+{
+  "name": "Diduccio",
+  "short_name": "ViT",
+  "description": "Sistema de administração do Condomínio Diduccio.",
+  "lang": "pt-BR",
+  "id": "/",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FBFAF8",
+  "theme_color": "#4C8055",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icone-192-mascara.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icone-512-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Encomendas", "url": "/encomendas" },
+    { "name": "Entregas", "url": "/entregas" }
+  ]
+}

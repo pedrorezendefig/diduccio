@@ -1,0 +1,172 @@
+/* =====================================================================
+   RETIRADA DE ENCOMENDA
+   Diálogo que substitui o livro de papel da portaria.
+   Componentes: RetiradaDialog.jsx e Assinatura.jsx
+   ===================================================================== */
+
+/* ------------------------- Lista de conferência ------------------------- */
+
+.ret-lista {
+  margin: var(--space-5) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.ret-lista legend {
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.ret-lista__vazia {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* `.vit-check` é `inline-flex`, então duas caixas seguidas ficam lado a lado e
+   se confundem numa linha só — "Volume 1 Volume 2" vira um texto corrido, e
+   conferir prateleira lendo texto corrido é como não conferir. Aqui cada item é
+   uma linha. */
+.ret-lista .vit-check {
+  display: flex;
+  padding: var(--space-1) 0;
+}
+
+/* Um cadastro com vários volumes. O título agrupa as caixas para ficar claro
+   que "Volume 2 de 3" pertence àquela encomenda, e não a outra da lista. */
+.ret-lista__grupo {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+}
+.ret-lista__grupo:first-of-type {
+  border-top: 0;
+  padding-top: var(--space-2);
+}
+
+.ret-lista__titulo {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Recuo: deixa claro que as caixas pertencem ao cadastro do título acima, e não
+   a um segundo cadastro da lista. */
+.ret-lista__grupo .vit-check {
+  padding-left: var(--space-4);
+}
+
+/* ---------------------------- Assinatura ---------------------------- */
+
+.assinatura__area {
+  position: relative;
+}
+
+.assinatura__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* Guia e aviso só existem em tela cheia: na faixa de 180px eles ocupariam mais
+   espaço do que a área de assinar. */
+.assinatura__guia,
+.assinatura .assinatura__dica {
+  display: none;
+}
+
+/**
+ * Tela cheia para assinar com o dedo.
+ *
+ * Fica acima do diálogo (3000) e abaixo dos avisos (4000): se a gravação falhar
+ * enquanto alguém está maximizado, a mensagem de erro continua visível.
+ *
+ * `100dvh` e não `100vh`: no celular, `vh` conta a barra de endereço como se ela
+ * não existisse, e a área de assinatura ficava cortada embaixo — justamente
+ * onde fica o botão "Pronto".
+ */
+.assinatura--cheia {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  padding: 0;
+  background: var(--bg-app);
+  overflow: hidden;
+}
+
+/* A área de assinar É a tela: sem margem, sem cabeçalho, sem nada em volta. */
+.assinatura--cheia .assinatura__area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+}
+
+/**
+ * Aparelho em pé: gira a área 90°.
+ *
+ * Largura e altura trocam de propósito — o elemento é deitado ANTES de girar,
+ * e depois de girado preenche a tela em pé. `100dvh` e não `100vh` porque no
+ * celular `vh` conta a barra de endereço como se ela não existisse, e sobraria
+ * uma faixa cortada justamente onde ficam os botões.
+ *
+ * A classe vem do componente, e não de `@media (orientation: portrait)`: o
+ * cálculo do ponto tocado depende de estar girado ou não, e CSS decidindo uma
+ * coisa enquanto o JavaScript acha outra colocaria o traço longe do dedo.
+ */
+.assinatura--girada .assinatura__area {
+  width: 100dvh;
+  height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+/* Linha de guia, como a do papel. Fica ACIMA do canvas e não deixa passar
+   toque nenhum — quem desenha é o canvas embaixo. */
+.assinatura--cheia .assinatura__guia {
+  display: block;
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 62%;
+  height: 1px;
+  background: #9CA3AF;
+  pointer-events: none;
+}
+
+.assinatura--cheia .assinatura__dica {
+  display: block;
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: calc(62% + 8px);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: #9CA3AF;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Dentro da tela de assinatura, no canto de baixo — não numa barra própria,
+   que comeria altura de quem está assinando. */
+.assinatura--cheia .assinatura__acoes {
+  position: absolute;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  margin: 0;
+  gap: var(--space-4);
+}
+
+/* Alvo de toque confortável: quem assina costuma estar de pé, com o aparelho
+   na mão de outra pessoa. */
+@media (max-width: 768px) {
+  .assinatura--cheia .assinatura__acoes .vit-btn {
+    min-height: 48px;
+  }
+}

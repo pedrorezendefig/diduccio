@@ -1,0 +1,1103 @@
+/* =========================================================================
+   ViT: classes dos primitivos de src/ui/.
+   Depende de tokens.css. Nada de hex literal aqui: só var(--token), para o
+   dark mode sair de graça.
+
+   Por que CSS e não estilo inline: :hover, :active, :focus-visible, :disabled
+   e @media não existem em atributo style. O código legado falseia hover com
+   onMouseEnter; os primitivos não repetem esse erro.
+   ========================================================================= */
+
+/* ======================= BUTTON ======================= */
+
+.vit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+
+.vit-btn--md { padding: var(--space-4) var(--space-6); font-size: var(--text-md); min-height: 38px; }
+.vit-btn--sm { padding: var(--space-3) var(--space-5); font-size: var(--text-base); min-height: 32px; }
+
+/* Alvo de toque de 44px no mobile, exigência de acessibilidade. */
+@media (max-width: 768px) {
+  .vit-btn--md, .vit-btn--sm { min-height: 44px; }
+}
+
+.vit-btn:active:not(:disabled) { transform: translateY(1px); }
+
+.vit-btn:disabled,
+.vit-btn[aria-busy="true"] { cursor: not-allowed; opacity: .55; }
+.vit-btn[aria-busy="true"] { cursor: progress; }
+
+.vit-btn--primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+}
+.vit-btn--primary:hover:not(:disabled) { background: var(--brand-700); }
+
+.vit-btn--secondary {
+  background: var(--bg-surface);
+  color: var(--fg-brand);
+  border-color: var(--border-strong);
+}
+.vit-btn--secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--brand-400);
+}
+
+.vit-btn--ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+}
+.vit-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.vit-btn--danger {
+  background: var(--btn-danger-bg);
+  color: var(--fg-on-brand);
+}
+.vit-btn--danger:hover:not(:disabled) { background: var(--alert-700); }
+
+.vit-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vit-btn__spinner { animation: vitSpin .7s linear infinite; }
+}
+@keyframes vitSpin { to { transform: rotate(360deg); } }
+
+/* ---- Formulário dentro de modal ---- */
+
+/* `.vit-form` era usada no JSX e NAO existia aqui: sem regra, os campos, a
+   lista de regras da senha e o botao ficavam encostados uns nos outros, com
+   apenas o espaco interno de cada campo separando tudo. Foi assim que a tela de
+   trocar senha ficou apertada.
+   Grid com `gap` em vez de margem nos filhos: margem de um vizinho colapsa com
+   a do outro e o resultado depende da ordem em que os blocos aparecem. */
+.vit-form {
+  display: grid;
+  gap: var(--space-7);
+}
+
+/* O botao respira um pouco mais que o resto: e a acao que encerra o
+   formulario, e colado no ultimo campo ele parece parte dele. */
+.vit-form > button[type="submit"] {
+  margin-top: var(--space-3);
+  width: 100%;
+}
+
+.vit-form__erro {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: 500;
+  color: var(--fg-danger);
+}
+
+/* Cabecalho proprio: existe porque este modal nao pode ter o X do `title` —
+   um X que nao fecha nada e pior que nenhum. */
+.vit-modal__cabecalho-proprio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--fg-brand);
+}
+.vit-modal__cabecalho-proprio .vit-modal__title { margin: 0; }
+
+.vit-texto-apoio {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-secondary);
+}
+
+/* ---- Campo de senha com o olho ---- */
+
+.vit-senha { position: relative; display: block; }
+
+/* O recuo abre espaço para o botão: sem ele, a senha longa passa por baixo do
+   ícone e some justamente quando a pessoa liga o olho para conferir. */
+.vit-senha__campo { width: 100%; padding-right: 44px; }
+
+.vit-senha__olho {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.vit-senha__olho:hover { color: var(--fg-secondary); }
+.vit-senha__olho:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: -2px;
+}
+
+/* Lista de regras da senha. Mostra o que JA esta cumprido, e nao so o que
+   falta: assim a pessoa ve o progresso e sabe onde parou. */
+.vit-senha-regras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+.vit-senha-regras li.cumprida { color: var(--fg-brand); }
+.vit-senha-regras span { display: inline-block; width: 1em; font-weight: 700; }
+
+/* ======================= CARD ======================= */
+
+/* Card não tem sombra. Só borda. Sombra passa a significar elevação real. */
+.vit-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.vit-card--sm { padding: var(--space-5); }
+.vit-card--md { padding: var(--space-7); }
+.vit-card--lg { padding: var(--space-8); }
+.vit-card--none { padding: 0; }
+
+/* ======================= BADGE ======================= */
+
+.vit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vit-badge--neutral  { background: var(--surface-3); color: var(--fg-secondary); }
+.vit-badge--muted    { background: transparent; color: var(--fg-muted); border: 1px solid var(--border); }
+.vit-badge--positive { background: var(--brand-100); color: var(--brand-700); }
+.vit-badge--brand    { background: var(--brand-600); color: var(--fg-on-brand); }
+.vit-badge--danger   { background: var(--alert-100); color: var(--alert-700); }
+
+/* ======================= STAT ======================= */
+
+.vit-stat {
+  padding: var(--space-1) 0 var(--space-1) var(--space-5);
+  border-left: 2px solid var(--border-strong);
+  min-width: 0;
+}
+.vit-stat--brand   { border-left-color: var(--brand-500); }
+.vit-stat--danger  { border-left-color: var(--alert-600); }
+.vit-stat--neutral { border-left-color: var(--border-strong); }
+
+.vit-stat__label {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+.vit-stat__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  font-weight: 600;
+  color: var(--fg-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vit-stat__hint {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* ======================= PAGE HEADER ======================= */
+
+.vit-pagehead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-7);
+}
+.vit-pagehead__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  font-weight: 700;
+  letter-spacing: var(--track-tighter);
+  color: var(--fg-heading);
+  margin: 0;
+}
+.vit-pagehead__meta {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  margin: var(--space-2) 0 0;
+}
+.vit-pagehead__actions {
+  display: flex;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+@media (max-width: 768px) {
+  .vit-pagehead {
+    flex-direction: column;
+    align-items: stretch;
+    padding-bottom: var(--space-5);
+    margin-bottom: var(--space-6);
+  }
+  .vit-pagehead__title { font-size: var(--text-xl); line-height: var(--leading-xl); }
+  /* As ações dividem a linha em partes iguais em vez de ficarem espremidas
+     à esquerda. Com 3 ou mais, quebram e continuam com 44px de altura. */
+  .vit-pagehead__actions { width: 100%; }
+  .vit-pagehead__actions > * { flex: 1 1 auto; }
+}
+
+/* ======================= SKELETON ======================= */
+
+.vit-skel {
+  display: block;
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vit-skel {
+    background: linear-gradient(90deg,
+      var(--surface-3) 25%, var(--bg-surface) 50%, var(--surface-3) 75%);
+    background-size: 200% 100%;
+    animation: vitShimmer 1.4s ease-in-out infinite;
+  }
+}
+@keyframes vitShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ======================= EMPTY STATE ======================= */
+
+.vit-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-11) var(--space-7);
+}
+.vit-empty__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--brand-100);
+  color: var(--fg-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-5);
+}
+.vit-empty__title {
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: 600;
+  color: var(--fg-heading);
+  margin: 0 0 var(--space-3);
+}
+.vit-empty__desc {
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-secondary);
+  max-width: 46ch;
+  margin: 0 0 var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .vit-empty { padding: var(--space-9) var(--space-6); }
+  /* A ação do estado vazio ocupa a largura: é o único caminho adiante da tela. */
+  .vit-empty > :last-child:not(.vit-empty__desc):not(.vit-empty__title) { width: 100%; }
+  .vit-empty > button:last-child { width: 100%; }
+}
+
+/* ======================= FIELD ======================= */
+
+/* Rótulo SEMPRE acima do campo. Placeholder nunca faz papel de rótulo.
+   min-width:0 porque item de flex e de grid nasce com min-width:auto, que
+   impede encolher abaixo do conteúdo e faz o campo vazar do container. */
+.vit-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.vit-field__label {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+.vit-field__required {
+  color: var(--fg-danger);
+  margin-left: var(--space-1);
+}
+.vit-field__help {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+/* Erro ABAIXO do campo, nunca em alert() nem em tooltip. */
+.vit-field__error {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: 500;
+  color: var(--fg-danger);
+}
+
+/* ======================= CONTROLES ======================= */
+
+.vit-input,
+.vit-select,
+.vit-textarea {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-default);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  min-height: 38px;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+@media (max-width: 768px) {
+  .vit-input, .vit-select, .vit-textarea { min-height: 44px; }
+}
+
+.vit-input::placeholder,
+.vit-textarea::placeholder {
+  color: var(--fg-muted);
+  opacity: 1; /* Firefox reduz opacidade por padrão e quebra o contraste. */
+}
+
+.vit-input:hover:not(:disabled),
+.vit-select:hover:not(:disabled),
+.vit-textarea:hover:not(:disabled) { border-color: var(--brand-400); }
+
+.vit-input:disabled,
+.vit-select:disabled,
+.vit-textarea:disabled {
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+.vit-input[aria-invalid="true"],
+.vit-select[aria-invalid="true"],
+.vit-textarea[aria-invalid="true"] { border-color: var(--alert-600); }
+
+.vit-textarea { min-height: 84px; resize: vertical; }
+
+/* Números em campo numérico saem tabulares para não pular ao digitar. */
+.vit-input[type="number"],
+.vit-input[inputmode="numeric"] { font-variant-numeric: tabular-nums; }
+
+.vit-select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: var(--space-9);
+  /* Seta desenhada em gradiente para não depender de asset externo. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% + 1px),
+    calc(100% - 13px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ======================= CHECKBOX ======================= */
+
+.vit-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  cursor: pointer;
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-default);
+  min-height: 38px;
+}
+@media (max-width: 768px) {
+  .vit-check { min-height: 44px; }
+}
+.vit-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--brand-600);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.vit-check input:disabled,
+.vit-check:has(input:disabled) { cursor: not-allowed; color: var(--fg-muted); }
+
+/* ======================= TABLE ======================= */
+
+.vit-tablewrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  background: var(--bg-surface);
+  max-height: var(--vit-table-max, none);
+}
+
+.vit-table {
+  width: 100%;
+  border-collapse: separate; /* separate para o sticky header não perder a borda */
+  border-spacing: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+.vit-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-weight: 600;
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+/* Sem zebra. Só hairline entre linhas. */
+.vit-table tbody td {
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-default);
+  vertical-align: middle;
+}
+.vit-table tbody tr:last-child td { border-bottom: none; }
+.vit-table tbody tr:hover td { background: var(--bg-hover); }
+
+/* A linha que alguém apontou de fora da tabela — hoje, o pino do mapa da
+   portaria. Marca na linha inteira e não numa célula: quem rolou até aqui
+   precisa reconhecer a LINHA, e um destaque que para na borda de uma coluna
+   deixa o resto parecendo outra pessoa.
+   A barra à esquerda faz o trabalho junto com o fundo: fundo sozinho some para
+   quem não distingue bem a cor do papel. */
+.vit-table tbody tr[data-destacada="sim"] td { background: var(--bg-active); }
+.vit-table tbody tr[data-destacada="sim"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand-600);
+}
+
+.vit-table__num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* O rótulo acompanha o número. Sem isto o cabeçalho fica à esquerda e o valor
+   à direita — as duas pontas da mesma coluna. Só alinhamento: a monoespaçada
+   de `__num` brigaria com o caixa-alta espaçado do cabeçalho. Quando o
+   cabeçalho é botão de ordenação, é ele que ocupa a célula, então o
+   alinhamento tem de ir também para dentro dele. */
+.vit-table thead th.vit-table__th-num { text-align: right; }
+.vit-table thead th.vit-table__th-num .vit-table__sort { justify-content: flex-end; width: 100%; }
+.vit-table__id {
+  font-family: var(--font-mono);
+  color: var(--fg-brand);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vit-table__vazio { color: var(--fg-muted); }
+
+.vit-table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.vit-table__sort:hover { color: var(--fg-brand); }
+.vit-table__sortmark { font-size: 9px; opacity: .9; }
+
+/* Ações de linha aparecem no hover, MAS continuam alcançáveis por teclado:
+   opacity 1 quando a linha tem foco dentro. Nunca display:none. */
+.vit-table__acoes {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.vit-table tbody tr:hover .vit-table__acoes,
+.vit-table tbody tr:focus-within .vit-table__acoes { opacity: 1; }
+@media (hover: none) {
+  /* Em tela de toque não existe hover: as ações ficam sempre visíveis. */
+  .vit-table__acoes { opacity: 1; }
+}
+
+/* ---- Colapso em cards abaixo de 768px. Nunca scroll horizontal. ---- */
+@media (max-width: 768px) {
+  .vit-tablewrap--responsiva { border: none; border-radius: 0; overflow: visible; }
+  .vit-tablewrap--responsiva .vit-table thead { display: none; }
+  .vit-tablewrap--responsiva .vit-table,
+  .vit-tablewrap--responsiva .vit-table tbody,
+  .vit-tablewrap--responsiva .vit-table tr,
+  .vit-tablewrap--responsiva .vit-table td { display: block; width: 100%; }
+
+  .vit-tablewrap--responsiva .vit-table tbody tr {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-5);
+    padding: var(--space-3) var(--space-5);
+  }
+  /* No celular a linha virou cartão, então a marca é o cartão inteiro: a barra
+     lateral da versão de mesa ficaria na primeira célula, no meio dele. */
+  .vit-tablewrap--responsiva .vit-table tbody tr[data-destacada="sim"] {
+    border-color: var(--brand-600);
+    box-shadow: 0 0 0 2px var(--bg-active);
+  }
+  .vit-tablewrap--responsiva .vit-table tbody tr[data-destacada="sim"] td {
+    background: transparent;
+    box-shadow: none;
+  }
+  .vit-tablewrap--responsiva .vit-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-5);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  .vit-tablewrap--responsiva .vit-table tbody td:last-child { border-bottom: none; }
+  /* O rótulo da coluna vira prefixo da célula. */
+  .vit-tablewrap--responsiva .vit-table tbody td::before {
+    content: attr(data-rotulo);
+    flex-shrink: 0;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--track-label);
+    font-weight: 600;
+    color: var(--fg-muted);
+    text-align: left;
+  }
+  .vit-tablewrap--responsiva .vit-table__acoes { opacity: 1; justify-content: flex-end; }
+}
+
+/* ======================= TABS ======================= */
+
+.vit-tabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-7);
+  overflow-x: auto;
+  /* Obrigatório. Quando um eixo deixa de ser `visible`, o outro passa a
+     computar `auto` — então só o overflow-x acima já fazia nascer uma barra
+     de rolagem VERTICAL por causa dos 2px da borda da aba ativa. Era o
+     "mini rodapé" que aparecia no canto direito da barra de abas. */
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.vit-tabs::-webkit-scrollbar { display: none; }
+.vit-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--fg-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+.vit-tab:hover { color: var(--fg-default); }
+.vit-tab[aria-selected="true"] {
+  color: var(--fg-brand);
+  border-bottom-color: var(--brand-500);
+}
+.vit-tab__count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  padding: 1px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--fg-secondary);
+}
+.vit-tab[aria-selected="true"] .vit-tab__count {
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+/* ======================= MODAL ======================= */
+
+.vit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(15, 20, 17, .55);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vit-overlay { animation: vitFade var(--dur-base) var(--ease) both; }
+}
+@keyframes vitFade { from { opacity: 0; } }
+
+.vit-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-height: calc(100dvh - var(--space-11));
+  display: flex;
+  flex-direction: column;
+}
+/**
+ * `backwards`, e NUNCA `both`, porque estas animações mexem em `transform`.
+ *
+ * Elemento com animação de transform FILTRANDO para a frente conta como
+ * transformado mesmo depois de terminar — e elemento transformado vira bloco
+ * de contenção para descendente `position: fixed`. Com `both`, qualquer coisa
+ * fixa dentro de um modal fica presa ao cartão dele em vez de cobrir a tela.
+ * Foi o que prendeu a assinatura em tela cheia dentro do diálogo de retirada.
+ *
+ * Não há perda visual: os keyframes só declaram `from`, então o fim da
+ * animação já é o estado natural do elemento. `forwards` não estava segurando
+ * nada — só o bloco de contenção.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .vit-modal { animation: vitRise var(--dur-slow) var(--ease) backwards; }
+}
+@keyframes vitRise { from { opacity: 0; transform: translateY(12px); } }
+
+.vit-modal--sm { max-width: 420px; }
+.vit-modal--md { max-width: 620px; }
+.vit-modal--lg { max-width: 900px; }
+
+.vit-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-7);
+  border-bottom: 1px solid var(--border);
+}
+.vit-modal__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  margin: 0;
+}
+.vit-modal__body {
+  padding: var(--space-7);
+  overflow-y: auto;
+  /* Rede de segurança: nada dentro do modal deve vazar na horizontal.
+     Se vazar, o certo é corrigir o min-width do filho, não rolar aqui. */
+  overflow-x: hidden;
+  min-width: 0;
+  color: var(--fg-default);
+}
+/* Todo filho direto do corpo do modal pode encolher. */
+.vit-modal__body > * { min-width: 0; max-width: 100%; }
+.vit-modal__foot {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: flex-end;
+  padding: var(--space-6) var(--space-7);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.vit-modal__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-muted);
+  display: flex;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.vit-modal__close:hover { color: var(--fg-default); background: var(--bg-hover); }
+
+.vit-modal__desc {
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-secondary);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  /* O diálogo encosta nas bordas e sobe do rodapé: é o gesto esperado no
+     celular, e ganha altura útil que a caixa centralizada desperdiça. */
+  .vit-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .vit-modal,
+  .vit-modal--sm,
+  .vit-modal--md,
+  .vit-modal--lg {
+    max-width: none;
+    max-height: 92dvh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-bottom: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    /* `backwards` pelo mesmo motivo do vitRise: `both` deixaria o modal sendo
+       bloco de contenção para sempre, e a assinatura em tela cheia ficaria
+       presa dentro dele. */
+    .vit-modal { animation: vitSobe var(--dur-slow) var(--ease) backwards; }
+  }
+  .vit-modal__head,
+  .vit-modal__body { padding: var(--space-6); }
+  /* Botões empilhados e de largura cheia: alvo de toque confortável, e a
+     ação principal fica embaixo, perto do polegar. */
+  .vit-modal__foot {
+    flex-direction: column-reverse;
+    padding: var(--space-6);
+  }
+  .vit-modal__foot > * { width: 100%; }
+}
+@keyframes vitSobe { from { opacity: 0; transform: translateY(100%); } }
+
+/* ======================= TOAST ======================= */
+
+.vit-toasts {
+  position: fixed;
+  bottom: var(--space-7);
+  right: var(--space-7);
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: min(400px, calc(100vw - var(--space-9)));
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .vit-toasts { left: var(--space-5); right: var(--space-5); bottom: var(--space-5); max-width: none; }
+}
+
+.vit-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-default);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vit-toast { animation: vitToastIn var(--dur-base) var(--ease) both; }
+}
+@keyframes vitToastIn { from { opacity: 0; transform: translateX(16px); } }
+
+.vit-toast--success { border-left-color: var(--brand-500); }
+.vit-toast--error   { border-left-color: var(--alert-600); }
+.vit-toast--info    { border-left-color: var(--border-strong); }
+
+.vit-toast__msg { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.vit-toast__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-muted);
+  padding: 0;
+  font-size: var(--text-lg);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.vit-toast__close:hover { color: var(--fg-default); }
+
+/* ======================= OCUPADO ======================= */
+
+/* Véu de bloqueio durante gravação. Impede duplo envio enquanto o Apps
+   Script responde. Preferir Button loading quando a espera for local. */
+.vit-ocupado {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(15, 20, 17, .45);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vit-ocupado { animation: vitFade var(--dur-fast) var(--ease) both; }
+}
+
+.vit-ocupado__caixa {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 100%;
+}
+
+.vit-ocupado__giro {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2px solid var(--brand-200);
+  border-top-color: var(--brand-600);
+  border-radius: var(--radius-full);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vit-ocupado__giro { animation: vitSpin .7s linear infinite; }
+}
+
+.vit-ocupado__texto {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--fg-default);
+}
+
+/* ======================= GAVETA (painel lateral de detalhe) ======================= */
+
+.vit-gaveta__veu {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 20, 17, .42);
+}
+
+.vit-gaveta {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(468px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  animation: vit-gaveta-entra var(--dur-slow) var(--ease) both;
+}
+@keyframes vit-gaveta-entra { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .vit-gaveta { animation: none; } }
+
+.vit-gaveta__topo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.vit-gaveta__sigla {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  background: var(--brand-700);
+  color: var(--fg-on-brand);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+}
+.vit-gaveta__titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  overflow-wrap: anywhere;
+}
+.vit-gaveta__meta {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.vit-gaveta__fechar {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.vit-gaveta__fechar:hover { background: var(--bg-hover); color: var(--fg-default); }
+
+/* Unidade, tipo e situação vêm antes de qualquer campo: é o que se procura
+   primeiro num cadastro. Como linha, competiam com CPF e RG. */
+.vit-gaveta__fitas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-7) var(--space-8) 0;
+  flex-shrink: 0;
+}
+
+.vit-gaveta__corpo { flex: 1; overflow-y: auto; padding: var(--space-8); }
+
+.vit-gaveta__pe {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: flex-end;
+  padding: var(--space-7) var(--space-8);
+  border-top: 1px solid var(--border);
+  background: var(--bg-app);
+  flex-shrink: 0;
+}
+
+/* ---- Grupos de campos dentro da gaveta ---- */
+
+.vit-grupo + .vit-grupo { margin-top: var(--space-9); }
+.vit-grupo__titulo {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  color: var(--fg-muted);
+  padding-bottom: var(--space-4);
+  margin: 0 0 var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.vit-dado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-5) 0;
+}
+.vit-dado + .vit-dado { border-top: 1px solid var(--border); }
+.vit-dado__rotulo { font-size: var(--text-sm); color: var(--fg-muted); flex-shrink: 0; }
+.vit-dado__valor {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--fg-default);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.vit-dado__valor--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.vit-dado__valor--vazio { color: var(--fg-muted); }
+
+.vit-grupo__acoes { display: flex; gap: var(--space-4); margin-top: var(--space-6); flex-wrap: wrap; }
+
+@media (max-width: 560px) {
+  /* 468px de painel sobre 390 de tela não deixa nada visível atrás, então o
+     efeito de contexto se perde: vira tela cheia. */
+  .vit-gaveta { width: 100%; border-left: none; }
+  .vit-gaveta__topo,
+  .vit-gaveta__corpo,
+  .vit-gaveta__pe { padding: var(--space-6); }
+  .vit-gaveta__fitas { padding: var(--space-6) var(--space-6) 0; }
+  .vit-dado { flex-direction: column; gap: var(--space-2); }
+  .vit-dado__valor { text-align: left; }
+  .vit-gaveta__pe .vit-btn { flex: 1; }
+}
+
+/* ---- Aviso de sessão parada ---- */
+
+/* A contagem é a informação do aviso, não um detalhe: ela é o que diz que há
+   um relógio correndo. Monoespaçada e tabular para o número não dançar de lado
+   a cada segundo. */
+.vit-sessao-contagem {
+  margin: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  text-align: center;
+  color: var(--fg-secondary);
+  font-size: var(--text-md);
+}
+.vit-sessao-contagem strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xl);
+  color: var(--fg-danger);
+}
+
+.vit-sessao-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+@media (max-width: 768px) {
+  /* Empilhado e invertido: "Continuar" fica embaixo, onde o polegar alcança —
+     e é o botão que a pessoa veio apertar. */
+  .vit-sessao-acoes { flex-direction: column-reverse; }
+  .vit-sessao-acoes > * { width: 100%; }
+}

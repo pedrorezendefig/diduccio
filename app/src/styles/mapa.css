@@ -1,0 +1,365 @@
+/* ================== MAPA DA PORTARIA: QUEM ESTÁ DENTRO ==================
+
+   Implantação de miolo aberto: os seis blocos em volta, o pátio no meio com o
+   nome do condomínio, e o salão de festas fechando embaixo. Escolhida entre
+   cinco propostas.
+
+   A leitura é a ordem dos blocos: 1, 2, 3 e 4 da esquerda para a direita na
+   fileira de cima, depois o 5 e o 8 nas laterais. Quem procura o bloco 3 vai
+   direto ao terceiro da fila em vez de varrer o desenho.
+
+   Posição em porcentagem, nunca em pixel: a planta encolhe junto com a tela, e
+   o que precisa sobreviver a isso é a posição relativa.
+   ======================================================================== */
+
+.mapa {
+  display: grid;
+  gap: var(--space-5);
+  margin-bottom: var(--space-7);
+}
+
+/* ---- Legenda ---- */
+
+/* Vem ANTES da planta de propósito: quem nunca viu a tela precisa saber o que
+   é o amarelo antes de encontrar um. */
+.mapa__legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+}
+.mapa__chave { display: inline-flex; align-items: center; gap: var(--space-3); }
+.mapa__chave b {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-default);
+}
+.mapa__ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.mapa__ponto[data-estado="sem-prazo"]  { background: var(--brand-600); }
+.mapa__ponto[data-estado="no-prazo"]   { background: var(--aviso-600); }
+.mapa__ponto[data-estado="estourado"]  { background: var(--alert-600); }
+
+/* ---- O terreno ---- */
+
+/* 4:3 e não quadrada: a fileira de cima tem quatro blocos e as laterais só um
+   cada, então o terreno é mais largo que alto. `aspect-ratio` em vez de altura
+   fixa, senão a planta estica no celular e os prédios viram faixas. */
+.mapa__planta {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 80% at 50% 0%, var(--brand-100), transparent 68%),
+    var(--brand-50);
+  overflow: hidden;
+}
+
+.mapa__zona { position: absolute; }
+
+/* ---- Os prédios ----
+
+   Corpo claro com sombra: é o que separa o volume do chão. As lajes são
+   hairlines horizontais — dizem "prédio" sem virar textura de janela, que a
+   esta escala vira sujeira. */
+.mapa__predio {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  box-shadow: 0 6px 16px -8px rgba(23, 35, 27, .28);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Começa abaixo da linha do rótulo: laje passando por trás do nome do bloco
+   deixa o nome ilegível. */
+.mapa__predio::after {
+  content: "";
+  position: absolute;
+  inset: 26px 0 0;
+  background: repeating-linear-gradient(
+    to bottom, transparent 0 11px, var(--border) 11px 12px);
+  opacity: .55;
+}
+
+/* Prédio com gente acende: contorno de marca, sombra mais funda e um halo.
+   É o que se vê primeiro, de longe, e é o que interessa. */
+.mapa__zona[data-cheia="sim"] .mapa__predio {
+  border-color: var(--brand-500);
+  box-shadow:
+    0 16px 34px -16px rgba(23, 35, 27, .42),
+    0 0 0 3px var(--brand-100);
+}
+[data-theme="dark"] .mapa__predio {
+  background: var(--surface-2);
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .6);
+}
+[data-theme="dark"] .mapa__zona[data-cheia="sim"] .mapa__predio {
+  box-shadow: 0 16px 34px -16px rgba(0, 0, 0, .7), 0 0 0 3px var(--bg-active);
+}
+
+/* ---- O pátio ----
+
+   O miolo aberto, com o nome do condomínio. É também onde fica quem entrou sem
+   apartamento de destino — o prestador do próprio condomínio está no pátio, e
+   não em bloco nenhum. Tracejado e sem sombra: não é construção. */
+.mapa__zona[data-tipo="patio"] .mapa__predio {
+  border: 1.5px dashed var(--brand-200);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand-100) 60%, transparent);
+  box-shadow: none;
+}
+.mapa__zona[data-tipo="patio"] .mapa__predio::after { content: none; }
+.mapa__zona[data-tipo="patio"] .mapa__conteudo {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.mapa__zona[data-tipo="patio"] .mapa__rotulo {
+  align-self: center;
+  justify-content: center;
+  text-align: center;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  letter-spacing: var(--track-tight);
+  text-transform: none;
+  color: var(--fg-brand);
+}
+.mapa__zona[data-tipo="patio"] .mapa__pinos { justify-content: center; }
+
+/* A assinatura, meio apagada, debaixo do nome. Apagada de propósito: ela
+   assina, não anuncia — competir com o nome do condomínio seria virar
+   propaganda no meio de uma tela de trabalho. */
+.mapa__assinatura {
+  position: relative;
+  z-index: 1;
+  margin-top: calc(var(--space-3) * -1);
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--fg-muted);
+  opacity: .6;
+}
+
+/* ---- Salão de festas e churrasqueira ----
+   Fecha a planta embaixo. Toldo listrado no topo, e sem lajes: é térreo. */
+.mapa__zona[data-tipo="lazer"] .mapa__predio {
+  border-color: var(--aviso-200);
+  background: var(--aviso-50);
+}
+.mapa__zona[data-tipo="lazer"] .mapa__predio::after {
+  content: "";
+  inset: 0 0 auto 0;
+  height: 10px;
+  background: repeating-linear-gradient(
+    135deg, var(--aviso-200) 0 8px, transparent 8px 16px);
+  opacity: 1;
+}
+
+/* ---- Rótulo e pinos, por cima do corpo ---- */
+
+.mapa__conteudo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-height: 0;
+}
+
+.mapa__rotulo {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  max-width: 100%;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: 700;
+  color: var(--fg-default);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mapa__rotulo small {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--fg-muted);
+}
+.mapa__conta {
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--brand-600);
+  color: var(--fg-on-brand);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* SEM ROLAGEM, de propósito. Com `overflow: auto` aqui, um bloco cheio ganhava
+   uma barra de rolagem de 70 pixels que ninguém usa — e o pino que pisca sumia
+   atrás dela, que é o oposto do que o mapa faz. Quem não cabe vira o "+N", e a
+   lista de baixo diz quem é. */
+.mapa__pinos {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-content: flex-start;
+  min-height: 0;
+}
+
+/* "mais três, na lista" — mesma silhueta do pino para a fila não desalinhar,
+   e sem cor de estado: ele não é uma pessoa, é uma contagem. */
+.mapa__sobra {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 2px dashed var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+/* Fundo claro e texto escuro nos três estados; a cor viva fica no contorno e
+   no halo. É o contrário do óbvio, e é de propósito: animar o fundo faria as
+   iniciais sumirem em metade de cada piscada. */
+.mapa__pino {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--brand-600);
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  /* Botão: leva até a linha da pessoa na lista. O que é clicável precisa
+     parecer clicável. */
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform var(--dur-fast) var(--ease);
+}
+.mapa__pino:hover { transform: scale(1.12); }
+.mapa__pino:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+/* O pino que o porteiro acabou de apontar. A marca fica dos DOIS lados — aqui
+   e na linha da lista —, senão depois de rolar não dá para saber qual pino
+   levou até ali. */
+.mapa__pino[data-marcado="sim"] {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--bg-surface), 0 0 0 5px var(--brand-600);
+}
+.mapa__pino[data-estado="no-prazo"] {
+  border-color: var(--aviso-600);
+  background: var(--aviso-100);
+  color: var(--aviso-700);
+  animation: mapa-pisca-aviso 1.7s ease-in-out infinite;
+}
+.mapa__pino[data-estado="estourado"] {
+  border-color: var(--alert-600);
+  background: var(--alert-100);
+  color: var(--alert-700);
+  /* Mais rápido que o amarelo: dois ritmos diferentes se distinguem de longe
+     mesmo por quem não separa bem as duas cores. */
+  animation: mapa-pisca-estourado 0.95s ease-in-out infinite;
+}
+
+/* Só `box-shadow` e `border-color` animam — nada de layout, então a planta
+   inteira não é recalculada 60 vezes por segundo. */
+@keyframes mapa-pisca-aviso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 123, 6, .5);  border-color: var(--aviso-600); }
+  50%      { box-shadow: 0 0 0 8px rgba(176, 123, 6, 0); border-color: var(--aviso-400); }
+}
+@keyframes mapa-pisca-estourado {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 71, 42, .6); border-color: var(--alert-600); }
+  50%      { box-shadow: 0 0 0 9px rgba(180, 71, 42, 0); border-color: var(--alert-400); }
+}
+
+/* Quem pediu menos movimento não perde a informação: a cor e o contorno
+   continuam dizendo tudo, e o pino fica com o anel parado. */
+@media (prefers-reduced-motion: reduce) {
+  .mapa__pino[data-estado="no-prazo"],
+  .mapa__pino[data-estado="estourado"] { animation: none; }
+  .mapa__pino[data-estado="estourado"] { box-shadow: 0 0 0 3px var(--alert-200); }
+  .mapa__pino[data-estado="no-prazo"]  { box-shadow: 0 0 0 3px var(--aviso-200); }
+  .mapa__pino, .mapa__pino:hover, .mapa__pino[data-marcado="sim"] {
+    transition: none;
+    transform: none;
+  }
+  /* A marca continua, só que sem crescer: o anel diz a mesma coisa. */
+  .mapa__pino[data-marcado="sim"] {
+    box-shadow: 0 0 0 3px var(--bg-surface), 0 0 0 5px var(--brand-600);
+  }
+}
+
+.mapa__vazio {
+  margin: 0;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- Celular ---- */
+
+/* A planta continua inteira e continua 4:3: o que encolhe é o texto, a laje e
+   o pino. Cortar zona ou rolar de lado destruiria a única coisa que o mapa tem
+   a oferecer, que é ver o condomínio de uma vez só. */
+@media (max-width: 768px) {
+  .mapa__conteudo { padding: var(--space-3); gap: var(--space-2); }
+  .mapa__predio::after { inset: 20px 0 0; background-size: auto 9px; }
+  .mapa__rotulo { font-size: 9px; line-height: 12px; letter-spacing: 0; }
+  .mapa__rotulo small { display: none; }
+  /* O nome do condomínio encolhe, mas continua sendo o maior texto da planta —
+     é ele que ancora o desenho. */
+  .mapa__zona[data-tipo="patio"] .mapa__rotulo {
+    font-size: var(--text-lg);
+    line-height: var(--leading-lg);
+  }
+  .mapa__assinatura { font-size: 9px; letter-spacing: .1em; margin-top: 0; }
+  .mapa__pinos { gap: var(--space-2); }
+  .mapa__pino,
+  .mapa__sobra { width: 22px; height: 22px; font-size: 9px; }
+  .mapa__legenda { gap: var(--space-2) var(--space-5); font-size: var(--text-xs); }
+}

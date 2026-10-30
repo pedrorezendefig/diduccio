@@ -1,0 +1,545 @@
+/* =========================================================================
+   ViT: arquétipo Fila (Entregas, Encomendas, Confirmação).
+   Entrada rápida no topo, fila logo abaixo.
+   Depende de tokens.css e ui.css.
+   ========================================================================= */
+
+.ent-indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-7);
+}
+@media (max-width: 768px) {
+  .ent-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
+}
+
+.ent-form { margin-bottom: var(--space-8); }
+
+.ent-form__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  margin: 0 0 var(--space-6);
+}
+
+.ent-form__grade {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+.ent-form__unidade { grid-column: span 2; }
+
+@media (max-width: 1024px) {
+  .ent-form__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  /* Entrada de portaria é feita em pé, muitas vezes no celular: um campo
+     por linha, alvo grande, sem risco de errar o toque. */
+  .ent-form__grade { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .ent-form__unidade { grid-column: span 1; }
+}
+
+.ent-form__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-7);
+}
+@media (max-width: 768px) {
+  .ent-form__acoes { flex-direction: column-reverse; }
+  .ent-form__acoes > * { width: 100%; }
+}
+
+/* ---- Busca de unidade por digitação ---- */
+
+.ent-combo { position: relative; display: block; min-width: 0; }
+.ent-combo .vit-input { padding-right: var(--space-9); }
+
+.ent-combo__limpar {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.ent-combo__limpar:hover { color: var(--fg-default); background: var(--bg-hover); }
+
+.ent-combo__lista {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 60;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 264px;
+  overflow-y: auto;
+}
+.ent-combo__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  color: var(--fg-default);
+  cursor: pointer;
+  text-align: left;
+  min-height: 40px;
+}
+.ent-combo__item:hover { background: var(--bg-active); }
+@media (max-width: 768px) {
+  .ent-combo__item { min-height: 46px; }
+}
+.ent-combo__unidade {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--fg-brand);
+  flex-shrink: 0;
+}
+.ent-combo__desc { color: var(--fg-muted); font-size: var(--text-sm); }
+
+/* ---- Fila ---- */
+
+.ent-secao {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  color: var(--fg-heading);
+  margin: 0 0 var(--space-6);
+}
+
+/* Quem entrou, em caixa alta.
+   Feito no CSS e não só na gravação porque o banco já tem linhas escritas antes
+   desta regra existir — e as de `entregadores_chegadas` são histórico, que não
+   se reescreve para arrumar aparência. Assim as antigas aparecem iguais às
+   novas sem ninguém tocar nelas.
+   `text-transform` muda só o desenho: o texto que o leitor de tela lê, e o que
+   sai num copiar-e-colar, continua sendo o que está gravado. */
+.ent-nome {
+  display: block;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.ent-cpf {
+  display: block;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.ent-placa {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* ---- Cadastro de entregadores ---- */
+
+.ent-cadastro { list-style: none; margin: 0; padding: 0; }
+.ent-cadastro__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.ent-cadastro__item:last-child { border-bottom: none; }
+.ent-cadastro__mais {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* ---- Encomendas ---- */
+
+.enc-sub {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+.enc-nf {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* ======================= PORTARIA: TIPOS DE ENTRADA ======================= */
+
+/* O tipo vem antes de tudo porque decide o resto do formulario. Em fila
+   rolavel no celular: cinco opcoes empilhadas comeriam meia tela antes do
+   primeiro campo. */
+.ent-tipos {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-6);
+  scrollbar-width: thin;
+}
+.ent-tipo {
+  flex: 1 0 auto;
+  min-width: 118px;
+  display: grid;
+  gap: 2px;
+  padding: var(--space-4) var(--space-5);
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.ent-tipo strong { font-size: var(--text-md); color: var(--fg-default); font-weight: 600; }
+.ent-tipo span { font-size: var(--text-xs); color: var(--fg-muted); }
+.ent-tipo:hover { border-color: var(--brand-400); }
+.ent-tipo--ativo {
+  border-color: var(--brand-600);
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--brand-600);
+}
+.ent-tipo--ativo strong { color: var(--fg-brand); }
+.ent-tipo:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 2px; }
+
+/* ---- O prazo, com mais e menos ---- */
+
+.ent-prazo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Cresce para ocupar a linha em vez de encolher para o tamanho do texto:
+     espremido entre o menos e o mais, "15 min" ficava menor que os proprios
+     botoes. O 240px e a largura minima antes de a linha quebrar. */
+  flex: 1 1 240px;
+}
+.ent-prazo__botao {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+.ent-prazo__botao:hover { border-color: var(--brand-400); color: var(--fg-brand); }
+.ent-prazo__botao:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 2px; }
+/* Alvo de toque de 44px no celular, como o resto do sistema. */
+@media (max-width: 768px) {
+  .ent-prazo__botao { width: 44px; height: 44px; }
+}
+.ent-prazo__valor {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 38px;
+  /* Largura de sobra dos dois lados: "sem limite" e "1h30" ocupam bem mais que
+     "15 min", e sem o minimo a caixa mudava de tamanho a cada clique. */
+  min-width: 132px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-weight: 700;
+  /* Tabular para o numero nao dancar de lado a cada clique. */
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-default);
+}
+
+/* ---- Selo do tipo na lista ---- */
+
+.ent-tipo-selo {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  background: var(--surface-3);
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+.ent-tipo-selo[data-tipo="SERVICO"],
+.ent-tipo-selo[data-tipo="AIRBNB"] { background: var(--brand-100); color: var(--brand-700); }
+
+.ent-empresa,
+.ent-modelo {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+.ent-prazo-estourado { color: var(--fg-danger); font-weight: 600; }
+
+/* ---- O aviso do veiculo ---- */
+
+.ent-confere { display: grid; gap: var(--space-5); }
+.ent-confere__quem { margin: 0; color: var(--fg-secondary); }
+.ent-confere__veiculo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-lg);
+  color: var(--fg-default);
+}
+.ent-confere__veiculo b { font-family: var(--font-mono); letter-spacing: .04em; }
+.ent-confere__nota {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+.ent-confere__nota svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ---- Serviço do próprio condomínio ---- */
+
+/* Fora da grade de campos porque não é campo: é a chave que muda o formulário
+   inteiro. Marcada, some a unidade de destino e "liberado por" se preenche. */
+/* A linha do prazo: o contador e, ao lado dele, a caixa de "Ilimitado".
+   Lado a lado no desktop, uma embaixo da outra no celular — a caixa nunca
+   espreme o contador a ponto de o mais e o menos ficarem grudados. */
+.ent-prazo-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+}
+/* A caixa de "Ilimitado".
+   Cantos bem mais redondos que o quadrado nativo do navegador, que so aceita
+   `border-radius` depois de a aparencia nativa sair do caminho. Com o
+   `appearance: none` o desenho passa a ser nosso: a marca de check e feita no
+   ::before, e a cor de marcado e a mesma que o `accent-color` dava. */
+.ent-ilimitado input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 19px;
+  height: 19px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  display: grid;
+  place-content: center;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.ent-ilimitado input::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transition: transform 110ms ease-out;
+  background: var(--fg-on-brand);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+.ent-ilimitado input:checked {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+}
+.ent-ilimitado input:checked::before { transform: scale(1); }
+.ent-ilimitado input:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+/* Sem transicao para quem pediu menos movimento no sistema operacional. */
+@media (prefers-reduced-motion: reduce) {
+  .ent-ilimitado input,
+  .ent-ilimitado input::before { transition: none; }
+}
+
+/* Desligado, não escondido: o número continua na tela, apagado, para o porteiro
+   ver o que volta se ele desmarcar. */
+.ent-prazo[data-desligado="sim"] {
+  opacity: 0.55;
+}
+@media (max-width: 768px) {
+  .ent-prazo-linha { gap: var(--space-3); }
+  .ent-prazo-linha > * { width: 100%; }
+}
+
+.ent-interno {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.ent-interno__nota {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  /* Alinha com o texto do rótulo, e não com a caixa de marcação. */
+  padding-left: calc(16px + var(--space-4));
+}
+@media (max-width: 768px) {
+  .ent-interno__nota { padding-left: 0; }
+}
+
+/* O veiculo puxado da vaga, dentro do formulario da TAG.
+   Nao e campo: e o que a unidade ja tem cadastrado, mostrado para quem pede a
+   TAG conferir. Por isso a cara de aviso, e nao de <input>. */
+.tag-veiculo {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.tag-veiculo[data-vazio="sim"] {
+  border-color: var(--aviso-400);
+  background: var(--aviso-50);
+  color: var(--fg-aviso);
+}
+.tag-veiculo__rotulo {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+.tag-veiculo[data-vazio="sim"] .tag-veiculo__rotulo { color: inherit; }
+.tag-veiculo__valor {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  color: var(--fg-default);
+}
+
+/* ---- Quem registrou ---- */
+
+/* Vai debaixo do horário: o nome do porteiro só significa alguma coisa colado
+   ao evento que ele produziu. Em coluna própria viraria mais uma coluna, e a
+   tabela já rola de lado com sete. */
+.ent-porteiro {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: 400;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Título da fila, com o filtro ao lado ---- */
+
+.ent-secao-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.ent-secao-topo .ent-secao { margin-bottom: 0; }
+@media (max-width: 768px) {
+  /* O filtro passa a ocupar a linha inteira: dois botões espremidos ao lado do
+     título ficam com alvo de toque menor que o dedo. */
+  .ent-secao-topo { align-items: stretch; }
+  .ent-secao-topo .vit-tabs { width: 100%; }
+}
+
+/* ---- Filtros do histórico ---- */
+
+/* Fora da tabela e antes dela: o recorte muda o que a lista significa, e uma
+   lista que já apareceu com outro conteúdo faz quem olha ler o número errado
+   antes de perceber que havia filtro. */
+.ent-filtros { margin-bottom: var(--space-6); }
+
+.ent-filtros__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-5);
+}
+@media (max-width: 768px) {
+  /* Duas colunas, e não uma: os campos de data vêm em par ("de" e "até"), e
+     empilhados um por linha o par se perde na rolagem. */
+  .ent-filtros__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+  /* Os dois campos de busca (texto e unidade) inteiros, em cima; os pares de
+     data continuam lado a lado logo abaixo. */
+  .ent-filtros__grade > *:first-child,
+  .ent-filtros__grade > *:nth-child(2) { grid-column: 1 / -1; }
+}
+
+.ent-filtros__rodape {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+.ent-filtros__conta {
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* O teto do banco não pode passar calado: lista cortada em silêncio faz quem
+   procura concluir que o registro não existe. */
+.ent-filtros__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 1 1 260px;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-danger);
+}
+.ent-filtros__aviso svg { flex-shrink: 0; margin-top: 2px; }
+.ent-filtros__rodape > .vit-btn { margin-left: auto; }
+@media (max-width: 768px) {
+  .ent-filtros__rodape > .vit-btn { margin-left: 0; width: 100%; }
+}
+
+/* ---- Alerta no indicador do topo ---- */
+
+/* "Alguém passou do tempo" é a única coisa desta tela que pede ação agora, e o
+   topo é onde o olho cai ao abrir. O símbolo NÃO pisca: quem pisca é o pino no
+   mapa, e dois piscares na mesma tela deixam de significar urgência. */
+.ent-stat-alerta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-danger);
+}
+.ent-stat-alerta svg { flex-shrink: 0; }
