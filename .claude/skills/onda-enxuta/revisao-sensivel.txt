@@ -1,0 +1,4 @@
+# Arquivos que pedem revisão sensível no PR do app (globs, um por linha).
+# O IAE ainda não tem app: entram aqui as migrations e as rotas sem login
+# quando a plataforma nascer em plataforma/.
+plataforma/supabase/migrations/**

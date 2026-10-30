@@ -1,0 +1,9 @@
+#!/bin/sh
+# Bloqueia push direto na main. Todo trabalho entra por PR (CLAUDE.md).
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "Push direto na main bloqueado. Abra um PR a partir de uma branch." >&2
+    exit 1
+  fi
+done
+exit 0

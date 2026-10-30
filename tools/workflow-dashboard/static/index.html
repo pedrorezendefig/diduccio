@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IAE OS</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2301213d'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23ffffff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="logo-iae" viewBox="0 0 476 232"><g transform="translate(0,232) scale(.1,-.1)"><path d="M1917 2308 c-17 -13 -147 -282 -722 -1493 -373 -785 -363 -765 -416 -765 -57 0 -104 45 -119 113 -7 36 -10 350 -8 1007 3 897 4 957 21 988 21 38 71 72 107 72 25 0 50 16 50 32 0 5 -186 7 -412 6 -412 -3 -466 -8 -363 -35 65 -16 94 -38 116 -89 30 -66 25 -1966 -4 -2026 -23 -45 -52 -65 -116 -79 -37 -8 -48 -14 -44 -25 4 -12 83 -14 522 -14 l517 0 79 86 c319 349 880 640 1575 818 407 104 593 137 1145 201 426 50 436 52 500 89 69 41 129 156 81 156 -62 0 -1160 -133 -1318 -160 -743 -126 -1338 -325 -1788 -598 -46 -28 -86 -50 -87 -48 -9 9 544 1176 557 1176 3 0 76 -153 160 -340 107 -234 159 -340 170 -339 35 1 425 116 423 125 -3 18 -523 1128 -534 1141 -14 16 -70 17 -92 1z M2910 2255 c0 -9 14 -17 39 -21 50 -8 95 -35 118 -71 16 -25 18 -65 23 -464 3 -241 7 -440 10 -443 5 -4 304 32 408 49 l32 6 0 393 c0 323 3 396 14 412 13 18 35 20 288 28 440 15 609 -16 723 -131 43 -44 85 -129 85 -173 0 -14 7 -20 22 -20 21 0 21 2 15 107 -4 58 -7 159 -7 225 l0 118 -885 0 c-777 0 -885 -2 -885 -15z M3322 979 c-117 -20 -214 -38 -216 -40 -10 -10 -17 -597 -8 -634 6 -28 41 -82 113 -173 l104 -132 685 3 684 2 38 220 c20 121 37 233 37 248 1 45 -28 29 -49 -26 -63 -165 -239 -274 -497 -307 -103 -14 -582 -14 -617 0 -46 17 -48 40 -55 471 l-6 405 -213 -37z M2463 777 c-105 -34 -194 -65 -197 -68 -4 -3 26 -75 65 -160 169 -365 186 -425 133 -474 -15 -14 -49 -29 -80 -35 -54 -12 -67 -23 -38 -34 20 -8 808 -8 828 0 23 9 20 22 -6 29 -101 31 -135 80 -302 440 -148 320 -172 365 -194 364 -10 0 -103 -29 -209 -62z"/></g></symbol></svg>
+
+<header class="hero side">
+  <h1 class="hero-title"><span class="clip"><span class="clip-inner"><svg class="logo" aria-hidden="true"><use href="#logo-iae"/></svg><span class="sr-only">IAE</span> <span class="accent">OS</span></span></span></h1>
+  <span class="hero-tag">Instituto de Advocacia Empresarial</span>
+  <nav class="tabs" aria-label="Seções">
+    <div class="tabs-row" id="tabs">
+      <button data-tab="issues"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg><span>Issues</span><span class="tab-badge" id="badge-issues" hidden></span></button>
+      <button data-tab="prs"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M6 8.5v7M18 15.5V9a3 3 0 0 0-3-3h-4"/><path d="m13 3-2 3 2 3"/></svg><span>PRs</span><span class="tab-badge" id="badge-prs" hidden></span></button>
+      <button data-tab="producao"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg><span>Produção</span><span class="tab-badge" id="badge-producao" hidden></span></button>
+      <button data-tab="documentacao"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h6M8 11h6"/></svg><span>Documentação</span><span class="tab-badge" id="badge-documentacao" hidden></span></button>
+    </div>
+  </nav>
+  <div class="mast-status" id="mast-status"></div>
+</header>
+
+<div class="wrap" id="banner"></div>
+
+<main class="wrap" id="view">
+  <div class="loading"><span class="dot ok pulse"></span> coletando o fluxo · gh · docs/spec · git…</div>
+</main>
+
+<footer class="wrap foot" id="foot"></footer>
+
+<script src="/vendor/marked.min.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

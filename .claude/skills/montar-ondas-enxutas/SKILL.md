@@ -1,0 +1,184 @@
+---
+name: montar-ondas-enxutas
+description: Planeja sessões /onda-enxuta sem conflito, presta contas de cada issue aberta, um comando de lançamento por sessão; termina em "Posso lançar?" e, com o "pode", lança a onda 1 de cada fila. Sintaxe `/montar-ondas-enxutas [--exceto #PRD] [--max-sessoes N]`.
+---
+
+# Montar ondas enxutas: plano de sessões paralelas
+
+Planejador da `/onda-enxuta`. A `/onda-enxuta` executa **uma** fila em **várias ondas**, uma sessão de fundo por onda; esta skill decide **quantas** filas abrir, **o que** vai em cada uma e **em que ordem** as ondas sobem. Sai daqui um arquivo de prompt por sessão e **um comando de lançamento** por sessão, e o plano termina numa pergunta só: "Posso lançar?". Com o "pode" do humano, a própria skill lança a sessão da **onda 1** de cada fila (passo 7); cada uma nasce em segundo plano e leva a onda 1 até produção sem parar (ADR 0068); só a migration chama o humano, por notificação. Fora o lançamento da onda 1, nada roda aqui.
+
+A meta é sair com **toda issue aberta em um de dois lugares**: dentro de um prompt (`ready-for-agent`) ou numa lista curta do que só o humano faz. Issue "esperando triagem" no fim do plano é falha do plano.
+
+> **Por que não `/onda-enxuta --all` direto:** a fila geral mistura fatias de PRD que outra sessão já roda com avulsas, e não enxerga a dependência que só o corpo da issue escreve ("rodar depois da #N"). O plano existe para separar antes de rodar: pela dependência, não pelo arquivo (ADR 0068).
+
+## Sintaxe
+
+```
+/montar-ondas-enxutas [--exceto #PRD ...] [--max-sessoes N]
+```
+
+| Argumento | Default | Efeito |
+|---|---|---|
+| `--exceto #PRD` | detectado | PRD cujas fatias outra sessão já está rodando. Sem o argumento, detecte: sub-issue com `in-progress` ou PR aberto da branch dela. Assignee sozinho não conta: designar alguém não é claim. |
+| `--max-sessoes N` | 3 | Teto de filas (sessões) novas. Mais que 3 deployando concorre pela mesma plataforma de deploy. Cada fila vira uma cadeia de sessões de fundo, uma por onda. |
+
+## Fluxo
+
+### 1. Inventário
+
+Liste tudo que está aberto, com labels, dono e bloqueio nativo:
+
+```bash
+gh issue list --state open --limit 100 \
+  --json number,title,labels,assignees \
+  --jq '.[] | "\(.number)\t\(.labels|map(.name)|join(","))\t\(.assignees|map(.login)|join(","))\t\(.title)"' | sort -n
+
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+gh api graphql -f query="{ repository(owner:\"${REPO%/*}\", name:\"${REPO#*/}\") { issues(states:OPEN, first:100) { nodes { number blockedBy(first:10){ nodes { number state } } } } } }" \
+  --jq '.data.repository.issues.nodes[] | select(.blockedBy.nodes|length>0) | "\(.number) bloqueada por: \(.blockedBy.nodes|map("#\(.number)(\(.state))")|join(", "))"'
+
+gh pr list --state open --json number,headRefName,title
+git worktree list | grep -v detached | tail -40
+git fetch -q origin && git rev-list --left-right --count origin/main...HEAD
+```
+
+Com banco na `plataforma/`, liste também as três últimas migrations de `origin/main` (`git ls-tree --name-only origin/main <pasta de migrations>/ | tail -3`). Com deploy no `docs/spec/deploy/project.json`, rode `curl -s` no `health_check` de cada serviço. Sem banco ou sem deploy, pule o que não existe.
+
+Para cada PRD aberto, pegue as sub-issues (`gh api "repos/$REPO/issues/<PRD>/sub_issues"`) e o **último comentário inteiro** (ele diz se o PRD só espera trabalho humano).
+
+Leia o corpo de toda issue candidata. É dele que saem as dependências (passo 4), as decisões (passo 2) e as **intervenções humanas no meio das ondas**: enquanto lê, anote tudo que é migration, "passo humano", segredo ou env var (plataforma de deploy, secrets do repositório, `tokens/.env`), bucket ou qualquer coisa que se cria numa tela. A agenda dessas intervenções é item próprio do relatório (passo 6). Regras para marcar a hora de cada uma:
+
+- Migration: antes do merge da fatia que a traz; a subida fica parada esperando o número no `/api/health`.
+- Env var ou segredo criado na plataforma de deploy só entra no container no próximo deploy: criar **logo depois do deploy da onda que traz a fatia**, e o deploy da onda seguinte sobe com ela. Se não há onda seguinte, pede restart do backend na plataforma. Até lá a rota responde 503 e isso não é must-fix.
+- Segredo nunca passa por `! comando` nem pelo agente: o humano gera e cola nas telas.
+
+Classifique **cada** issue aberta em exatamente um balde. Conte: `N abertas = agente + decisão + PRD + só humano`. Esse somatório aparece no relatório.
+
+| Balde | Regra | Destino |
+|---|---|---|
+| Outra sessão | sub-issue de PRD em `--exceto`, ou já com `in-progress`, ou PR aberto | fora, citar no relatório |
+| Pronta | `ready-for-agent` (com ou sem designado), bloqueio só por issue fechada | entra |
+| Sem triagem | `needs-triage` com critérios de aceite escritos e sem decisão de domínio | triagem rápida (passo 2a) |
+| Decisão | `needs-triage` ou `ready-for-human` cujo corpo traz **duas saídas escritas** (A/B, 1/2) | pergunta ao humano (passo 2b), depois entra |
+| PRD | issue-mãe com sub-issues | não é trabalho; fecha sozinho quando a última filha fecha |
+| Só humano | ação operacional (cadastro na tela, mandar arquivo para alguém), `needs-info` que depende de terceiro, `wontfix` | fora, listar como "precisa de você" com o que exatamente fazer |
+| Bloqueada | bloqueio nativo, ou "rodar depois da #N" escrito no corpo, por issue ainda aberta | entra na mesma sessão da bloqueadora, na onda seguinte à dela, com a dependência escrita na fila (passo 5); o implementador dela só é disparado quando a bloqueadora fecha no deploy |
+
+### 2. Deixar tudo `ready-for-agent`
+
+#### 2a. Triagem rápida das `needs-triage`
+
+Só tria quem já traz critérios de aceite (as issues que os revisores independentes abrem vêm com "Critérios de aceite (rascunho, a triagem confirma)"). Issue sem critério fica no balde "precisa de você".
+
+Para cada uma:
+
+1. Se a issue tem "Decisão pendente" com recomendação, **crave a recomendação que a própria issue traz**. Sem recomendação escrita e sem duas saídas nomeadas, escolha a opção mais conservadora (fecha a porta, não redesenha) e deixe o redesenho como follow-up.
+2. Comente na issue com o cabeçalho `## Triagem <data>`, o escopo cravado em 3 a 5 linhas (o que vira código, o que fica de fora, o cuidado herdado da revisão) e a frase "O humano pode reverter antes do merge". O implementador da `/onda-enxuta` lê a issue, não o seu prompt: a decisão precisa estar lá.
+3. Mova a label: `gh issue edit <N> --remove-label needs-triage --add-label ready-for-agent`.
+
+O classifier pode negar um script com vários `gh issue comment` de uma vez. Comente uma issue por comando (várias chamadas independentes na mesma resposta podem).
+
+#### 2b. Decisões de domínio: perguntar, não devolver
+
+Issue que a revisão marcou como "decisão dos sócios" (o que o aluno vê antes de pagar, quem pode apagar um curso, se a aula assistida conta como concluída) **não vai para "precisa de você"** se o corpo já traz as duas saídas. O humano está na sessão: pergunte.
+
+1. Uma chamada de `AskUserQuestion` com até 4 perguntas, **2 opções cada**, a recomendada primeiro com "(Recomendado)". Cada opção diz em uma linha o que vira depois: "vira issue de docs", "vira issue de código com teste X", "vira PRD novo, fica fora de hoje".
+2. Com a resposta, comente na issue `## Triagem <data>` começando por "**Decisão registrada: saída X.**", o motivo em uma frase, e o escopo cravado (o que carimba, qual status de recusa, o que fica fora).
+3. Mova a label: `--remove-label ready-for-human` (ou `needs-triage`) `--add-label ready-for-agent`. Decisão que vira só docs (emenda de ADR, RN no `CONTEXT.md`, comentário de migration antiga) também é issue de agente: `fatia:P`, e o prompt diz "só docs, nenhum código muda".
+
+Fica em "precisa de você" só a issue **sem saídas nomeadas** (a pergunta ainda não está formulada) ou cuja resposta é um PRD novo.
+
+### 3. Ruído de `revisor-comentou`
+
+A `/onda-enxuta` para na largada se houver `revisor-comentou` de revisor humano. Leia o último comentário de cada issue com a label:
+
+- Comentário de quem monta o plano (decisão registrada) ou do sub-agente da onda (a Action aplica a label ao comentário do próprio sub-agente) → remova a label.
+- Comentário de revisor de verdade pedindo mudança → a issue fica fora do plano e vai para "precisa de você".
+
+**A Action carimba os SEUS comentários também.** Cada `## Triagem` e cada `## Decisão` que você escrever recebe `revisor-comentou` segundos depois, inclusive no PRD. Depois do último comentário, rode em segundo plano um `until` que remove a label e só termina quando `gh issue list --state open --label revisor-comentou` vier vazio por 30 segundos. Confira o vazio antes de entregar os prompts. Não use `sleep` encadeado em primeiro plano.
+
+### 4. Reinventariar, depois agrupar por dependência
+
+**Antes de montar a tabela, rode o inventário de novo** (o bloco do passo 1 inteiro). Enquanto você triava, outra sessão pode ter mergeado (issue que estava no plano fechou, prod mudou de versão, a numeração de migration andou) e revisores podem ter aberto issue nova. Nesta skill o mundo muda no meio: em 03/09/2026 a #489 fechou, a 096 apareceu e nasceram #546 e #547 entre o primeiro e o segundo inventário. Issue nova com critério passa pelo passo 2.
+
+O único separador de ondas é a **dependência**, não o arquivo (ADR 0068). A subida mergeia PR a PR (ADR 0068): conflito tira só aquele PR, que o `iae-corretor` rebaseia (motivo `conflito`, skill `resolver-conflitos`), e os outros sobem. Monte o grafo de bloqueio (o nativo do passo 1 mais o "rodar depois da #N" escrito no corpo das issues) e aplique:
+
+1. **Ondas pelo grafo**: onda 1 é toda issue da sessão sem bloqueio aberto; a onda seguinte é a das issues cujas bloqueadoras estão todas nas ondas anteriores. **Arquivo em comum, dentro da sessão ou entre sessões, não separa onda nem sessão.** Com mais issues livres que o `--paralelo`, `fatia:P` antes de `M`/`G`. Varredura de módulo inteiro (tipografia, lint) depende de tudo que muda aquele módulo: ganha o `blocked_by` nativo de cada issue aberta que muda aquele módulo (o comando do item 2) e fica na última onda da sessão dona dele. Sem esse bloqueio, a `/onda-enxuta` a puxa na primeira onda, junto com as issues que ela deveria varrer depois.
+2. **Mesmo ponto é dependência**: o mesmo ponto é a mesma entrada: as duas fatias editam a mesma rota, o mesmo item de menu ou a mesma função, ou uma usa o que a outra cria. Cada fatia acrescentar a própria linha de `include_router` no `main.py` ou o próprio item no `AdminSidebar.tsx` não é mesmo ponto: as duas rodam juntas, e a subida PR a PR resolve o conflito de texto. Exemplo: as fatias 1 e 2 criam as rotas `/cursos` e `/alunos`, cada uma com o próprio `include_router` no `main.py`, e andam na mesma onda; a fatia 3 muda a rota `/cursos` que a 1 cria e anda depois da 1, com o `blocked_by` dela. Quando é mesmo ponto, a de depois ganha "Bloqueada por" a de antes pela dependência nativa (ADR 0068), para nenhuma outra sessão nem o `/pegar-issue` a pegarem antes: `gh api -X POST "repos/$REPO/issues/<seguinte>/dependencies/blocked_by" -F issue_id=$(gh api "repos/$REPO/issues/<anterior>" --jq .id)`. Dependência escrita só no corpo ("rodar depois da #N") vira nativa do mesmo jeito: é o `blocked_by` que a `/onda-enxuta` lê. Função diferente no mesmo arquivo não é o mesmo ponto. **Arquivo de costura na mesma onda pede nome cravado:** duas issues da mesma onda que acrescentam cada uma a própria entrada no mesmo arquivo de costura recebem, no `## Triagem` de cada uma, o nome exato e o ponto de registro que ela acrescenta (`cursos_router`, `include_router` logo depois do de alunos; item "Cursos" abaixo de "Alunos" no `AdminSidebar.tsx`). Implementadores paralelos não se veem: sem o nome cravado, cada um inventa o seu para a mesma coisa e o conflito vira semântico, que a subida PR a PR não resolve. O implementador lê o `## Triagem` como spec, então a casa é a issue, não o prompt da sessão. Issue que outra sessão já roda (balde "Outra sessão") e de quem uma candidata depende: a candidata ganha "Bloqueada por" ela do mesmo jeito e fica fora deste plano.
+3. **Sessões por tema ou PRD**: nomeie cada sessão pelo tema (segurança e logs, catálogo de cursos, área do aluno). Uma cadeia de dependência fica numa sessão só, para a bloqueada andar assim que a bloqueadora fechar.
+4. **Paralelo por onda**: até 3. Sessão com 2 issues por onda roda `--paralelo 2`. Equilibre o número de ondas entre as sessões: cada onda é um deploy.
+5. Issue que cria migration: **calcule o número** pelo `ls` de `origin/main` e escreva no prompt ("o número é 097; a 096 já existe"). O deploy não aplica migration; o humano aplica no banco.
+
+Mostre a tabela final: sessão · onda · issues · dependência (de quem cada issue fora da onda 1 depende, e o ponto que as liga).
+
+### 5. Escrever os prompts e os comandos de lançamento
+
+Um arquivo de prompt por sessão, gravado em `$TMPDIR/onda-enxuta/<nome>-onda1.md` (macOS) ou `%TEMP%\onda-enxuta\<nome>-onda1.md` (Windows), criando a pasta, e um comando de lançamento por sessão. O comando impresso vem **com o prefixo `!`** e serve para relançar à mão (sessão que morreu, plano retomado noutro dia): o lançamento normal é o do passo 7, feito pela própria skill depois do "pode". O `lancar_sessao.sh` limpa o ambiente herdado (`env -u ANTHROPIC_API_KEY ...`), então a sessão de fundo nasce da sessão que montou o plano, pelo Bash ou pelo `!`, sem abrir terminal. Nomeie as sessões `onda-a`, `onda-b`, `onda-c`. Escreva **só o arquivo da onda 1** de cada sessão: a passagem para a onda seguinte é a `/onda-enxuta` que escreve, com os PRs verdes. Arquivo de onda 2 ou 3 escrito aqui é convite para lançar fora de ordem (em 13/10/2026 uma onda 3 foi lançada com toda a fila ainda bloqueada e teve que ser parada); a exceção é a fila que para num OK humano no meio: aí o arquivo da onda seguinte existe, com o nome `<nome>-onda<N>.md`, e o relatório diz em que momento o humano o lança. O prompt inteiro também vai impresso na resposta, com um **cabeçalho de leitura** acima (o humano lê o cabeçalho para saber o que a sessão vai fazer; a sessão só recebe o arquivo). Formato do cabeçalho:
+
+```markdown
+### Sessão onda-a: <tema>
+
+**Issues que ela toca:** #a, #b (onda 1) · #d (onda 2)
+
+**O que cada uma faz:**
+- #a: <uma linha, o que muda no código>
+- #b: <uma linha>
+- #d: <uma linha>
+
+**Por que vale a pena:** <2 ou 3 frases, na língua dos sócios: o que o usuário ganha ou o risco que fecha quando esta sessão terminar. Sem nome de arquivo.>
+
+**Lançar (a skill lança no passo 7; o comando fica para relançar à mão):**
+
+```
+! bash .claude/skills/onda-enxuta/scripts/lancar_sessao.sh onda-a-onda1 "$TMPDIR/onda-enxuta/onda-a-onda1.md"
+```
+```
+
+Depois do cabeçalho, o conteúdo do arquivo de prompt. A primeira linha precisa ser o comando, para a skill disparar. Template:
+
+```
+/onda-enxuta --sessao onda-a --onda 1 --paralelo <N>
+
+Fila-alvo FIXA desta sessão. Não use a fila geral. Não toque nas issues #.., #.. (outra sessão está rodando).
+- Onda 1: #a, #b, #c
+- Onda 2: #d, depois da #a; #e, depois da #b
+- Onda 3: #f, depois da #e
+Dependências: #d usa <o que a #a registra>. #e edita <a mesma entrada que a #b>. A onda é toda issue desta fila já desbloqueada, até o --paralelo: a que destravar antes da onda prevista entra na primeira onda que encontrar livre.
+
+Auditorias de PRD desta sessão: quando #a e #b fecharem, audite o PRD #X contra produção. Quando #f fechar, audite o PRD #Y de novo (só a lacuna N estava aberta).
+
+Decisões de triagem: comentadas nas issues (#.. em <data>; #.. em <data>).
+- #<N>: <a decisão em uma linha, quando o corpo sozinho deixa dúvida: o item que fica de fora, o valor cravado, "só docs, nenhum código muda">.
+- #<N> cria migration: o número é <0XX> (a <0XX-1> já existe em origin/main). O deploy não aplica: a subida imprime o arquivo, a sessão notifica o humano e o merge espera o número no /api/health.
+
+Outras sessões mergeiam e deployam em paralelo (onda-b, onda-c). O semáforo do fechar_onda.py ordena os deploys; prod hoje está em v<X.Y.Z>.
+```
+
+O que **não** entra mais no prompt, porque a skill ou o script já cuidam: "PARE e só comece quando eu escrever vai" (o lançamento é o vai), a regra do carimbo `revisor-comentou` (passo 0 da skill), o estado da árvore principal (o fechamento usa worktree próprio) e a instrução de reconferir `origin/main` antes do bump (o script faz).
+
+A linha "Auditorias de PRD" entra quando a última sub-issue aberta de um PRD está nesta sessão. A linha por issue entra quando houver decisão que o corpo não traz sozinho. Cada sessão lista no "Não toque" as issues da outra, não só o PRD.
+
+### 6. Relatório e ordem de comando
+
+A resposta final tem esta forma, nesta ordem. É o que o humano lê do celular.
+
+1. **Uma linha de contas:** "Das N abertas, X estão `ready-for-agent` e entram nos prompts. As outras Y não são trabalho de agente." Cite a pasta dos prompts (`$TMPDIR/onda-enxuta/` ou `%TEMP%\onda-enxuta\`).
+2. **O que eu fiz:** issues triadas, decisões que o humano tomou e onde ficaram registradas, issue criada, PRD destravado, o que mudou no mundo durante o plano (sessão paralela, versão de prod, migration nova).
+3. **As Y que ficam com você:** uma linha por issue, com a ação concreta e o que ela destrava. PRDs entram aqui como "fecham sozinhos quando as filhas fecharem".
+3b. **Agenda de intervenções:** as paradas do passo 1 numa tabela, na ordem em que chegam: quando (onda e se é antes do merge ou depois do deploy) · o quê (migration 0XX, nome da env var ou do segredo) · onde (banco, tela da plataforma de deploy, secrets do repositório, `tokens/.env`) · se atrasar (o que fica parado ou degradado, e se pede restart). Sem parada: a linha "nenhuma intervenção no meio das ondas".
+4. **Tabela final** do passo 4.
+5. **Os prompts**, inteiros, cada um com o cabeçalho de leitura (issues, resumo por issue, valor, comando de lançamento) em cima do bloco.
+6. **Passo a passo:**
+   1. O lançamento das sessões da onda 1 é o passo 7, logo abaixo, com o "pode" do humano. Cada uma nasce em segundo plano, monta a fila e roda a onda 1 até produção. `claude agents` lista as sessões vivas; `claude logs <id>` mostra o andamento.
+   2. Nada a aprovar: cada sessão mergeia e sobe a própria onda sozinha (ADR 0068), e o semáforo enfileira os deploys. A notificação chega em três casos: migration no lote (aplique no banco o arquivo que ela cita), fatia que foi para `ready-for-human` e rollback. Liste a sequência onda a onda, alternando sessões, e marque na linha certa "a onda N traz a migration 0XX". Lance a sessão com migration quando o humano estiver perto do banco.
+   3. Com os PRs verdes, a sessão lança sozinha a sessão da onda seguinte e, em paralelo com ela, sobe a onda (um merge pela API por PR, um build); depois comenta o resultado da subida no PRD, imprime a conta de tokens e encerra. Nada a fazer até a próxima notificação.
+   4. "No tempo morto": as tarefas do item 3. As intervenções do 3b entram na linha da onda certa, como a migration.
+
+7. **A pergunta de lançamento.** O relatório termina com uma pergunta só, em uma linha: "Posso lançar as sessões da onda 1 (onda-a, onda-b)?", listando antes dela, por sessão, a pré-condição que ainda depende do humano (arquivo que ele coloca, banco à mão para a migration da onda 1), quando houver. A resposta é texto livre: "pode", "vai", "sim", "lança" lançam; "só a onda-a" lança uma; "não" deixa os comandos impressos e encerra. Com o sim, rode pelo Bash, da raiz do repositório, um `lancar_sessao.sh` por sessão, em sequência, e imprima a linha `backgrounded · <id> · <nome>` de cada um mais o `claude logs <id>`. Sessão com pré-condição não cumprida: pergunte na mesma linha se lança assim mesmo (o prompt já diz o que o implementador faz sem ela) ou se fica para depois. Só os arquivos `-onda1.md` são lançados aqui, nunca o de uma onda seguinte.
+
+## O que esta skill não faz
+
+- Não dispara nada além da sessão da onda 1 de cada fila, e só depois do "pode" (passo 7). Não pega issue, não mergeia. Quem executa é a `/onda-enxuta`, uma sessão de fundo por onda, que lança sozinha a onda seguinte.
+- Não tria issue sem critério de aceite. Não decide sozinha uma decisão de domínio (ADR, RN do `CONTEXT.md`): ela pergunta ao humano (2b) e crava a resposta. Só vai para "precisa de você" a decisão sem saídas formuladas, ou a que vira PRD novo.
+- Não faz ação operacional (cadastro em produção, envio de arquivo a terceiros, pedido a serviço externo). Isso é "precisa de você", com o passo escrito.
+- Não substitui o `/triage` para issue nova sem critério; só move as que já nasceram prontas.

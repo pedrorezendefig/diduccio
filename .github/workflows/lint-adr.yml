@@ -1,0 +1,29 @@
+name: Lint ADR
+
+# O lint das ADRs vive em workflow próprio, disparado só quando uma ADR muda.
+# Garante status verdadeiro e supersessão bidirecional (tools/test_lint_adr.py).
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/adr/**'
+      - 'tools/lint_adr.py'
+      - '.github/workflows/lint-adr.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/adr/**'
+      - 'tools/lint_adr.py'
+      - '.github/workflows/lint-adr.yml'
+
+jobs:
+  lint-adr:
+    name: Frontmatter e supersessão das ADRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Lint ADR
+        run: python3 tools/lint_adr.py
