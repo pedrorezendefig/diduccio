@@ -1,4 +1,4 @@
-"""Aba Issues do IAE OS (issue #942, ADR 0062, decisões 3, 5 e 6).
+"""Aba Issues do Diduccio OS (issue #942, ADR 0062, decisões 3, 5 e 6).
 
 Home do painel: filtros em dropdown do próprio painel no topo (responsável na
 cor da pessoa, estado, PRD, labels por prefixo, busca), o card grande com tudo

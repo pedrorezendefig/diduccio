@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from diagramas import extrair_diagramas, parse_bloco  # noqa: E402
 
 # O repo de verdade destes testes é uma amostra congelada do Hospital
-# (repo do Hospital no commit 9c1aabe, em amostra_hospital/): o IAE ainda
+# (repo do Hospital no commit 9c1aabe, em amostra_hospital/): o Diduccio ainda
 # não tem app nem ADRs encadeadas, e o parser precisa de dados reais para conferir.
 RAIZ = Path(__file__).resolve().parent / "amostra_hospital"
 

@@ -150,7 +150,7 @@ ESTRUTURA_MD = """# ESTRUTURA.md
 
 ## Backend (FastAPI)
 
-Localização: `plataforma/backend/`
+Localização: `app/backend/`
 
 ```
 app/
@@ -163,7 +163,7 @@ tests/               # pytest
 
 def test_estrutura_vira_arvore_anotada():
     (sec,) = parse_estrutura(ESTRUTURA_MD)["secoes"]
-    assert sec["local"] == "plataforma/backend/"
+    assert sec["local"] == "app/backend/"
     assert sec["nos"][0] == {"nome": "app/", "nivel": 0, "dir": True, "comentario": ""}
     assert sec["nos"][1]["nome"] == "routers/"
     assert sec["nos"][1]["nivel"] == 1

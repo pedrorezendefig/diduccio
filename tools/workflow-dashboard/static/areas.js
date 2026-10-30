@@ -13,18 +13,20 @@ import { COR_DOMINIO, dominioDe } from './diagramas.js';
 
 /* ---------- ROTAS: explorador por domínio funcional ---------- */
 
-const ORDEM_DOM_ROTAS = ['Reuniões', 'POPs', 'Pessoas', 'Infra'];
+const ORDEM_DOM_ROTAS = ['Portaria', 'Moradores', 'Reservas', 'Administração', 'Infra'];
 const ROTAS_DESC_DOM = {
-  'Reuniões': 'agendar, processar com IA, validar, assinar',
-  POPs: 'setores, elaboração, revisão, publicação',
-  Pessoas: 'cadastro, login, perfis e preferências',
-  Infra: 'admin, notificações, webhooks e saúde',
+  Portaria: 'entregadores, encomendas, retirada assinada',
+  Moradores: 'unidades, moradores, vagas e TAGs',
+  Reservas: 'festas, churrasqueira, piscina, mudanças, agenda',
+  'Administração': 'atas, comunicados, tarefas, usuários',
+  Infra: 'login, log, auditoria e saúde',
 };
 
 function dominioRota(rota) {
-  if (rota.startsWith('/pops')) return 'POPs';
-  if (/^\/(reunioes|pendencias|transcricao|webhooks)/.test(rota)) return 'Reuniões';
-  if (/^\/(participantes|auth|perfil|configuracoes)/.test(rota)) return 'Pessoas';
+  if (/^\/(entregas|encomendas)/.test(rota)) return 'Portaria';
+  if (/^\/(unidades|moradores|vagas|tags|confirmacao)/.test(rota)) return 'Moradores';
+  if (/^\/(festas|churrasqueira|piscina|mudancas|agendamento)/.test(rota)) return 'Reservas';
+  if (/^\/(dashboard|assembleia|comunicado|tarefas|aprovacao|processos|usuarios|calendario|patrimonio)/.test(rota)) return 'Administração';
   return 'Infra';
 }
 
@@ -142,9 +144,10 @@ function fichaHtml(t, ctx) {
 
 function dominioMigration(m) {
   const s = `${m.arquivo} ${m.resumo}`.toLowerCase();
-  if (s.includes('pop')) return 'POPs';
-  if (/participante|super_admin|access_profile|taxonomy|cargo|user_preferences|email_nullable|secretaria|signup/.test(s)) return 'Pessoas';
-  if (/reunio|pendencia|token|comentario|nota|ata|lembrete|assinatura|clicksign|soft_delete|importacao|recorrencia|aprovada|facilitador|prompts/.test(s)) return 'Reuniões';
+  if (/entreg|encomend|retirada|portaria|codigo_de_retirada/.test(s)) return 'Portaria';
+  if (/unidade|morador|vaga|tag|confirmac|cpf|usuario|perfil/.test(s)) return 'Moradores';
+  if (/festa|churrasqueira|piscina|mudanca|agendamento/.test(s)) return 'Reservas';
+  if (/assembleia|compra|nota|multa|notificac|tarefa|comunicado|assinatura/.test(s)) return 'Administração';
   return 'Infra';
 }
 
@@ -236,11 +239,11 @@ function renderIntegracoes(dados) {
       <span class="k-label">quem conversa com o app · ${svcs.length} serviços externos</span>
       <span class="er-capa-hint">passe o mouse num serviço para acender o caminho dele</span>
     </div>
-    <svg class="ctx-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="Diagrama de contexto: a Plataforma de cursos no centro e os serviços externos em volta">
+    <svg class="ctx-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="Diagrama de contexto: o Diduccio no centro e os serviços externos em volta">
       <defs><marker id="ctxPonta" markerWidth="9" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0 0 L9 4 L0 8 Z"/></marker></defs>
       ${boxes}
       <g class="ctx-app"><rect x="${ax}" y="${ay}" width="${AW}" height="${AH}" rx="16"/>
-        <text class="ctx-app-nome" x="${W / 2}" y="${ay + 32}">Plataforma de cursos</text>
+        <text class="ctx-app-nome" x="${W / 2}" y="${ay + 32}">Diduccio</text>
         <text class="ctx-app-sub" x="${W / 2}" y="${ay + 52}">backend FastAPI</text></g>
       <g class="ctx-rotulos">${rotulos.join('')}</g>
     </svg>

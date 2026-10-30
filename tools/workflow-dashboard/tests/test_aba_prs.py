@@ -1,4 +1,4 @@
-"""Aba PRs do IAE OS (issue #946, ADR 0062, decisão 7).
+"""Aba PRs do Diduccio OS (issue #946, ADR 0062, decisão 7).
 
 Quadro com as sete fases do PR em colunas e uma raia por pessoa, na cor dela.
 A pessoa do PR é quem assumiu a issue que ele fecha (assignee; emenda de

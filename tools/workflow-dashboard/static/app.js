@@ -235,7 +235,7 @@ function renderBanner() {
 
 function renderFoot() {
   $('#foot').innerHTML = `
-    <span>IAE OS · somente leitura · fontes: <span class="mono">gh</span> + docs/spec + git</span>
+    <span>Diduccio OS · somente leitura · fontes: <span class="mono">gh</span> + docs/spec + git</span>
     <span class="foot-right">coletado às ${esc(fmtDT(S.data.generated_at))}
       <a class="btn-pill outline" href="${esc(S.data.repo_url)}" target="_blank" rel="noopener">${esc(S.data.repo_slug)} <span class="btn-arrow">↗</span></a></span>`;
 }
@@ -1055,7 +1055,7 @@ function deployCardHtml(ev, pos, mergePorPr, alvo) {
 }
 
 /* merge que não entrou em deploy nenhum: nó pequeno, contorno tracejado na cor
-   de quem mergeou. Ferramenta (nada em plataforma/) nunca entra; PR do
+   de quem mergeou. Ferramenta (nada em app/) nunca entra; PR do
    app espera o próximo deploy */
 function mergeNoHtml(ev, pos, versaoDoDeploy) {
   const etiqueta = ev.ferramenta ? 'só merge · ferramenta'
@@ -1330,7 +1330,7 @@ function marcarNoFluxo() {
 }
 
 function renderFluxo() {
-  const cab = cabecalho('trabalhar', 'Do pedido à produção', 'ADR 0068 · static/fluxo.json, mantido junto com o /ask-iae');
+  const cab = cabecalho('trabalhar', 'Do pedido à produção', 'ADR 0068 · static/fluxo.json, mantido junto com o /ask-diduccio');
   if (!S.fluxo) {
     ensureFluxo();
     return `${cab}<div class="empty">${S.fluxoErro ? `fluxo.json indisponível: ${esc(S.fluxoErro)}` : 'carregando o fluxo…'}</div>`;

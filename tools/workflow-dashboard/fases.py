@@ -1,4 +1,4 @@
-"""Fases do IAE OS: em que pé está cada issue e cada PR (ADR 0062, decisões 4 a 7).
+"""Fases do Diduccio OS: em que pé está cada issue e cada PR (ADR 0062, decisões 4 a 7).
 
 Função pura: issues, PRs, deploys do history.json e branches remotas (no shape
 do collect.py) entram; fase por issue, fase por PR, timeline, ondas por PRD e

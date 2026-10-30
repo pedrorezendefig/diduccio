@@ -1,4 +1,4 @@
-"""Coletor do IAE OS: campos novos do PR, timeline em lote, branches remotas e fases.
+"""Coletor do Diduccio OS: campos novos do PR, timeline em lote, branches remotas e fases.
 
 `gh` e `git` mockados em collect._run (molde de test_filtro_responsavel.py): o
 teste afirma o que o coletor pede e o que ele entrega normalizado, sem rede.
@@ -270,10 +270,10 @@ def test_ls_remote_falhando_devolve_lista_vazia(monkeypatch):
 def test_classe_do_pr_vem_dos_arquivos_do_squash_na_origin_main(monkeypatch):
     chamadas = []
     saida = (
-        "\x00feat(ouvidoria): tela nova (#90)\n\nplataforma/frontend/a.tsx\ntools/x.py\n"
+        "\x00feat(ouvidoria): tela nova (#90)\n\napp/src/a.jsx\ntools/x.py\n"
         "\x00chore(os): painel (#91)\n\ntools/workflow-dashboard/fases.py\nCONTEXT.md\n"
-        "\x00refactor: tira do app (#92)\n\nplataforma/velho.py\nscripts/novo.py\n"
-        "\x00chore: commit sem PR\n\nplataforma/b.py\n"
+        "\x00refactor: tira do app (#92)\n\napp/velho.js\nscripts/novo.py\n"
+        "\x00chore: commit sem PR\n\napp/b.js\n"
     )
 
     def run(cmd, cwd, timeout=None):
@@ -297,7 +297,7 @@ def test_git_log_falhando_deixa_a_classe_desconhecida(monkeypatch):
 
 CORPO_O_QUE_MUDA = """## 💬 Valor entregue
 
-<!-- um parágrafo, como quem explica a um colega do IAE -->
+<!-- um parágrafo, como quem explica a um colega do Diduccio -->
 **O que muda:** o secretário baixa a Ata em `PDF` com um clique
 e manda por email sem passar pelo Word.
 

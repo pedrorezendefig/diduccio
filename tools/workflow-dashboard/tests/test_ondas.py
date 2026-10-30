@@ -33,7 +33,7 @@ from test_reskin_mapa import _cores_fixas  # noqa: E402
 def _iss(n, *, state="OPEN", assignees=(), labels=(), blocked_by=(), parent=None, children=()):
     return {
         "number": n,
-        "title": f"IAE OS: fatia {n}",
+        "title": f"Diduccio OS: fatia {n}",
         "state": state,
         "labels": list(labels),
         "assignees": list(assignees),

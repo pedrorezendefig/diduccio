@@ -1,6 +1,6 @@
 """Aba Documentação: o fluxo de trabalho (static/fluxo.json) e as Decisões por tema.
 
-O fluxo é um JSON desenhado à mão, mantido junto com o /ask-iae, e o
+O fluxo é um JSON desenhado à mão, mantido junto com o /ask-diduccio, e o
 diagramas.js desenha (tipo `fluxo`). Aqui mora o contrato do arquivo: JSON
 válido, grafo fechado (toda aresta aponta para nó que existe), todo passo de
 skill aponta para skill que existe em .claude/skills/<nome>/SKILL.md, nenhum
@@ -21,7 +21,7 @@ DASH = Path(__file__).resolve().parents[1]
 STATIC = DASH / "static"
 RAIZ = Path(__file__).resolve().parents[3]
 # O repo de verdade destes testes é uma amostra congelada do Hospital
-# (repo do Hospital no commit 9c1aabe, em amostra_hospital/): o IAE ainda
+# (repo do Hospital no commit 9c1aabe, em amostra_hospital/): o Diduccio ainda
 # não tem app nem ADRs encadeadas, e o parser precisa de dados reais para conferir.
 AMOSTRA = Path(__file__).resolve().parent / "amostra_hospital"
 FLUXO_TXT = (STATIC / "fluxo.json").read_text(encoding="utf-8")
@@ -145,7 +145,7 @@ def test_renderer_desenha_o_fluxo_inteiro_e_cabe_em_1400px(tmp_path, fluxo):
 
 
 def test_readme_avisa_que_o_fluxo_anda_junto_com_o_ask_iae():
-    assert "fluxo.json" in README and "/ask-iae" in README
+    assert "fluxo.json" in README and "/ask-diduccio" in README
     assert "### Documentação" in README
 
 

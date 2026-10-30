@@ -1,4 +1,4 @@
-"""Sub-aba Stack da Documentação (issue #7, só no IAE).
+"""Sub-aba Stack da Documentação (issue #7, só no Diduccio).
 
 O coletor lê `docs/STACK.md` e manda o texto no `/api/data` (`stack_md`); a
 sub-aba Stack, depois do Glossário, mostra o markdown no mesmo componente das
@@ -27,7 +27,7 @@ from test_router import _app  # noqa: E402
 
 com_node = pytest.mark.skipif(not shutil.which("node"), reason="node ausente")
 
-STACK = "# Stack\n\n## IAE OS\n\nPython sem dependências e front sem build.\n"
+STACK = "# Stack\n\n## Diduccio OS\n\nPython sem dependências e front sem build.\n"
 AVISO = "A stack ainda não foi documentada"
 MARKED = (
     f"import _marked from '{(STATIC / 'vendor' / 'marked.min.js').as_uri()}';\n"
@@ -55,7 +55,7 @@ def test_coleta_sem_o_arquivo_manda_stack_vazia(monkeypatch, tmp_path):
 
 def test_o_repo_tem_a_stack_de_hoje_e_a_prevista():
     texto = (RAIZ / "docs" / "STACK.md").read_text(encoding="utf-8")
-    for peca in ("Python", "gh", "Next.js", "FastAPI", "Postgres", "Coolify", "Hostinger"):
+    for peca in ("Python", "gh", "React", "Vite", "Supabase", "Postgres", "Vercel"):
         assert peca in texto, f"STACK.md sem {peca}"
     assert "prevista" in texto.lower()
     assert chr(0x2014) not in texto and chr(0x2013) not in texto
@@ -77,7 +77,7 @@ def test_sub_aba_stack_mostra_o_markdown_depois_do_glossario(tmp_path):
     assert pills.index('data-sub="glossario"') < pills.index('data-sub="stack"')
     assert 'class="fchip on" data-act="docsub" data-sub="stack">Stack<' in html
     assert '<div class="md">' in html
-    assert "<h2>IAE OS</h2>" in html
+    assert "<h2>Diduccio OS</h2>" in html
     assert "Python sem dependências e front sem build." in html
     assert AVISO not in html
 

@@ -1,4 +1,4 @@
-"""Router de hash do IAE OS (issue #944, ADR 0062, decisão 8).
+"""Router de hash do Diduccio OS (issue #944, ADR 0062, decisão 8).
 
 Aba, item aberto e filtros vivem no hash (`#issues/930`, `#prs/930`,
 `#producao/v0.161.0`, `#issues?resp=...&fase=...`); abrir o painel com o hash

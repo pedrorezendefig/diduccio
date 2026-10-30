@@ -13,22 +13,29 @@ import { TABELAS } from './content/tabelas.js';
 
 /* ---------- ER: clusters por domínio ---------- */
 
-/* mapeamento curado tabela → domínio; pops* cai em POPs por prefixo;
+/* mapeamento curado tabela → domínio;
    tabela desconhecida (ex.: recém-criada no schema) cai em Outras */
 const DOMINIO_DE = {
-  participantes: 'Pessoas', cargos: 'Pessoas', user_preferences: 'Pessoas',
-  reunioes: 'Reuniões', reuniao_participantes: 'Reuniões', tipos_reuniao: 'Reuniões',
-  pendencias: 'Reuniões', comentarios_pendencias: 'Reuniões',
-  agendamentos_email: 'Reuniões', tokens_validacao: 'Reuniões',
-  audit_log: 'Infra', bulk_jobs: 'Infra', notificacoes: 'Infra',
+  unidades: 'Moradores', moradores: 'Moradores', vagas: 'Moradores', tags: 'Moradores',
+  confirmacao: 'Moradores', usuarios: 'Moradores',
+  entregadores: 'Portaria', entregadores_chegadas: 'Portaria', entregas: 'Portaria',
+  entregas_foto: 'Portaria', entregas_nf: 'Portaria', entregas_recebimento: 'Portaria',
+  retiradas: 'Portaria', retirada_itens: 'Portaria',
+  festas: 'Reservas', uploads_festas: 'Reservas', churrasqueira: 'Reservas',
+  uploads_churrasqueira: 'Reservas', piscina: 'Reservas', uploads_piscina: 'Reservas',
+  mudancas: 'Reservas', agendamentos: 'Reservas',
+  assembleias: 'Administração', compras: 'Administração', compras_produtos: 'Administração',
+  uploads_compras: 'Administração', assinatura: 'Administração', notas: 'Administração',
+  multas: 'Administração', notificacoes: 'Administração', notificacoes_anexos: 'Administração',
+  tarefas: 'Administração', notas_tarefas: 'Administração',
+  log: 'Infra', auditoria: 'Infra', tentativas_login: 'Infra',
 };
-const DOMINIOS = ['Pessoas', 'Reuniões', 'POPs', 'Infra', 'Outras'];
+const DOMINIOS = ['Portaria', 'Moradores', 'Reservas', 'Administração', 'Infra', 'Outras'];
 export const COR_DOMINIO = {
-  Pessoas: 'var(--indigo)', 'Reuniões': 'var(--coral)', POPs: 'var(--green)',
-  Infra: 'var(--amber)', Outras: 'var(--purple)',
+  Portaria: 'var(--indigo)', Moradores: 'var(--blue)', Reservas: 'var(--green)',
+  'Administração': 'var(--coral)', Infra: 'var(--amber)', Outras: 'var(--purple)',
 };
-export const dominioDe = t => (Object.hasOwn(DOMINIO_DE, t) ? DOMINIO_DE[t]
-  : t === 'pops' || t.startsWith('pops_') ? 'POPs' : 'Outras');
+export const dominioDe = t => (Object.hasOwn(DOMINIO_DE, t) ? DOMINIO_DE[t] : 'Outras');
 
 /* layout fechado, sem motor de grafo: cards de largura única e altura
    variável (todas as colunas aparentes, issue #255) em masonry de 2 colunas
@@ -712,7 +719,7 @@ function flowSvg(diag) {
 /* ---------- Fluxo de trabalho: grade desenhada à mão (fluxo.json) ---------- */
 
 /* O fluxo do pedido à produção não é parseado de Mermaid: vem do
-   static/fluxo.json, mantido à mão junto com o /ask-iae. Cada nó diz onde
+   static/fluxo.json, mantido à mão junto com o /ask-diduccio. Cada nó diz onde
    fica numa grade (x em colunas, y em linhas, fracionários valem), então o
    renderer não decide layout nenhum: desenha raias, nós (retângulo com título
    e subtítulo; decisão com borda dupla; parada humana em âmbar com a mão),

@@ -380,7 +380,7 @@ def _branches_remotas(root: Path) -> list[str]:
 def _classes_dos_prs(root: Path) -> dict[int, str]:
     """Classe de cada PR mergeado, pelos arquivos do squash na origin/main ("(#N)" no assunto).
 
-    Mesmo critério do fechar_onda.py: "app" se algum arquivo está em plataforma/,
+    Mesmo critério do fechar_onda.py: "app" se algum arquivo está em app/,
     senão "ferramenta". Sem renames: mover código para fora do app também conta como app.
     """
     try:
@@ -392,7 +392,7 @@ def _classes_dos_prs(root: Path) -> dict[int, str]:
         assunto, _, arquivos = bloco.partition("\n")
         m = re.search(r"\(#(\d+)\)\s*$", assunto)
         if m:
-            app = any(a.startswith("plataforma/") for a in arquivos.split())
+            app = any(a.startswith("app/") for a in arquivos.split())
             classes.setdefault(int(m.group(1)), "app" if app else "ferramenta")
     return classes
 
@@ -465,7 +465,7 @@ def issue_detail(root: Path, number: int) -> dict:
 
 
 def _repo_slug(state: dict | None) -> str:
-    return ((state or {}).get("production") or {}).get("repo") or "pedrorezendefig/iae"
+    return ((state or {}).get("production") or {}).get("repo") or "pedrorezendefig/diduccio"
 
 
 def issue_timeline(root: Path, number: int) -> dict:

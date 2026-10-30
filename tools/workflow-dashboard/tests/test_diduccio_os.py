@@ -1,9 +1,9 @@
-"""O que a cópia do Hospital OS muda para virar o IAE OS (issue #2, PRD #1).
+"""O que a cópia do Hospital OS muda para virar o Diduccio OS (issue #2, PRD #1).
 
 Os outros arquivos desta pasta vieram do Hospital e guardam as asserções de
-lá (a pasta do app, `plataforma/`, mora no test_coletor_fases.py, com a
-fixture adaptada). Aqui ficam os critérios que só existem no IAE: o nome na
-tela, a paleta, o repo de reserva, o serviço na porta 8800 e as 4 abas
+lá (a pasta do app, `app/`, mora no test_coletor_fases.py, com a
+fixture adaptada). Aqui ficam os critérios que só existem no Diduccio: o nome na
+tela, a paleta, o repo de reserva, o serviço na porta 8801 e as 4 abas
 abrindo com os arquivos de um projeto que ainda não tem app.
 """
 
@@ -25,7 +25,7 @@ import collect  # noqa: E402
 
 ISSUE_DO_IAE = {
     "number": 2,
-    "title": "IAE OS de pé: painel copiado e adaptado",
+    "title": "Diduccio OS de pé: painel copiado e adaptado",
     "state": "OPEN",
     "labels": [{"name": "in-progress"}],
     "createdAt": "2026-10-14T18:00:00Z",
@@ -33,7 +33,7 @@ ISSUE_DO_IAE = {
     "assignees": [{"login": "pedrorezendefig"}],
     "author": {"login": "pedrorezendefig"},
     "body": "## Pai\n\n#1\n",
-    "url": "https://github.com/pedrorezendefig/iae/issues/2",
+    "url": "https://github.com/pedrorezendefig/diduccio/issues/2",
 }
 PAGINA_VAZIA = json.dumps(
     {"data": {"repository": {"issues": {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": []}}}}
@@ -52,7 +52,7 @@ def _texto_da_tela():
 
 
 def test_rodape_diz_iae_os():
-    assert "IAE OS · somente leitura" in APP_JS
+    assert "Diduccio OS · somente leitura" in APP_JS
 
 
 def test_nenhum_texto_do_painel_cita_o_hospital():
@@ -60,11 +60,11 @@ def test_nenhum_texto_do_painel_cita_o_hospital():
     assert citam == []
 
 
-# ---------- coleta: o repo de reserva é o do IAE ----------
+# ---------- coleta: o repo de reserva é o do Diduccio ----------
 
 
 def _gh_do_iae(chamadas):
-    """gh e git falsos: o gh responde uma issue do IAE; o git não tem origin."""
+    """gh e git falsos: o gh responde uma issue do Diduccio; o git não tem origin."""
 
     def run(cmd, cwd, timeout=None):
         chamadas.append(cmd)
@@ -79,8 +79,8 @@ def _gh_do_iae(chamadas):
     return run
 
 
-def test_coleta_sem_repo_no_state_le_as_issues_do_iae(monkeypatch, tmp_path):
-    # o state.json do IAE não tem bloco production: a coleta cai no repo de reserva
+def test_coleta_sem_repo_no_state_le_as_issues_do_diduccio(monkeypatch, tmp_path):
+    # o state.json do Diduccio não tem bloco production: a coleta cai no repo de reserva
     (tmp_path / "docs" / "spec" / "deploy").mkdir(parents=True)
     for nome in ("state.json", "history.json", "project.json"):
         shutil.copy(RAIZ / "docs" / "spec" / "deploy" / nome, tmp_path / "docs" / "spec" / "deploy" / nome)
@@ -91,12 +91,12 @@ def test_coleta_sem_repo_no_state_le_as_issues_do_iae(monkeypatch, tmp_path):
 
     assert data["github"]["error"] is None
     assert [i["number"] for i in data["github"]["issues"]] == [2]
-    assert data["repo_slug"] == "pedrorezendefig/iae"
-    assert data["repo_url"] == "https://github.com/pedrorezendefig/iae"
+    assert data["repo_slug"] == "pedrorezendefig/diduccio"
+    assert data["repo_url"] == "https://github.com/pedrorezendefig/diduccio"
     graphql = [c for c in chamadas if c[:3] == ["gh", "api", "graphql"]]
     assert graphql, "a coleta não pediu sub-issues nem bloqueios"
     for c in graphql:
-        assert "owner=pedrorezendefig" in c and "name=iae" in c, c
+        assert "owner=pedrorezendefig" in c and "name=diduccio" in c, c
 
 
 # ---------- paleta: só o :root muda, e o favicon segue ----------
@@ -116,10 +116,10 @@ def _token(nome):
 
 
 def test_paleta_da_marca_no_root():
-    # manual da marca IAE: o preenchimento escuro é o azul profundo
-    assert (_token("brand"), _token("navy")) == ("#01213d", "#01213d")
+    # marca Diduccio: o trilho é o marrom escuro, o botão cheio é o laranja queimado
+    assert (_token("brand"), _token("navy")) == ("#c25500", "#2a1a10")
     assert "rgba(15,47,99" not in _raiz() and "rgba(8,26,58" not in _raiz()
-    assert "--navy40:rgba(1,33,61,.40)" in _raiz()
+    assert "--navy40:rgba(42,26,16,.40)" in _raiz()
 
 
 def test_favicon_segue_a_paleta():
@@ -128,7 +128,7 @@ def test_favicon_segue_a_paleta():
     assert ("#" + fundo, "#" + circulo) == (_token("navy"), _token("on-navy"))
 
 
-# ---------- serviço do macOS: porta 8800, ao lado do Hospital OS ----------
+# ---------- serviço do macOS: porta 8801, ao lado do Hospital OS ----------
 
 # o label do serviço do Hospital OS, partido para o test_fluxo_iae.py não acusar a pasta do app de lá
 PLIST_DO_HOSPITAL = "com.hospital" + "-reunioes.workflow-dashboard.plist"
@@ -163,16 +163,16 @@ def _rodar_instalador(tmp_path, *args):
     return agentes, registro.read_text(encoding="utf-8").splitlines()
 
 
-def test_instalador_sobe_o_iae_os_na_porta_8800_sem_tocar_no_hospital(tmp_path):
+def test_instalador_sobe_o_diduccio_os_na_porta_8800_sem_tocar_no_hospital(tmp_path):
     agentes, chamadas = _rodar_instalador(tmp_path)
 
-    plist = (agentes / "com.iae.workflow-dashboard.plist").read_text(encoding="utf-8")
-    assert "<key>Label</key><string>com.iae.workflow-dashboard</string>" in plist
-    assert "<string>--port</string><string>8800</string>" in plist
+    plist = (agentes / "com.diduccio.workflow-dashboard.plist").read_text(encoding="utf-8")
+    assert "<key>Label</key><string>com.diduccio.workflow-dashboard</string>" in plist
+    assert "<string>--port</string><string>8801</string>" in plist
     # log próprio: o do Hospital OS é ~/Library/Logs/workflow-dashboard.log
     assert "/Library/Logs/workflow-dashboard.log" not in plist
     assert (agentes / PLIST_DO_HOSPITAL).read_text(encoding="utf-8") == "plist do Hospital OS\n"
-    assert chamadas and all("com.iae.workflow-dashboard" in c for c in chamadas), chamadas
+    assert chamadas and all("com.diduccio.workflow-dashboard" in c for c in chamadas), chamadas
     assert not any("hospital" in c for c in chamadas), chamadas
 
 
@@ -180,12 +180,12 @@ def test_desinstalar_tira_so_o_iae_os(tmp_path):
     _rodar_instalador(tmp_path)
     agentes, chamadas = _rodar_instalador(tmp_path, "uninstall")
 
-    assert not (agentes / "com.iae.workflow-dashboard.plist").exists()
+    assert not (agentes / "com.diduccio.workflow-dashboard.plist").exists()
     assert (agentes / PLIST_DO_HOSPITAL).read_text(encoding="utf-8") == "plist do Hospital OS\n"
     assert chamadas and not any("hospital" in c for c in chamadas), chamadas
 
 
-# ---------- as 4 abas abrem com os arquivos de verdade do IAE ----------
+# ---------- as 4 abas abrem com os arquivos de verdade do Diduccio ----------
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_router import _app, com_node  # noqa: E402
@@ -193,7 +193,7 @@ from test_router import _app, com_node  # noqa: E402
 ABAS = {
     "#issues": ("issues", "Issues"),
     "#prs": ("prs", "PRs"),
-    # o history.json do IAE ainda não tem deploy (issue #8)
+    # o history.json do Diduccio ainda não tem deploy (issue #8)
     "#producao": ("producao", "sem deploy ainda"),
     "#documentacao/fluxo": ("documentacao", "Do pedido à produção"),
     "#documentacao/mapa": ("documentacao", "Mapa da app"),
@@ -204,12 +204,12 @@ ABAS = {
 
 def _payload_do_iae(monkeypatch):
     """O /api/data montado dos arquivos do repo (contrato de deploy, snapshots, ADRs,
-    CONTEXT.md), com o gh falso devolvendo uma issue do IAE."""
+    CONTEXT.md), com o gh falso devolvendo uma issue do Diduccio."""
     monkeypatch.setattr(collect, "_run", _gh_do_iae([]))
     return json.loads(json.dumps(collect.collect(RAIZ)))
 
 
-def test_snapshots_do_iae_chegam_ao_mapa_sem_diagrama_e_sem_erro(monkeypatch):
+def test_snapshots_do_diduccio_chegam_ao_mapa_sem_diagrama_e_sem_erro(monkeypatch):
     dados = _payload_do_iae(monkeypatch)
     nomes = [s["name"] for s in dados["snapshots"]]
     assert nomes == ["ROTAS", "ENTIDADES", "SCHEMA", "MIGRATIONS", "INTEGRACOES", "ESTRUTURA", "FLUXOGRAMAS"]

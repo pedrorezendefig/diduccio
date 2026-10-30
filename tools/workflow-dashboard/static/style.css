@@ -1,5 +1,5 @@
-/* Fluxo vivo, dashboard do workflow · IAE OS
-   Identidade IAE (manual da marca): trilho azul-marinho à esquerda com o
+/* Fluxo vivo, dashboard do workflow · Diduccio OS
+   Identidade Diduccio (manual da marca): trilho azul-marinho à esquerda com o
    monograma, topo branco, abas com ícone e a ativa num lavado azul, Montserrat
    no texto e os neutros quentes da paleta (areia, taupe). O azul
    é o único acento (ação, aba ativa, filtro ligado); o vermelho fica para o
@@ -7,23 +7,23 @@
    abaixo é a ÚNICA fonte de verdade da identidade visual: paleta, tints alpha,
    raios, semânticas de status e tipografia. Nenhuma cor fixa vive fora dele. */
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
 
 :root{
-  /* paleta da marca IAE: azul profundo, cinza escuro, neutros quentes e branco.
-     --navy e --brand são o azul do trilho, do botão cheio e do estado ligado;
-     --sand e --taupe são os neutros quentes do manual, só em detalhe */
-  --navy:#01213d; --brand:#01213d; --brand-light:#3d5a7a; --teal:#01213d;
-  --sand:#ccbab0; --taupe:#9a827a;
-  --canvas:#ffffff; --bg:#ffffff; --surface:#f6f3f1; --ink:#1d1d1d; --ink-soft:#6b625f;
-  --ghost:#e8e2de; --hairline:#e8e2de; --on-navy:#ffffff;
+  /* paleta da marca Diduccio: laranja queimado, marrom escuro, neutros quentes e branco.
+     --navy é o marrom do trilho e dos títulos; --brand é o laranja do botão cheio e do estado ligado;
+     --sand e --taupe são os neutros quentes, só em detalhe */
+  --navy:#2a1a10; --brand:#c25500; --brand-light:#ee8a3a; --teal:#8a3d00;
+  --sand:#e9d9cc; --taupe:#a08572;
+  --canvas:#ffffff; --bg:#ffffff; --surface:#faf5f0; --ink:#1d1611; --ink-soft:#6f6259;
+  --ghost:#ece3da; --hairline:#ece3da; --on-navy:#ffffff;
   /* linha que carrega informação (seta, aresta, borda de nó): 3:1 sobre o branco e a superfície (WCAG 1.4.11) */
-  --linha-forte:#8a817d;
+  --linha-forte:#8f8278;
   /* tints alpha: branco sobre o azul (trilho, pills, nós, rótulos) */
   --w10:rgba(255,255,255,.10); --w15:rgba(255,255,255,.15); --w20:rgba(255,255,255,.20);
   --w25:rgba(255,255,255,.25); --w40:rgba(255,255,255,.40); --w55:rgba(255,255,255,.55);
   --w65:rgba(255,255,255,.65); --w70:rgba(255,255,255,.70); --w80:rgba(255,255,255,.80);
-  --navy40:rgba(1,33,61,.40);
+  --navy40:rgba(42,26,16,.40);
   /* raios: cantos discretos, 10px nos contêineres, 8px nos botões e aninhados */
   --r-card:6px; --r-card-lg:8px; --r-pill:999px; --r-inner:5px;
   /* semânticas de status: só em bolinhas e etiquetas pequenas */
@@ -33,7 +33,7 @@
   --purple:#6d5bd0; --purple-wash:#eae7f8;
   --blue:#0b6e97; --blue-wash:#e0eef4;
   --coral:#b4552d; --coral-wash:#f6e8df;
-  --brand-wash:#e8edf3;
+  --brand-wash:#fdeee2;
   /* aliases estruturais: componentes herdados leem estes nomes */
   --paper:var(--bg); --paper-2:var(--surface); --card:#ffffff;
   --indigo:var(--brand); --indigo-2:var(--brand-light); --indigo-wash:var(--brand-wash);
@@ -44,8 +44,8 @@
   --shadow-modal:0 24px 48px -12px rgba(16,40,34,.25);
   /* movimento */
   --ease-expo:cubic-bezier(.16,1,.3,1); --ease-quart:cubic-bezier(.25,1,.5,1);
-  /* tipografia: Montserrat 400 a 700 no texto (a irmã livre da Gotham do manual); Geist Mono para shas e comandos */
-  --sans:"Montserrat",ui-sans-serif,system-ui,sans-serif;
+  /* tipografia: Plus Jakarta Sans 400 a 700 no texto; Geist Mono para shas e comandos */
+  --sans:"Plus Jakarta Sans",ui-sans-serif,system-ui,sans-serif;
   --mono:"Geist Mono",ui-monospace,SFMono-Regular,monospace;
   --rail:248px;
 }

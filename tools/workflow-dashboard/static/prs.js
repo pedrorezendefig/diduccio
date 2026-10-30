@@ -1,6 +1,6 @@
 'use strict';
 
-/* Aba PRs do IAE OS (ADR 0062, decisão 7; issue #946): quadro com as
+/* Aba PRs do Diduccio OS (ADR 0062, decisão 7; issue #946): quadro com as
    fases do PR em colunas e uma raia por pessoa, na cor dela. A fase vem
    pronta do fases.py (S.data.fases.prs); aqui só se agrupa, filtra e desenha.
    A pessoa do PR é quem assumiu a issue que ele fecha (assignee, emenda de

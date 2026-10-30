@@ -4,7 +4,7 @@ O comportamento dinâmico (aba inicial, render das ondas, copiáveis) é
 verificado via Chrome headless contra o serve.py; aqui mora só o que é
 contrato estático do painel: barato de checar e imune a refactor do JS.
 
-Identidade IAE (manual da marca): tokens de design como bloco único, trilho
+Identidade Diduccio (manual da marca): tokens de design como bloco único, trilho
 azul-marinho com o monograma na esquerda, topo branco com a logo, abas com ícone
 e contador, canvas branco com cartões de borda fina, footer com hairline,
 Montserrat 400 a 700 e primitivas de reveal.
@@ -46,12 +46,12 @@ def test_navegacao_tem_exatamente_4_abas_sem_grupos():
 
 
 def test_titulo_do_painel_e_iae_os():
-    # ADR 0062, decisão 1: o painel se chama IAE OS (issue #947)
-    assert re.search(r"<title>IAE OS</title>", INDEX)
+    # ADR 0062, decisão 1: o painel se chama Diduccio OS (issue #947)
+    assert re.search(r"<title>Diduccio OS</title>", INDEX)
     m = re.search(r'<h1 class="hero-title">(.*?)</h1>', INDEX, re.S)
     assert m, "hero sem h1.hero-title"
     texto = re.sub(r"<[^>]+>", "", m.group(1))  # só o texto, sem markup decorativo
-    assert texto.strip() == "IAE OS"
+    assert texto.strip() == "Diduccio OS"
 
 
 # ---------- tokens de design (bloco único) ----------
@@ -61,12 +61,13 @@ def test_tokens_definem_a_paleta_da_marca():
     root = _root_block().lower()
     for hexa in (
         "#ffffff",  # canvas e cartão
-        "#01213d",  # azul profundo do trilho e do estado ligado
-        "#e8edf3",  # lavado azul da aba ativa
-        "#1d1d1d",  # tinta, o cinza escuro do manual
-        "#6b625f",  # tinta suave, quente
-        "#e8e2de",  # hairline quente
-        "#ccbab0",  # areia do manual
+        "#2a1a10",  # marrom escuro do trilho
+        "#c25500",  # laranja queimado do botão cheio e do estado ligado
+        "#fdeee2",  # lavado laranja da aba ativa
+        "#1d1611",  # tinta
+        "#6f6259",  # tinta suave, quente
+        "#ece3da",  # hairline quente
+        "#e9d9cc",  # areia
         "#c4282c",  # vermelho do erro e do contador
     ):
         assert hexa in root, f"token {hexa} fora do bloco :root"
@@ -103,14 +104,14 @@ def test_nenhuma_cor_fixa_fora_do_bloco_de_tokens():
     assert "%23" not in resto, "cor codificada em data-uri fora dos tokens"
 
 
-def test_fonte_montserrat_e_geist_mono():
+def test_fonte_plus_jakarta_sans_e_geist_mono():
     m = re.search(r"@import url\('([^']+)'\)", CSS)
     assert m, "style.css sem @import de fontes"
     assert "fonts.googleapis.com" in m.group(1)
-    assert "family=Montserrat:wght@400;500;600;700" in m.group(1)
+    assert "family=Plus+Jakarta+Sans:wght@400;500;600;700" in m.group(1)
     assert "family=Geist+Mono" in m.group(1)
     root = _root_block()
-    assert re.search(r"--sans:\s*\"Montserrat\"", root)
+    assert re.search(r"--sans:\s*\"Plus Jakarta Sans\"", root)
     assert re.search(r"--mono:\s*\"Geist Mono\"", root)
 
 
@@ -135,8 +136,8 @@ def test_barra_lateral_com_a_logo_e_titulo_em_caixa_normal():
     titulo = re.search(r"\.hero-title\{[^}]*\}", CSS)
     assert titulo, ".hero-title sumiu"
     assert "text-transform:uppercase" not in titulo.group(0), "título não pode forçar caixa alta (corta o til)"
-    assert "IAE OS" in INDEX, "título perdeu o texto"
-    assert 'href="#logo-iae"' in INDEX, "barra sem a logo"
+    assert "Diduccio OS" in INDEX, "título perdeu o texto"
+    assert 'href="#logo-diduccio"' in INDEX, "barra sem a logo"
 
 
 def test_clip_protege_diacriticos_em_cima_e_embaixo():

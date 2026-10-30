@@ -28,7 +28,7 @@ const X_VER = X_PR + WP + GX;
 
 const NOME_FASE_PR = Object.fromEntries([...COLUNAS, ['fechado_sem_merge', 'fechado sem merge']]);
 
-/* o rótulo do PRD ("IAE OS: ") se repete em toda fatia; o título
+/* o rótulo do PRD ("Diduccio OS: ") se repete em toda fatia; o título
    inteiro fica no <title> do nó */
 function tituloCurto(t) {
   const s = String(t || '').replace(/^[^:]{1,30}:\s*/, '');

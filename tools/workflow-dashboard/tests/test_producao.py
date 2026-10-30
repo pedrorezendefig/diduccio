@@ -1,4 +1,4 @@
-"""Aba Produção do IAE OS (issue #945, ADR 0062, decisões 2 e 8).
+"""Aba Produção do Diduccio OS (issue #945, ADR 0062, decisões 2 e 8).
 
 No topo, a versão no ar e os serviços com o health (`state.json` da
 `origin/main`); o semáforo do mast tem três estados (verde, âmbar, vermelho).
@@ -842,9 +842,9 @@ def test_chip_da_main_atrasada_leva_a_classe_de_alerta_e_o_em_dia_nao(tmp_path):
     assert 'class="ago main-atras" title=' in em_dia
 
 
-# ---------- IAE sem deploy: a aba diz "sem deploy ainda" (issue #8 do IAE) ----------
+# ---------- Diduccio sem deploy: a aba diz "sem deploy ainda" (issue #8 do Diduccio) ----------
 
-# o state.json que o IAE grava antes do primeiro deploy
+# o state.json que o Diduccio grava antes do primeiro deploy
 ESTADO_SEM_DEPLOY = {"schema_version": "1.0", "last_app_version": "0.0.0", "services": []}
 
 

@@ -1,7 +1,7 @@
 {
   "tipo": "fluxo",
   "titulo": "Do pedido à produção",
-  "fonte": "ADR 0068 e /ask-iae; quando mudar skill do pipeline, atualize este arquivo junto com o /ask-iae",
+  "fonte": "ADR 0068 e /ask-diduccio; quando mudar skill do pipeline, atualize este arquivo junto com o /ask-diduccio",
   "grade": { "largura": 1110, "coluna": 90, "linha": 96 },
   "raias": [
     { "id": "a", "titulo": "A. PRD + fatias", "x1": 0.1, "x2": 4.0, "y1": 2.35, "y2": 6.7 },
@@ -53,10 +53,10 @@
     { "id": "pr", "x": 6, "y": 7.2, "w": 240, "classe": "auto", "titulo": "PR aberto", "sub": "as três portas convergem aqui",
       "porque": "Os três caminhos chegam aqui. Assim toda mudança passa pelo mesmo controle.",
       "detalhe": "O pull request (PR) mostra a mudança proposta. Ela só entra no código principal depois que os testes passam." },
-    { "id": "gates", "x": 6, "y": 8.2, "w": 420, "classe": "auto", "titulo": "Gates", "sub": ["ferramenta: só o CI", "app: iae-revisor uma vez (+ segurança se sensivel.py acusar) e CI"],
+    { "id": "gates", "x": 6, "y": 8.2, "w": 420, "classe": "auto", "titulo": "Gates", "sub": ["ferramenta: só o CI", "app: diduccio-revisor uma vez (+ segurança se sensivel.py acusar) e CI"],
       "porque": "Uma mudança no app afeta quem usa a plataforma. Por isso ela tem uma conferência a mais.",
       "detalhe": "Um ajuste interno passa só pelos testes automáticos (CI). Uma mudança no app passa também por um revisor, que procura erros graves." },
-    { "id": "corretor", "x": 10, "y": 9.2, "w": 220, "classe": "auto", "titulo": "iae-corretor", "sub": "uma vez; depois só o CI confere",
+    { "id": "corretor", "x": 10, "y": 9.2, "w": 220, "classe": "auto", "titulo": "diduccio-corretor", "sub": "uma vez; depois só o CI confere",
       "porque": "Quem corrige é diferente de quem escreveu. O limite de uma tentativa evita um vai e volta sem fim.",
       "detalhe": "Se o revisor acha um erro grave ou um teste falha, um agente novo faz a correção. Ele tenta uma vez. Depois, os testes conferem de novo." },
     { "id": "baixa", "x": 10, "y": 10.2, "w": 220, "classe": "humano", "titulo": "baixa: ready-for-human", "sub": "uma linha de motivo na issue",
