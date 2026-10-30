@@ -577,7 +577,7 @@ const CSS = `
 .asb-drop-filled { border-style: solid; padding: 16px 18px; }
 .asb-drop-ico {
   width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
-  color: #D4432A; background: rgba(53,107,71,.12); border: 1px solid rgba(53,107,71,.22);
+  color: #D4432A; background: rgba(212,67,42,.12); border: 1px solid rgba(212,67,42,.22);
 }
 .asb-file-ico {
   width: 46px; height: 46px; flex: none; border-radius: 12px; display: grid; place-items: center;
@@ -632,13 +632,13 @@ const CSS = `
 .asb-count {
   min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 700;
   display: inline-grid; place-items: center; color: #D4432A;
-  background: rgba(53,107,71,.12); border: 1px solid rgba(53,107,71,.25);
+  background: rgba(212,67,42,.12); border: 1px solid rgba(212,67,42,.25);
 }
 .asb-pill {
   display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
   padding: 3px 9px; border-radius: 999px;
 }
-.asb-pill-blue { color: #D4432A; background: rgba(53,107,71,.1); border: 1px solid rgba(53,107,71,.2); }
+.asb-pill-blue { color: #D4432A; background: rgba(212,67,42,.1); border: 1px solid rgba(212,67,42,.2); }
 .asb-pill-amber { color: var(--fg-secondary); background: rgba(245,158,11,.13); border: 1px solid rgba(245,158,11,.28); }
 
 /* ALERTA */
@@ -685,7 +685,7 @@ const CSS = `
   border: 1.5px dashed var(--asb-border); background: var(--asb-card);
 }
 .asb-empty-ico { width: 60px; height: 60px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center;
-  color: #D4432A; background: rgba(53,107,71,.1); border: 1px solid rgba(53,107,71,.2); }
+  color: #D4432A; background: rgba(212,67,42,.1); border: 1px solid rgba(212,67,42,.2); }
 
 @media (max-width: 620px) {
   .asb-hero-stat { display: none; }
