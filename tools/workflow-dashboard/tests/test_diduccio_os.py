@@ -209,12 +209,14 @@ def _payload_do_iae(monkeypatch):
     return json.loads(json.dumps(collect.collect(RAIZ)))
 
 
-def test_snapshots_do_diduccio_chegam_ao_mapa_sem_diagrama_e_sem_erro(monkeypatch):
+def test_snapshots_do_diduccio_chegam_ao_mapa_com_er_e_fluxograma(monkeypatch):
     dados = _payload_do_iae(monkeypatch)
     nomes = [s["name"] for s in dados["snapshots"]]
     assert nomes == ["ROTAS", "ENTIDADES", "SCHEMA", "MIGRATIONS", "INTEGRACOES", "ESTRUTURA", "FLUXOGRAMAS"]
+    com_diagrama = {"SCHEMA", "FLUXOGRAMAS"}
     for s in dados["snapshots"]:
-        assert s["body_md"].strip() and s["diagramas"] == [], s["name"]
+        assert s["body_md"].strip(), s["name"]
+        assert bool(s["diagramas"]) == (s["name"] in com_diagrama), s["name"]
 
 
 @com_node
