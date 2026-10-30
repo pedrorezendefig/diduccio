@@ -29,10 +29,10 @@ const STATUS_OPTIONS = ["Agendado", "Confirmado", "Realizado", "Cancelado"];
 const TIPOS = ["Morador", "Prestador de Serviço", "Administradora", "Funcionário"];
 
 const STATUS_COLORS = {
-  Agendado:   { bg: "#4C805520", border: "#4C8055", text: "#ACC7B0", badge: "#4C805530" },
-  Confirmado: { bg: "#4C805520", border: "#4C8055", text: "#7BA482", badge: "#4C805530" },
-  Realizado:  { bg: "#24503A20", border: "#24503A", text: "#CDE0D0", badge: "#24503A30" },
-  Cancelado:  { bg: "#B4472A15", border: "#B4472A", text: "#D07551", badge: "#B4472A30" },
+  Agendado:   { bg: "#E35A3A20", border: "#E35A3A", text: "#F7A48E", badge: "#E35A3A30" },
+  Confirmado: { bg: "#E35A3A20", border: "#E35A3A", text: "#EF7A5C", badge: "#E35A3A30" },
+  Realizado:  { bg: "#B3332020", border: "#B33320", text: "#FCC8B9", badge: "#B3332030" },
+  Cancelado:  { bg: "#B8203F15", border: "#B8203F", text: "#D9607A", badge: "#B8203F30" },
 };
 
 function horaParaMinutos(hora) {
@@ -487,15 +487,15 @@ export default function Agendamento({ user }) {
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
-        .slot-livre:hover { background: ${theme.isDark ? "#24503A20" : "#e0f2fe"} !important; border-color: #24503A !important; cursor: pointer; }
-        .slot-livre:hover .slot-plus { color: ${theme.isDark ? "#7BA482" : "#24503A"} !important; }
+        .slot-livre:hover { background: ${theme.isDark ? "#B3332020" : "#e0f2fe"} !important; border-color: #B33320 !important; cursor: pointer; }
+        .slot-livre:hover .slot-plus { color: ${theme.isDark ? "#EF7A5C" : "#B33320"} !important; }
         .cal-day:hover { background: ${theme.isDark ? "var(--border-strong)" : "var(--surface-3)"} !important; cursor: pointer; }
         .ag-card:hover { opacity: 0.85; cursor: pointer; }
       `}</style>
 
       {(loadingInitial || loadingGlobal) && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(23,35,27,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}>
-          <Loader2 className="animate-spin" color="#4C8055" size={50} />
+        <div style={{ position:"fixed", inset:0, background:"rgba(40,22,18,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}>
+          <Loader2 className="animate-spin" color="#E35A3A" size={50} />
         </div>
       )}
 
@@ -545,15 +545,15 @@ export default function Agendamento({ user }) {
                       borderRadius: 6,
                       fontSize: 11,
                       fontWeight: isToday ? 700 : 400,
-                      color: isSelected ? (theme.isDark ? "#7BA482" : "#24503A") : isToday ? "#4C8055" : theme.text,
-                      background: isSelected ? (theme.isDark ? "#24503A30" : "#e0f2fe") : "transparent",
-                      border: isToday && !isSelected ? `1px solid #4C8055` : "1px solid transparent",
+                      color: isSelected ? (theme.isDark ? "#EF7A5C" : "#B33320") : isToday ? "#E35A3A" : theme.text,
+                      background: isSelected ? (theme.isDark ? "#B3332030" : "#e0f2fe") : "transparent",
+                      border: isToday && !isSelected ? `1px solid #E35A3A` : "1px solid transparent",
                       textAlign: "center",
                     }}
                   >
                     {dia}
                     {temAg && (
-                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#4C8055", margin: "1px auto 0" }} />
+                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#E35A3A", margin: "1px auto 0" }} />
                     )}
                   </div>
                 );
@@ -600,7 +600,7 @@ export default function Agendamento({ user }) {
             </div>
             <button
               onClick={() => abrirModalNovo()}
-              style={{ background: "#4C8055", color: "white", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", display:"flex", alignItems:"center", gap: 6 }}
+              style={{ background: "#E35A3A", color: "white", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", display:"flex", alignItems:"center", gap: 6 }}
             >
               <Plus size={16} /> Novo Agendamento
             </button>
@@ -673,7 +673,7 @@ export default function Agendamento({ user }) {
 
       {/* MODAL */}
       {showModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(23,35,27,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(40,22,18,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
           <div style={{ background: theme.mainBg, borderRadius: 20, padding: isMobile ? 18 : 24, width: "90%", maxWidth: 480, border: `1px solid ${theme.border}`, maxHeight: "90vh", overflowY: "auto" }}>
 
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: 20 }}>
@@ -849,8 +849,8 @@ export default function Agendamento({ user }) {
 
               {/* Aviso de conflito */}
               {conflitError && (
-                <div style={{ background: "#B4472A20", border: "1px solid #B4472A", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#D07551", display:"flex", alignItems:"center", gap: 6 }}>
-                  <AlertCircle size={14} color="#B4472A" /> {conflitError}
+                <div style={{ background: "#B8203F20", border: "1px solid #B8203F", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#D9607A", display:"flex", alignItems:"center", gap: 6 }}>
+                  <AlertCircle size={14} color="#B8203F" /> {conflitError}
                 </div>
               )}
 
@@ -859,7 +859,7 @@ export default function Agendamento({ user }) {
                 {modalType === "edit" && (
                   <button
                     onClick={() => handleDelete(formData.id)}
-                    style={{ background: "#B4472A20", color: "#B4472A", border: "1px solid #B4472A", padding: "10px 14px", borderRadius: 10, fontSize: 13, cursor:"pointer", display:"flex", alignItems:"center", gap: 6 }}
+                    style={{ background: "#B8203F20", color: "#B8203F", border: "1px solid #B8203F", padding: "10px 14px", borderRadius: 10, fontSize: 13, cursor:"pointer", display:"flex", alignItems:"center", gap: 6 }}
                   >
                     <Trash2 size={14} /> Excluir
                   </button>
@@ -872,7 +872,7 @@ export default function Agendamento({ user }) {
                 </button>
                 <button
                   onClick={handleSave}
-                  style={{ flex: 1, background: "#4C8055", color: "white", border: "none", padding: 10, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor:"pointer" }}
+                  style={{ flex: 1, background: "#E35A3A", color: "white", border: "none", padding: 10, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor:"pointer" }}
                 >
                   {modalType === "add" ? "Salvar Agendamento" : "Salvar Alterações"}
                 </button>

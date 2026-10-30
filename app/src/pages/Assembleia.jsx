@@ -284,10 +284,10 @@ export default function Assembleia({ user }) {
     "--asb-border": theme.border,
     "--asb-card": theme.bgCard,
     "--asb-field": dark ? "var(--bg-app)" : "var(--surface-2)",
-    "--asb-hover": dark ? "#243029" : "#F5FAF6",
+    "--asb-hover": dark ? "#243029" : "#FFF4F1",
     "--asb-text": theme.text,
     "--asb-text-sec": theme.textSecondary,
-    "--asb-shadow": dark ? "0 10px 30px -12px rgba(0,0,0,.6)" : "0 12px 32px -16px rgba(23,35,27,.28)",
+    "--asb-shadow": dark ? "0 10px 30px -12px rgba(0,0,0,.6)" : "0 12px 32px -16px rgba(40,22,18,.28)",
   };
 
   const secTitle = {
@@ -365,7 +365,7 @@ export default function Assembleia({ user }) {
 
         {/* ===== REVISÃO DO RASCUNHO ===== */}
         {rascunho && (
-          <div className="asb-card asb-in" style={{ padding: 24, marginBottom: 26, borderColor: dark ? "#24503A55" : "#CDE0D0" }}>
+          <div className="asb-card asb-in" style={{ padding: 24, marginBottom: 26, borderColor: dark ? "#B3332055" : "#FCC8B9" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
               <div className="asb-chip-accent"><Sparkles size={14} /> Rascunho da IA</div>
               <h2 style={secTitle}>Revisar antes de salvar</h2>
@@ -424,7 +424,7 @@ export default function Assembleia({ user }) {
 
         {/* ===== HISTÓRICO ===== */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "6px 2px 16px" }}>
-          <ScrollText size={18} color={dark ? "#7BA482" : "#356B47"} />
+          <ScrollText size={18} color={dark ? "#EF7A5C" : "#D4432A"} />
           <h2 style={secTitle}>Histórico de assembleias</h2>
           {atas.length > 0 && <span className="asb-count">{atas.length}</span>}
         </div>
@@ -536,7 +536,7 @@ const CSS = `
 .asb-hero {
   position: relative; overflow: hidden;
   border-radius: 20px; padding: 26px 26px;
-  background: linear-gradient(135deg, #24503A 0%, #18391F 42%, #0F2414 100%);
+  background: linear-gradient(135deg, #B33320 0%, #8C2616 42%, #5E180D 100%);
   box-shadow: 0 18px 40px -20px rgba(3,105,161,.75);
 }
 .asb-hero-glow { position: absolute; inset: 0; background:
@@ -572,16 +572,16 @@ const CSS = `
   background: var(--asb-field);
   transition: border-color .18s, background .18s, transform .18s;
 }
-.asb-drop:hover { border-color: #7BA482; background: var(--asb-hover); }
-.asb-drop-active { border-color: #4C8055; background: var(--asb-hover); transform: scale(1.006); }
+.asb-drop:hover { border-color: #EF7A5C; background: var(--asb-hover); }
+.asb-drop-active { border-color: #E35A3A; background: var(--asb-hover); transform: scale(1.006); }
 .asb-drop-filled { border-style: solid; padding: 16px 18px; }
 .asb-drop-ico {
   width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
-  color: #356B47; background: rgba(53,107,71,.12); border: 1px solid rgba(53,107,71,.22);
+  color: #D4432A; background: rgba(53,107,71,.12); border: 1px solid rgba(53,107,71,.22);
 }
 .asb-file-ico {
   width: 46px; height: 46px; flex: none; border-radius: 12px; display: grid; place-items: center;
-  color: #8E3419; background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.2);
+  color: #8F1530; background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.2);
 }
 
 /* BOTÕES */
@@ -594,14 +594,14 @@ const CSS = `
 .asb-btn:disabled { opacity: .55; cursor: not-allowed; }
 .asb-btn-primary {
   color: #fff; border: none;
-  background: linear-gradient(135deg, #4C8055, #24503A 55%, #4C8055);
+  background: linear-gradient(135deg, #E35A3A, #B33320 55%, #E35A3A);
   box-shadow: 0 10px 22px -10px rgba(3,105,161,.85);
 }
 .asb-btn-primary:not(:disabled):hover { box-shadow: 0 14px 26px -10px rgba(3,105,161,.95); transform: translateY(-1px); }
 .asb-btn-ghost { background: transparent; color: var(--asb-text-sec); border: 1px solid var(--asb-border); }
 .asb-btn-ghost:hover { background: var(--asb-hover); color: var(--asb-text); }
 .asb-btn-soft { background: var(--asb-field); color: var(--asb-text-sec); border: 1px solid var(--asb-border); }
-.asb-btn-soft:hover { background: var(--asb-hover); color: #356B47; border-color: #ACC7B0; }
+.asb-btn-soft:hover { background: var(--asb-hover); color: #D4432A; border-color: #F7A48E; }
 
 .asb-icon-btn {
   display: grid; place-items: center; width: 36px; height: 36px; flex: none;
@@ -610,7 +610,7 @@ const CSS = `
   transition: background .16s, color .16s, border-color .16s, transform .16s;
 }
 .asb-icon-btn:hover { background: var(--asb-hover); color: var(--asb-text); }
-.asb-icon-danger:hover { background: rgba(220,38,38,.12); color: #B4472A; border-color: rgba(220,38,38,.35); }
+.asb-icon-danger:hover { background: rgba(220,38,38,.12); color: #B8203F; border-color: rgba(220,38,38,.35); }
 .asb-chevron svg { transition: transform .22s ease; }
 .asb-chevron-open svg { transform: rotate(180deg); }
 
@@ -621,56 +621,56 @@ const CSS = `
   border: 1px solid var(--asb-border); outline: none;
   transition: border-color .16s, box-shadow .16s;
 }
-.asb-input:focus { border-color: #4C8055; box-shadow: 0 0 0 3px rgba(76,128,85,.18); }
+.asb-input:focus { border-color: #E35A3A; box-shadow: 0 0 0 3px rgba(227,90,58,.18); }
 
 /* CHIPS / PILLS */
 .asb-chip-accent {
   display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
   padding: 4px 10px; border-radius: 999px; letter-spacing: .02em;
-  color: #4C8055; background: rgba(76,128,85,.12); border: 1px solid rgba(76,128,85,.25);
+  color: #E35A3A; background: rgba(227,90,58,.12); border: 1px solid rgba(227,90,58,.25);
 }
 .asb-count {
   min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 700;
-  display: inline-grid; place-items: center; color: #356B47;
+  display: inline-grid; place-items: center; color: #D4432A;
   background: rgba(53,107,71,.12); border: 1px solid rgba(53,107,71,.25);
 }
 .asb-pill {
   display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
   padding: 3px 9px; border-radius: 999px;
 }
-.asb-pill-blue { color: #356B47; background: rgba(53,107,71,.1); border: 1px solid rgba(53,107,71,.2); }
+.asb-pill-blue { color: #D4432A; background: rgba(53,107,71,.1); border: 1px solid rgba(53,107,71,.2); }
 .asb-pill-amber { color: var(--fg-secondary); background: rgba(245,158,11,.13); border: 1px solid rgba(245,158,11,.28); }
 
 /* ALERTA */
 .asb-alert {
   display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 500;
-  padding: 11px 14px; border-radius: 11px; color: #8E3419;
+  padding: 11px 14px; border-radius: 11px; color: #8F1530;
   background: rgba(220,38,38,.09); border: 1px solid rgba(220,38,38,.25);
 }
 
 /* CARD DA ATA */
 .asb-ata { position: relative; overflow: hidden; padding-left: 4px; transition: box-shadow .2s, transform .2s; }
-.asb-ata:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -18px rgba(23,35,27,.4); }
+.asb-ata:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -18px rgba(40,22,18,.4); }
 .asb-ata-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-  background: linear-gradient(180deg, #4C8055, #4C8055); }
+  background: linear-gradient(180deg, #E35A3A, #E35A3A); }
 .asb-date {
   display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none;
   min-width: 84px; padding: 9px 10px; border-radius: 12px; text-align: center;
-  font-size: 12.5px; font-weight: 600; color: #356B47;
+  font-size: 12.5px; font-weight: 600; color: #D4432A;
   background: var(--asb-field); border: 1px solid var(--asb-border); line-height: 1.15;
 }
 .asb-ata-title { font-family: var(--font-display); font-weight: 600; font-size: 16.5px;
   letter-spacing: -.01em; color: var(--asb-text); }
 .asb-ata-body { padding: 4px 20px 20px 24px; border-top: 1px dashed var(--asb-border); margin: 0 0 0 0; }
 .asb-resumo { margin: 16px 0 18px; font-size: 14.5px; line-height: 1.62; color: var(--asb-text);
-  padding-left: 14px; border-left: 3px solid rgba(76,128,85,.4); }
+  padding-left: 14px; border-left: 3px solid rgba(227,90,58,.4); }
 .asb-sub { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .05em; color: var(--asb-text-sec); margin-bottom: 10px; }
 .asb-decisoes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
 .asb-decisoes li { display: flex; gap: 11px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: var(--asb-text); }
 .asb-num { flex: none; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
   font-size: 12px; font-weight: 700; color: #fff; margin-top: 1px;
-  background: linear-gradient(135deg, #4C8055, #4C8055); }
+  background: linear-gradient(135deg, #E35A3A, #E35A3A); }
 .asb-assinantes { display: flex; flex-wrap: wrap; gap: 8px; }
 .asb-assinante { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500;
   padding: 5px 12px 5px 5px; border-radius: 999px; color: var(--asb-text);
@@ -685,7 +685,7 @@ const CSS = `
   border: 1.5px dashed var(--asb-border); background: var(--asb-card);
 }
 .asb-empty-ico { width: 60px; height: 60px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center;
-  color: #356B47; background: rgba(53,107,71,.1); border: 1px solid rgba(53,107,71,.2); }
+  color: #D4432A; background: rgba(53,107,71,.1); border: 1px solid rgba(53,107,71,.2); }
 
 @media (max-width: 620px) {
   .asb-hero-stat { display: none; }

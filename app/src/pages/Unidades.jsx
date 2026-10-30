@@ -14,7 +14,7 @@ import {
 } from "../ui";
 
 // Verde da marca em RGB, para o jsPDF, que não aceita hex.
-const VERDE_PDF = [76, 128, 85];
+const VERDE_PDF = [227, 90, 58];
 
 const FORM_VAZIO = { id: "", bloco: "", unidade: "", ocupado: "Não", status: "Adimplente", valor: "" };
 

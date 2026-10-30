@@ -44,10 +44,10 @@ const thStyle = { textAlign: 'left', padding: '16px 24px', fontSize: '12px', fon
 const thRow = { borderBottom: '1px solid' };
 const tdStyle = { padding: '16px 24px', fontSize: '14px' };
 const trStyle = { transition: '0.2s' };
-const badgeGreen = { backgroundColor: '#E5F0E7', color: '#24503A', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const badgeRed = { backgroundColor: '#F7E4DD', color: '#8E3419', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
+const badgeGreen = { backgroundColor: '#FEE4DC', color: '#B33320', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
+const badgeRed = { backgroundColor: '#F9DEE3', color: '#8F1530', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
 const paginationFooter = { padding: '15px 24px', borderTop: '1px solid', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(23, 35, 27, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
+const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(40, 22, 18, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
 const modalContent = { padding: '24px', borderRadius: '20px', width: '90%' };
 const modalHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' };
 const labelStyle = { fontSize: '11px', fontWeight: '700', marginBottom: '5px', display: 'block', textTransform: 'uppercase', color: 'var(--fg-muted)' };
@@ -139,7 +139,7 @@ export default function Festas({ user }) {
     width: '100%',
     justifyContent: 'center',
     marginTop: '10px',
-    border: theme.isDark ? '1px solid #7BA482' : 'none'
+    border: theme.isDark ? '1px solid #EF7A5C' : 'none'
   };
 
   
@@ -1613,8 +1613,8 @@ const itensExibidos = React.useMemo(() => {
         <td style={tdStyle}>
           <span style={{
             ...badgeGreen, 
-            backgroundColor: f.status === 'Cancelado' ? '#F7E4DD' : f.status === 'Realizado' ? '#E5F0E7' : f.status === 'Pendente' ? 'var(--surface-3)' : '#E5F0E7',
-            color: f.status === 'Cancelado' ? '#8E3419' : f.status === 'Realizado' ? '#24503A' : f.status === 'Pendente' ? 'var(--fg-secondary)' : '#24503A'
+            backgroundColor: f.status === 'Cancelado' ? '#F9DEE3' : f.status === 'Realizado' ? '#FEE4DC' : f.status === 'Pendente' ? 'var(--surface-3)' : '#FEE4DC',
+            color: f.status === 'Cancelado' ? '#8F1530' : f.status === 'Realizado' ? '#B33320' : f.status === 'Pendente' ? 'var(--fg-secondary)' : '#B33320'
           }}>
             {f.status}
           </span>
@@ -1643,7 +1643,7 @@ const itensExibidos = React.useMemo(() => {
                   position: 'absolute',
                   top: '-10px',
                   right: '-8px',
-                  color: '#B4472A',
+                  color: '#B8203F',
                   fontWeight: 'bold',
                   fontSize: '20px',
                   pointerEvents: 'none'
@@ -1689,7 +1689,7 @@ const itensExibidos = React.useMemo(() => {
             <Edit2 size={14} /> Editar
         </div>
         
-        <div className="menu-item" style={{ color: '#B4472A' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
+        <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
             <Trash2 size={14} /> Excluir
         </div>
     </div>
@@ -1717,11 +1717,11 @@ const itensExibidos = React.useMemo(() => {
                       <div style={{ fontWeight: 700, fontSize: '15px', color: theme.text }}>{unit ? `B${unit.bloco} - ${unit.unidade}` : f.unidade_id}</div>
                       <div style={{ marginTop: '4px' }}><span style={getChurrasqueiraBadge(f.churrasqueira)}>{f.churrasqueira}</span></div>
                     </div>
-                    <span style={{ ...badgeGreen, flexShrink: 0, backgroundColor: f.status === 'Cancelado' ? '#F7E4DD' : f.status === 'Realizado' ? '#E5F0E7' : f.status === 'Pendente' ? 'var(--surface-3)' : '#E5F0E7', color: f.status === 'Cancelado' ? '#8E3419' : f.status === 'Realizado' ? '#24503A' : f.status === 'Pendente' ? 'var(--fg-secondary)' : '#24503A' }}>{f.status}</span>
+                    <span style={{ ...badgeGreen, flexShrink: 0, backgroundColor: f.status === 'Cancelado' ? '#F9DEE3' : f.status === 'Realizado' ? '#FEE4DC' : f.status === 'Pendente' ? 'var(--surface-3)' : '#FEE4DC', color: f.status === 'Cancelado' ? '#8F1530' : f.status === 'Realizado' ? '#B33320' : f.status === 'Pendente' ? 'var(--fg-secondary)' : '#B33320' }}>{f.status}</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: `1px solid ${theme.border}`, paddingTop: '8px' }}>
-                    <span style={{ fontWeight: 600, color: theme.text, display: 'flex', alignItems: 'center', gap: '6px' }}>{f.morador}{temAlerta && <span style={{ color: '#B4472A', fontWeight: 'bold' }}>*</span>}</span>
+                    <span style={{ fontWeight: 600, color: theme.text, display: 'flex', alignItems: 'center', gap: '6px' }}>{f.morador}{temAlerta && <span style={{ color: '#B8203F', fontWeight: 'bold' }}>*</span>}</span>
                     {f.cpf && <span style={{ fontSize: '12px', color: theme.textSecondary }}>{maskCPFPrivacy(f.cpf)}</span>}
                   </div>
 
@@ -1749,7 +1749,7 @@ const itensExibidos = React.useMemo(() => {
                           <div className="menu-item" onClick={() => { gerarContratoPDF(f); setShowMenuId(null); }}><FileText size={14} color={theme.brand} /> Gerar Contrato</div>
                           <div style={{ height: '1px', backgroundColor: theme.border, margin: '4px 0' }} />
                           <div className="menu-item" onClick={() => { setModalType("edit"); setFormData({ ...f, foto: getFotoFesta(f.id), data_reserva: formatDateTimeForInput(f.data_reserva) }); setShowModal(true); setShowMenuId(null); }}><Edit2 size={14} /> Editar</div>
-                          <div className="menu-item" style={{ color: '#B4472A' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}><Trash2 size={14} /> Excluir</div>
+                          <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}><Trash2 size={14} /> Excluir</div>
                         </div>
                       )}
                     </div>
@@ -2075,7 +2075,7 @@ const itensExibidos = React.useMemo(() => {
                   />
                   <button 
                     onClick={() => handleDeleteImage(f.id || f.ID)}
-                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#B4472A', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#B8203F', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
                   >
                     <X size={12} />
                   </button>
@@ -2093,7 +2093,7 @@ const itensExibidos = React.useMemo(() => {
                 />
                 <button 
                   onClick={() => setFormData(prev => ({ ...prev, fotosNovas: prev.fotosNovas.filter((_, i) => i !== idx) }))}
-                  style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#B4472A', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#B8203F', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <X size={12} />
                 </button>

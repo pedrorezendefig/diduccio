@@ -77,7 +77,7 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
   background: var(--bg-surface);
-  box-shadow: 0 6px 16px -8px rgba(23, 35, 27, .28);
+  box-shadow: 0 6px 16px -8px rgba(40, 22, 18, .28);
   overflow: hidden;
   pointer-events: none;
 }
@@ -97,7 +97,7 @@
 .mapa__zona[data-cheia="sim"] .mapa__predio {
   border-color: var(--brand-500);
   box-shadow:
-    0 16px 34px -16px rgba(23, 35, 27, .42),
+    0 16px 34px -16px rgba(40, 22, 18, .42),
     0 0 0 3px var(--brand-100);
 }
 [data-theme="dark"] .mapa__predio {

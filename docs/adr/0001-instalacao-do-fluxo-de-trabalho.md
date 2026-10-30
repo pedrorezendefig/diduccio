@@ -16,7 +16,7 @@ O Diduccio precisa do mesmo fluxo de trabalho do Hospital e do IAE: issues no Gi
 | Fonte da versão | `version` do `app/package.json`, começando em `0.1.0` |
 | Gates | `npm run lint`, `npm test` e `npm run build` dentro de `app/` (job `app` do `ci.yml`), mais `pytest tools/` e o lint de travessão (job `ferramenta`) |
 | Áreas do Mapa | Portaria, Moradores, Reservas, Administração, Infra. São também as labels `area:*` |
-| Paleta | Laranja queimado `#c25500` como marca, marrom `#2a1a10` no trilho, fundo branco e superfície quente |
+| Paleta | Vermelho claro `#d4432a` como marca (o mesmo `brand-600` do app, issue #7), marrom `#2a1a10` no trilho, fundo branco e superfície quente |
 | Fontes | Plus Jakarta Sans no texto, Geist Mono em sha e comando |
 | Cofre de chaves | 1Password |
 
