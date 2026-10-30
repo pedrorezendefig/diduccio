@@ -996,6 +996,9 @@ function GraficoStatus({ ano, itens, total }) {
 /* ================= LISTAS ================= */
 
 function AtividadesRecentes({ logs, loading }) {
+  // Relógio congelado na montagem: o lint do React proíbe Date.now() durante
+  // a renderização, e "há 3 horas" não precisa de precisão de segundos.
+  const [agora] = useState(() => Date.now());
   const quando = (dateString) => {
     if (!dateString) return "Recentemente";
     // `created_at` é timestamptz e chega "2026-08-12T18:09:31+00:00". A versão
@@ -1004,7 +1007,7 @@ function AtividadesRecentes({ logs, loading }) {
     // atividades passou a mostrar o carimbo do banco no lugar de "Há 3 horas".
     const ms = new Date(dateString).getTime();
     if (Number.isNaN(ms)) return "Recentemente";
-    const horas = Math.floor((Date.now() - ms) / (1000 * 60 * 60));
+    const horas = Math.floor((agora - ms) / (1000 * 60 * 60));
     if (horas < 0) return "Agora mesmo";
     if (horas < 1) return "Agora mesmo";
     if (horas < 24) return `Há ${horas} ${horas === 1 ? "hora" : "horas"}`;
