@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TABELAS } from "../demo/dados.js";
-import { carimbarEncomendaNova } from "../demo/servidor.js";
+import { atender, carimbarEncomendaNova } from "../demo/servidor.js";
 
 // A tela de Encomendas só manda o Aviso para quem tem a Confirmação com
 // status "Confirmado". Sem isso o modo demo nunca mostra o WhatsApp.
@@ -29,5 +29,16 @@ describe("Encomenda nova no modo demo", () => {
     carimbarEncomendaNova(e);
     expect(e.numero_encomenda).toBeTruthy();
     expect(e.cod).toBeUndefined();
+  });
+
+  it("o add na aba ENTREGAS carimba os dois códigos", async () => {
+    const resposta = await atender({
+      url: "http://demo.local/",
+      metodo: "POST",
+      corpo: JSON.stringify({ action: "add", sheet: "ENTREGAS", telefone: "(21) 98765-4321" }),
+    });
+    expect(resposta.success).toBe(true);
+    expect(resposta.data.numero_encomenda).toMatch(/^\d{4}[A-HJ-NP-Z]$/);
+    expect(resposta.data.cod).toMatch(/^[A-NP-Z2-9]{5}$/);
   });
 });
