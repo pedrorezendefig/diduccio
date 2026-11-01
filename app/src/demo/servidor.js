@@ -70,6 +70,15 @@ function carimbarTarefaNova(t) {
   t.movida_por = null;
 }
 
+/** O demo imita o gatilho do 0020: Número da encomenda sempre, Código de
+ *  retirada só quando há telefone (sem telefone não sai o Aviso). */
+const sortear = (alfabeto, n) =>
+  Array.from({ length: n }, () => alfabeto[Math.floor(Math.random() * alfabeto.length)]).join("");
+export function carimbarEncomendaNova(e) {
+  if (!e.numero_encomenda) e.numero_encomenda = `${1000 + Math.floor(Math.random() * 9000)}${sortear("ABCDEFGHJKLMNPQRSTUVWXYZ", 1)}`;
+  if (!e.cod && String(e.telefone ?? "").trim()) e.cod = sortear("ABCDEFGHIJKLMNPQRSTUVWXYZ23456789", 5);
+}
+
 function carimbarTarefaEditada(antes, depois) {
   if (depois.situacao === antes.situacao) return;
   const agora = new Date().toISOString();
@@ -101,6 +110,7 @@ function responderPost(corpo) {
       const { token, session, action: _a, sheet: _s, ...linha } = corpo;
       const nova = { ...linha, id: linha.id || proximoId(sheet) };
       if (sheet === "TAREFAS") carimbarTarefaNova(nova);
+      if (sheet === "ENTREGAS") carimbarEncomendaNova(nova);
       estado[sheet].push(nova);
       return ok({ data: nova });
     }

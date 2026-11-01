@@ -469,8 +469,9 @@ const confirmacao = titulares.slice(0, 30).map((m, i) => ({
   id_morador: m.id,
   nome: m.nome,
   telefone: m.telefone,
-  confirmado: rnd() > 0.4 ? "Sim" : "Não",
-  data_confirmacao: rnd() > 0.4 ? dia(-entre(1, 40)) : "",
+  // Os mesmos campos que a tela de Confirmação e a de Encomendas leem.
+  status: rnd() > 0.4 ? "Confirmado" : "Pendente",
+  data_envio: rnd() > 0.4 ? dia(-entre(1, 40)) : null,
 }));
 
 const log = Array.from({ length: 30 }, (_, i) => ({
