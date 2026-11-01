@@ -14,6 +14,8 @@ import { podeVerTela } from "../auth/menu";
 // caminho do PNG dentro de public/manual/ e `acoes` são os cliques que o script
 // de prints (`npm run manual:prints`) faz na tela antes de fotografar, em
 // ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo.
+// `cargo` (opcional) escolhe o login de exemplo que fotografa; sem ele, vale o
+// primeiro Cargo da tela no menu.
 export const PAGINAS = [
   {
     id: "encomendas",
