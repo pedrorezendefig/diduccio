@@ -50,6 +50,36 @@ describe('Manual: páginas da Portaria', () => {
   it('o Conselheiro não vê nenhuma das páginas da Portaria', () => {
     expect(ids('Conselheiro').filter((id) => PAGINAS_DA_PORTARIA.includes(id))).toEqual([])
   })
+
+  const pagina = (id) => PAGINAS.find((p) => p.id === id)
+  const passos = (id) => pagina(id).tarefas.flatMap((t) => t.passos.map((passo) => [`${id}: ${passo.titulo}`, passo]))
+
+  it.each(PAGINAS_DA_PORTARIA.flatMap(passos))('o passo %s tem print', (_nome, passo) => {
+    expect(passo.print?.arquivo).toMatch(/\.png$/)
+  })
+
+  it('a Retirada explica a inteira, a parcial e a feita por outra pessoa', () => {
+    expect(pagina('retirada').tarefas.map((t) => t.titulo)).toEqual([
+      'Retirada inteira',
+      'Retirada parcial',
+      'Retirada por outra pessoa',
+    ])
+  })
+
+  it('Entradas e Saídas cita os cinco tipos de Pessoa de fora e a Passagem', () => {
+    const texto = textos(pagina('entradas-e-saidas')).join(' ')
+    for (const termo of ['Pessoa de fora', 'Passagem', 'Entregador', 'Motorista', 'Visitante', 'Temporada', 'Serviço']) {
+      expect(texto).toContain(termo)
+    }
+  })
+
+  it('a TAG percorre Solicitada, Disponível e Aplicada', () => {
+    expect(pagina('tag').tarefas.map((t) => t.titulo)).toEqual([
+      'Pedir a TAG (Solicitada)',
+      'Esperar a liberação (Disponível)',
+      'Colar e marcar (Aplicada)',
+    ])
+  })
 })
 
 // Todo texto de uma página, inclusive os aninhados nas tarefas e nos passos.
