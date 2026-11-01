@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "manual:prints": "node scripts/prints-manual.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

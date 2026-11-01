@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { PAGINAS, paginasDoCargo } from '../manual/paginas.js'
+import { planoDosPrints, PASTA_DOS_PRINTS } from '../manual/prints.js'
 
 const ids = (cargo) => paginasDoCargo(cargo).map((p) => p.id)
 
@@ -39,5 +43,12 @@ describe('Manual: consistência do conteúdo', () => {
   it('nenhum texto do Manual tem travessão nem meia-risca', () => {
     const comTraco = textos(PAGINAS).filter((s) => /[–—]/.test(s))
     expect(comTraco).toEqual([])
+  })
+
+  // Os PNGs saem do `npm run manual:prints`, que não roda no CI: quem cita um
+  // print novo no conteúdo precisa rodar o script e commitar o arquivo.
+  it.each(planoDosPrints().map((p) => [p.arquivo]))('o print %s citado no conteúdo existe em public/', (arquivo) => {
+    const caminho = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', PASTA_DOS_PRINTS, arquivo)
+    expect(existsSync(caminho)).toBe(true)
   })
 })
