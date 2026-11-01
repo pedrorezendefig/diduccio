@@ -32,6 +32,7 @@ app/
 │   ├── components/          # componentes compartilhados entre telas
 │   ├── demo/                # modo demo com dados fictícios
 │   ├── lib/                 # regras e helpers sem React
+│   ├── manual/
 │   ├── pages/               # uma tela por arquivo; rotas em App.jsx
 │   ├── styles/              # CSS por tela
 │   ├── theme/               # tema claro/escuro e tokens

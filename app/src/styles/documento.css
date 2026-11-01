@@ -142,6 +142,42 @@
   background: var(--border);
 }
 
+/* ======================= MANUAL ======================= */
+
+/* O Manual reaproveita os blocos de Processos, que ele substituiu. Daqui para
+   baixo só o que muda: a lista é de links, e a tarefa tem título fixo. */
+.manual-lista { list-style: none; margin: 0; padding: 0; }
+.manual-link { text-decoration: none; }
+.manual-link:focus-visible { outline: 2px solid var(--brand-600); outline-offset: -2px; }
+
+.manual-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-brand);
+  text-decoration: none;
+}
+.manual-voltar:hover { text-decoration: underline; }
+
+.manual-tarefa__titulo {
+  margin: 0;
+  padding: var(--space-5) var(--space-6);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: 700;
+  color: var(--fg-heading);
+}
+
+@media (max-width: 768px) {
+  .manual-tarefa__titulo { padding: var(--space-5); }
+  .manual-tarefa__titulo + .proc-guia__corpo { padding-left: var(--space-5); padding-right: var(--space-5); }
+}
+
 /* ======================= SAÍDAS DO COMUNICADO ======================= */
 
 /* Estavam num menu "..." feito de <div onClick>: sem foco, sem teclado e sem
