@@ -17,6 +17,29 @@ describe('Manual: páginas que cada Cargo vê', () => {
   })
 })
 
+describe('Manual: páginas da Administração', () => {
+  it('o Conselheiro vê as páginas da Assembleia e do painel', () => {
+    expect(ids('Conselheiro')).toEqual(expect.arrayContaining(['assembleia', 'painel']))
+  })
+
+  it('o Síndico não vê a página de Usuários', () => {
+    expect(ids('Sindico')).not.toContain('usuarios')
+  })
+
+  it('o Desenvolvedor vê a página de Usuários', () => {
+    expect(ids('Desenvolvedor')).toContain('usuarios')
+  })
+
+  const ADMINISTRACAO = ['painel', 'comunicado', 'tarefas', 'assembleia', 'usuarios']
+
+  it.each(ADMINISTRACAO)('a página %s está na área Administração e tem um print em cada passo', (id) => {
+    const pagina = PAGINAS.find((p) => p.id === id)
+    expect(pagina?.area).toBe('Administração')
+    const passosSemPrint = pagina.tarefas.flatMap((t) => t.passos).filter((p) => !p.print?.arquivo)
+    expect(passosSemPrint.map((p) => p.titulo)).toEqual([])
+  })
+})
+
 // Todo texto de uma página, inclusive os aninhados nas tarefas e nos passos.
 const textos = (valor) => {
   if (typeof valor === 'string') return [valor]
