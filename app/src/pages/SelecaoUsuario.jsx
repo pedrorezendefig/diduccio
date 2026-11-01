@@ -92,7 +92,7 @@ export default function SelecaoUsuario({ onSelectUser }) {
           </div>
         </form>
 
-        <p className="vit-login__pe">ViT, da VITTA &copy; 2026</p>
+        <p className="vit-login__pe">Diduccio &copy; 2026</p>
       </main>
     </div>
   );

@@ -23,5 +23,5 @@ export function registrarReporter(fn) {
 /** Chamado por módulos fora do React. */
 export function reportarErro(mensagem) {
   if (reportar) reportar(mensagem);
-  else console.warn("[ViT]", mensagem);
+  else console.warn("[Diduccio]", mensagem);
 }

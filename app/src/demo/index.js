@@ -31,7 +31,7 @@ export function instalarModoDemo() {
   };
 
   console.info(
-    "%cViT — modo demonstração",
+    "%cDiduccio, modo demonstração",
     "background:#1f6feb;color:#fff;padding:2px 6px;border-radius:3px",
     "\nDados fictícios em memória. Nenhuma requisição sai desta máquina." +
       '\nTodos os perfis entram com a senha "demo".'
