@@ -377,7 +377,7 @@ const entregas = Array.from({ length: 22 }, (_, i) => {
     data_recebimento: dia(-entre(0, 18)),
     data_entrega: recebida ? dia(-entre(0, 5)) : "",
     status: recebida ? "Entregue" : "Pendente",
-    quantidade: String(entre(1, 3)),
+    quantidade_encomenda: String(entre(1, 3)),
     transportadora: escolher(entregadores).nome,
     codigo: String(entre(100000, 999999)),
     responsavel: "Jonas Paiva",

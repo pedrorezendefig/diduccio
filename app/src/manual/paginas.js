@@ -690,25 +690,28 @@ export const PAGINAS = [
         passos: [
           {
             titulo: "Desmarcar o que fica",
-            texto: "Na Retirada, a lista “Itens entregues agora” vem com todos os volumes marcados. Desmarque os que não vão sair agora. Se nenhum ficar marcado, a “Observação” passa a ser obrigatória e é ela que diz o que foi entregue.",
+            texto: "Na Retirada, a lista “Itens entregues agora” vem com todos os volumes marcados. Desmarque os que não vão sair agora. Sempre que sobra volume, a “Observação” passa a ser obrigatória: é nela que você diz o que ficou na portaria.",
             print: {
               arquivo: "retirada/parcial.png",
               acoes: [
                 { clicar: "Ver detalhes" },
                 { clicar: "Confirmar Entrega" },
-                { clicar: "Volume sem nota", papel: "checkbox" },
+                { clicar: "Volume sem nota 1", papel: "checkbox" },
               ],
             },
           },
           {
             titulo: "Assinar só o que saiu",
-            texto: "Identifique quem retira, peça a assinatura e toque em “Concluir retirada”. A assinatura vale para os volumes marcados.",
+            texto: "Identifique quem retira, escreva na “Observação” o que ficou na portaria, peça a assinatura e toque em “Concluir retirada”. Sem a Observação, o botão fica desligado. A assinatura vale para os volumes marcados.",
             print: {
               arquivo: "retirada/parcial-assinar.png",
               acoes: [
                 { clicar: "Ver detalhes" },
                 { clicar: "Confirmar Entrega" },
-                { clicar: "Volume sem nota", papel: "checkbox" },
+                { clicar: "Volume sem nota 1", papel: "checkbox" },
+                { preencher: "Nome de quem está retirando", com: "Aline Furtado" },
+                { preencher: "CPF de quem está retirando", com: "11144477735" },
+                { preencher: "Observação", com: "Ficou 1 volume na portaria." },
                 { rolar: "Assinatura de quem está retirando" },
               ],
             },
