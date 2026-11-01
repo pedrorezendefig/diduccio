@@ -196,7 +196,7 @@ const tags = vagas
     id_vagas: v.id,
     id_unidade: v.id_unidade,
     veiculo: "Carro",
-    status: escolher(["Solicitado", "Entregue", "Entregue", "Cancelado"]),
+    status: escolher(["Solicitado", "Disponivel", "Aplicado"]),
   }));
 
 // ============================ USUÁRIOS ============================
@@ -377,7 +377,7 @@ const entregas = Array.from({ length: 22 }, (_, i) => {
     data_recebimento: dia(-entre(0, 18)),
     data_entrega: recebida ? dia(-entre(0, 5)) : "",
     status: recebida ? "Entregue" : "Pendente",
-    quantidade: String(entre(1, 3)),
+    quantidade_encomenda: String(entre(1, 3)),
     transportadora: escolher(entregadores).nome,
     codigo: String(entre(100000, 999999)),
     responsavel: "Jonas Paiva",

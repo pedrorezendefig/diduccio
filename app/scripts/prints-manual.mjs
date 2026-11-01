@@ -12,6 +12,11 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import { chromium } from "playwright";
 
+// O rótulo do campo, inteiro: o asterisco de obrigatório entra no texto do
+// <label>, e "Status" não pode casar com "Filtrar por status".
+const rotulo = (texto) =>
+  new RegExp(`^${texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\*?$`);
+
 const RAIZ = fileURLToPath(new URL("..", import.meta.url));
 
 // O cliente do Supabase lança na importação sem URL e chave. No modo demo
@@ -55,10 +60,19 @@ try {
     await pagina.waitForLoadState("networkidle");
     for (const acao of item.acoes) {
       if (acao.clicar) {
-        await pagina.getByRole("button", { name: acao.clicar }).first().click();
+        await pagina.getByRole(acao.papel ?? "button", { name: acao.clicar }).first().click();
       } else if (acao.rolarAte) {
         // Formulário comprido: rola até o texto para o print mostrar o fim.
         await pagina.getByText(acao.rolarAte, { exact: true }).first().scrollIntoViewIfNeeded();
+      } else if (acao.preencher) {
+        await pagina.getByLabel(rotulo(acao.preencher)).last().fill(acao.com);
+      } else if (acao.selecionar) {
+        await pagina.getByLabel(rotulo(acao.selecionar)).last().selectOption({ label: acao.opcao });
+      } else if (acao.rolar) {
+        await pagina.getByText(rotulo(acao.rolar)).last().evaluate((el) => el.scrollIntoView({ block: "center" }));
+      } else if (acao.apontar) {
+        // Os botões da linha da tabela só aparecem com o mouse em cima.
+        await pagina.getByRole("button", { name: acao.apontar }).first().hover();
       } else {
         throw new Error(`Ação desconhecida no print ${item.arquivo}: ${JSON.stringify(acao)}`);
       }

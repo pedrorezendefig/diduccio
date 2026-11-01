@@ -1,9 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PAGINAS, paginasDoCargo } from '../manual/paginas.js'
 import { planoDosPrints, PASTA_DOS_PRINTS } from '../manual/prints.js'
+import { TABELAS } from '../demo/dados.js'
+import { volumesDe } from '../components/RetiradaDialog.jsx'
+
+// A tela da Retirada importa o cliente do Supabase, que exige o .env.local.
+vi.mock('../api/supabase', () => ({ supabase: {} }))
 
 const ids = (cargo) => paginasDoCargo(cargo).map((p) => p.id)
 
@@ -37,6 +42,72 @@ describe('Manual: páginas da Administração', () => {
     expect(pagina?.area).toBe('Administração')
     const passosSemPrint = pagina.tarefas.flatMap((t) => t.passos).filter((p) => !p.print?.arquivo)
     expect(passosSemPrint.map((p) => p.titulo)).toEqual([])
+  })
+})
+
+const PAGINAS_DA_PORTARIA = ['retirada', 'entradas-e-saidas', 'vagas', 'tag']
+
+describe('Manual: páginas da Portaria', () => {
+  it('o Porteiro vê as páginas de Retirada, Entradas e Saídas, Vagas e TAG', () => {
+    expect(ids('Porteiro')).toEqual(expect.arrayContaining(PAGINAS_DA_PORTARIA))
+  })
+
+  it('o Conselheiro não vê nenhuma das páginas da Portaria', () => {
+    expect(ids('Conselheiro').filter((id) => PAGINAS_DA_PORTARIA.includes(id))).toEqual([])
+  })
+
+  const pagina = (id) => PAGINAS.find((p) => p.id === id)
+  const passos = (id) => pagina(id).tarefas.flatMap((t) => t.passos.map((passo) => [`${id}: ${passo.titulo}`, passo]))
+
+  it.each(PAGINAS_DA_PORTARIA.flatMap(passos))('o passo %s tem print', (_nome, passo) => {
+    expect(passo.print?.arquivo).toMatch(/\.png$/)
+  })
+
+  it('a Retirada explica a inteira, a parcial e a feita por outra pessoa', () => {
+    expect(pagina('retirada').tarefas.map((t) => t.titulo)).toEqual([
+      'Retirada inteira',
+      'Retirada parcial',
+      'Retirada por outra pessoa',
+    ])
+  })
+
+  const parcial = () => pagina('retirada').tarefas.find((t) => t.id === 'parcial').passos
+
+  it('na Retirada parcial a Observação é obrigatória sempre que sobra volume', () => {
+    const [desmarcar] = parcial()
+    expect(desmarcar.texto).toMatch(/sobra volume/)
+    expect(desmarcar.texto).not.toMatch(/nenhum ficar marcado/)
+  })
+
+  it('o passo de assinar da Retirada parcial preenche a Observação antes de concluir', () => {
+    const [, assinar] = parcial()
+    expect(assinar.texto).toContain('Observação')
+    expect(assinar.print.acoes).toContainEqual(expect.objectContaining({ preencher: 'Observação' }))
+  })
+
+  it('os prints da Retirada parcial desmarcam só um volume de uma Encomenda com mais de um', () => {
+    // O print abre a primeira Encomenda que aguarda retirada no modo demo.
+    const primeira = TABELAS.ENTREGAS.find((e) => e.status === 'Pendente')
+    expect(volumesDe(primeira)).toBeGreaterThan(1)
+    for (const passo of parcial().slice(0, 2)) {
+      const desmarcados = passo.print.acoes.filter((a) => a.papel === 'checkbox')
+      expect(desmarcados).toEqual([{ clicar: 'Volume sem nota 1', papel: 'checkbox' }])
+    }
+  })
+
+  it('Entradas e Saídas cita os cinco tipos de Pessoa de fora e a Passagem', () => {
+    const texto = textos(pagina('entradas-e-saidas')).join(' ')
+    for (const termo of ['Pessoa de fora', 'Passagem', 'Entregador', 'Motorista', 'Visitante', 'Temporada', 'Serviço']) {
+      expect(texto).toContain(termo)
+    }
+  })
+
+  it('a TAG percorre Solicitada, Disponível e Aplicada', () => {
+    expect(pagina('tag').tarefas.map((t) => t.titulo)).toEqual([
+      'Pedir a TAG (Solicitada)',
+      'Esperar a liberação (Disponível)',
+      'Colar e marcar (Aplicada)',
+    ])
   })
 })
 
