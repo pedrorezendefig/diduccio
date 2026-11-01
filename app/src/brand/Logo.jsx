@@ -2,10 +2,11 @@ import React from "react";
 import { MarcaReduzida, MarcaCompleta } from "./marks";
 import { MARCA, CLARO } from "../theme/tokens";
 
+const NOME = "Diduccio";
 const APOIO = "Sistema de Administração de Condomínio";
 
 /**
- * Logo ViT, produto da VITTA.
+ * Logo do Diduccio, com o desenho herdado do ViT.
  *
  * variant:
  *   full        ilustração completa com swoosh, logotipo e linha de apoio.
@@ -21,7 +22,7 @@ export default function Logo({ variant = "horizontal", cliente, size, ...props }
     return (
       <span
         role="img"
-        aria-label="ViT"
+        aria-label={NOME}
         style={{ color: MARCA["brand-500"], display: "inline-flex" }}
         {...props}
       >
@@ -34,7 +35,7 @@ export default function Logo({ variant = "horizontal", cliente, size, ...props }
     return (
       <div
         role="img"
-        aria-label={`ViT, ${APOIO}`}
+        aria-label={`${NOME}, ${APOIO}`}
         style={{ display: "flex", alignItems: "center", gap: 14, color: MARCA["brand-500"] }}
         {...props}
       >
@@ -50,7 +51,7 @@ export default function Logo({ variant = "horizontal", cliente, size, ...props }
               color: MARCA["brand-500"],
             }}
           >
-            ViT
+            {NOME}
           </div>
           <div
             style={{
@@ -77,7 +78,7 @@ export default function Logo({ variant = "horizontal", cliente, size, ...props }
   return (
     <div
       role="img"
-      aria-label={cliente ? `ViT, ${cliente}` : "ViT"}
+      aria-label={cliente ? `${NOME}, ${cliente}` : NOME}
       style={{ display: "flex", alignItems: "center", gap: 9 }}
       {...props}
     >
@@ -96,7 +97,7 @@ export default function Logo({ variant = "horizontal", cliente, size, ...props }
             color: corLogo,
           }}
         >
-          ViT
+          {NOME}
         </span>
         {cliente && (
           <span

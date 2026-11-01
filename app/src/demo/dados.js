@@ -208,7 +208,7 @@ const usuarios = [
   { id: "2", nome: "Solange Ribeiro", email: "administrativo@exemplo.com.br", cargo: "Auxiliar Administrativo" },
   { id: "3", nome: "Jonas Paiva", email: "portaria@exemplo.com.br", cargo: "Porteiro" },
   { id: "4", nome: "Wilson Estrela", email: "conselho@exemplo.com.br", cargo: "Conselheiro" },
-  { id: "5", nome: "Equipe VITTA", email: "dev@exemplo.com.br", cargo: "Desenvolvedor" },
+  { id: "5", nome: "Equipe Diduccio", email: "dev@exemplo.com.br", cargo: "Desenvolvedor" },
 ];
 
 // ============================ RESERVAS ============================

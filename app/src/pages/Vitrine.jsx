@@ -92,7 +92,7 @@ export default function Vitrine() {
     <div>
       <PageHeader
         title="Vitrine do design system"
-        meta="ViT · 18 primitivos · revise nos dois temas"
+        meta="Diduccio · 18 primitivos · revise nos dois temas"
         actions={
           <>
             <Button onClick={toggleTheme}>
@@ -122,10 +122,10 @@ export default function Vitrine() {
           <Secao titulo="Marca" nota="Quatro lockups. O swoosh só aparece no principal.">
             <div style={{ display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center" }}>
               <Coluna rotulo="principal"><Logo variant="full" size={78} /></Coluna>
-              <Coluna rotulo="horizontal"><Logo variant="horizontal" cliente="Diduccio" /></Coluna>
+              <Coluna rotulo="horizontal"><Logo variant="horizontal" /></Coluna>
               <Coluna rotulo="fundo escuro">
                 <div style={{ background: "var(--brand-700)", padding: 14, borderRadius: "var(--radius-lg)" }}>
-                  <Logo variant="inverse" cliente="Diduccio" />
+                  <Logo variant="inverse" />
                 </div>
               </Coluna>
               <Coluna rotulo="símbolo 32 / 24 / 16">
@@ -360,7 +360,7 @@ export default function Vitrine() {
           <Secao titulo="Escala tipográfica" nota="Oito degraus, substituindo os tamanhos avulsos de antes.">
             <div style={{ display: "grid", gap: 10 }}>
               {[
-                ["3xl", 31, "Entrar no ViT", "var(--font-display)", 800],
+                ["3xl", 31, "Entrar no Diduccio", "var(--font-display)", 800],
                 ["2xl", 25, "Título de página", "var(--font-display)", 700],
                 ["xl", 20, "Título de seção", "var(--font-display)", 700],
                 ["lg", 16, "Subtítulo de bloco", "var(--font-ui)", 600],

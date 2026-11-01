@@ -45,10 +45,10 @@ export const ZONAS = [
   { id: "4", rotulo: "Bloco 4", tipo: "bloco", x: 51, y: 4,  w: 21, h: 20 },
   { id: "5", rotulo: "Bloco 5", tipo: "bloco", x: 75, y: 4,  w: 22, h: 20 },
   { id: "8", rotulo: "Bloco 8", tipo: "bloco", x: 78, y: 28, w: 19, h: 40 },
-  // O miolo leva o nome do condomínio, e a assinatura embaixo. Ele também é
+  // O miolo leva o nome do condomínio. Ele também é
   // onde ficam as pessoas que entraram sem apartamento de destino — o prestador
   // do próprio condomínio está no pátio, e não em bloco nenhum.
-  { id: "COMUM", rotulo: "Diduccio", assinatura: "by VITTA",
+  { id: "COMUM", rotulo: "Diduccio",
                                 tipo: "patio", x: 26, y: 30, w: 46, h: 34 },
   { id: "SALAO", rotulo: "Salão de festas", nota: "churrasqueira",
                                 tipo: "lazer", x: 3,  y: 72, w: 94, h: 23 },

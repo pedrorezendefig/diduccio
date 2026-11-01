@@ -247,7 +247,7 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
   };
 
   const inicial = user?.nome ? user.nome.charAt(0).toUpperCase() : "U";
-  const tituloAtual = APELIDOS[active] ?? active ?? "ViT";
+  const tituloAtual = APELIDOS[active] ?? active ?? "Diduccio";
 
   const renderItem = ([rotulo, Icone]) => {
     if (!podeVer(rotulo)) return null;
@@ -307,7 +307,7 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
         aria-label="Navegação principal"
       >
         <div className="vit-sidebar__marca">
-          <Logo variant="horizontal" cliente="Diduccio" />
+          <Logo variant="horizontal" />
         </div>
 
         <nav className="vit-sidebar__nav">
