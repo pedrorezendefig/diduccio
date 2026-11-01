@@ -11,6 +11,7 @@ Localização: `app/`
 app/
 ├── public/                  # ícones, manifest PWA, service worker e fontes
 │   ├── fonts/
+│   ├── manual/
 │   ├── apple-touch-icon.png
 │   ├── favicon.png
 │   ├── favicon.svg
@@ -23,6 +24,8 @@ app/
 │   ├── sw.js
 │   ├── template.jpg
 │   └── vite.svg
+├── scripts/
+│   └── prints-manual.mjs
 ├── src/                     # o app React
 │   ├── __tests__/           # vitest
 │   ├── api/                 # Supabase, Edge Functions, sessão e autenticação

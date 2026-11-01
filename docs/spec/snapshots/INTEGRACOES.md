@@ -36,7 +36,7 @@ pelas Edge Functions com `Deno.env.get`.
 
 ## Apps Script (herança)
 **Pra que serve:** Backend antigo; só a presença de `VITE_API_URL` ainda importa: sem ela, ou com `VITE_DEMO=true`, o app sobe em modo demo com dados fictícios
-**Onde aparece no código:** `src/api/config.js`
+**Onde aparece no código:** `src/__tests__/manual-prints.test.js`, `src/api/config.js`, `src/manual/prints.js`
 **Secret/env primária:** `VITE_API_URL`
 **Variáveis relacionadas:** `VITE_SHEETS_TOKEN`, `VITE_DEMO`
 
