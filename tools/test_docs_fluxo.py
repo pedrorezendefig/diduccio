@@ -94,6 +94,7 @@ def test_nenhum_doc_diz_que_o_iae_ja_tem_coolify_vercel_ou_manual() -> None:
         for doc in sorted((RAIZ / "docs").rglob("*.md"))
         if "comercial" not in doc.relative_to(RAIZ).parts
         and "snapshots" not in doc.relative_to(RAIZ).parts  # gerado do app, que traz o vercel.json de origem
+        and "adr" not in doc.relative_to(RAIZ).parts  # ADR registra decisão; o Manual do Diduccio é decisão própria (ADR 0003)
         for n, linha in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1)
         if DO_HOSPITAL.search(linha) and not PLANO_OU_AUSENCIA.search(linha)
     ]
