@@ -25,7 +25,7 @@ Tudo que está na árvore é código, doc viva ou decisão. Estado de trabalho f
 | `README.md` | Este mapa | Quem clona precisa saber o que é cada pasta sem perguntar | O que você está lendo | Primeiro dia; o `/setup-maquina --mapa` lê daqui |
 | `CLAUDE.md` | Regras do repo para o agente | Mínimo que toda sessão precisa saber | Idioma, tipografia, trava da `main`, fluxo de trabalho, o que é proibido criar | Leia uma vez. O roteamento fino está no `/ask-diduccio` |
 | `CONTEXT.md` | Glossário do projeto | Pedro e o agente falam a mesma língua | Termos com definição e "evitar" (Morador, Unidade, Encomenda, Retirada, Cargo, Diduccio OS) | Consultar antes de nomear qualquer coisa nova |
-| `app/` | O sistema do condomínio | É o produto | `src/` (React 19 com Vite: páginas, componentes, design system em `ui/`, tema em `styles/` e `theme/`), `supabase/` (migrations SQL e Edge Functions), `public/` (PWA: manifest, service worker, ícones e fontes) | `npm run dev` para subir; PR que toca aqui é PR do app |
+| `app/` | O sistema do condomínio | É o produto | `src/` (React 19 com Vite: páginas, componentes, design system em `ui/`, tema em `styles/` e `theme/`), `supabase/` (migrations SQL e Edge Functions), `public/` (PWA: manifest, service worker, ícones e fontes), `scripts/` (`prints-manual.mjs`, que tira os prints do Manual no modo demo com `npm run manual:prints`) | `npm run dev` para subir; PR que toca aqui é PR do app |
 | `.claude/` | Skills e agentes do time, versionados | Quem clona recebe o fluxo inteiro | `skills/` (uma pasta por skill, com `SKILL.md` e, quando precisa, `references/` e `scripts/`) e `agents/` (`diduccio-implementador`, `diduccio-revisor`, `diduccio-corretor`, que a `/onda-enxuta` e o `/ship` disparam) | `/ask-diduccio` diz qual usar |
 | `.githooks/` | Hooks de git do repo | O plano grátis do GitHub não protege a `main` de repo privado | `pre-push`, que recusa push direto na `main` | Ligar uma vez com `git config core.hooksPath .githooks` |
 | `.github/` | CI e templates | Gates automáticos do `/ship` e formato único de issue e PR | `workflows/` (`ci.yml` com os jobs `app` e `ferramenta`, `lint-adr.yml`, `lint-skills.yml`, `higiene-issues.yml`) e `ISSUE_TEMPLATE/`, mais o `PULL_REQUEST_TEMPLATE.md` | Não se edita no dia a dia |
@@ -62,6 +62,7 @@ Toda pasta de nível 1 e 2 que o git conhece precisa estar aqui. Pasta nova no r
 .github/workflows
 app
 app/public
+app/scripts
 app/src
 app/supabase
 docs

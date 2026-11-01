@@ -173,6 +173,17 @@
   color: var(--fg-heading);
 }
 
+/* Print do passo, gerado por `npm run manual:prints`. */
+.manual-print {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  margin-top: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
 @media (max-width: 768px) {
   .manual-tarefa__titulo { padding: var(--space-5); }
   .manual-tarefa__titulo + .proc-guia__corpo { padding-left: var(--space-5); padding-right: var(--space-5); }

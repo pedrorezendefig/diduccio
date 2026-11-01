@@ -2,7 +2,7 @@ import React from "react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, ChevronRight } from "lucide-react";
 import { PageHeader, EmptyState } from "../ui";
-import { paginasDoCargo } from "../manual/paginas";
+import { enderecoDoPrint, paginasDoCargo } from "../manual/paginas";
 
 /**
  * O Manual: a ajuda de cada tela, dentro do app (ADR 0003).
@@ -100,6 +100,14 @@ function Pagina({ paginas }) {
                     <span className="proc-passo__conteudo">
                       <span className="proc-passo__titulo">{passo.titulo}</span>
                       <span className="proc-passo__texto">{passo.texto}</span>
+                      {passo.print && (
+                        <img
+                          className="manual-print"
+                          src={enderecoDoPrint(passo.print.arquivo)}
+                          alt={passo.titulo}
+                          loading="lazy"
+                        />
+                      )}
                     </span>
                   </li>
                 ))}
