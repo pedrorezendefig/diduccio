@@ -117,26 +117,16 @@ export const PAGINAS = [
     area: "Administração",
     rota: "/dashboard",
     titulo: "Painel",
-    resumo: "Os números do condomínio, os relatórios das reservas e as próximas reservas, na primeira tela depois de entrar.",
+    resumo: "Os números do condomínio, os relatórios das reservas e a agenda do dia, na primeira tela depois de entrar.",
     tarefas: [
       {
         id: "ler",
         titulo: "Ler o painel",
         passos: [
           {
-            titulo: "Os números do topo",
-            texto: "O painel abre logo depois de entrar. No topo ficam o recebido no ano com festas e churrasqueira, as Reservas ativas, as Encomendas aguardando na portaria e os carros registrados. Abaixo, “Relatórios” troca o gráfico entre “Receita”, “Reservas” e “Status”.",
+            titulo: "Relatórios, agenda e números",
+            texto: "O painel abre logo depois de entrar. Em “Relatórios”, escolha o gráfico (“Receita”, “Reservas” ou “Status”) e o ano. Ao lado, “Hoje e amanhã” lista os compromissos dos próximos dois dias e “Abrir agenda completa” leva à agenda inteira. Embaixo ficam o recebido no ano com festas e churrasqueira, as Reservas ativas, as Encomendas aguardando na portaria e os carros registrados. O Conselheiro vê o recebido e os relatórios da receita; o número que o Cargo não pode ver aparece com um traço e a nota “fora do seu acesso”.",
             print: { arquivo: "painel/inicio.png", cargo: "Sindico" },
-          },
-          {
-            titulo: "Abrir uma reserva",
-            texto: "Em “Próximos agendamentos”, toque em “Detalhes” para abrir a Reserva na tela dela, já com os dados à mostra. “Ver todos” leva ao calendário.",
-            print: { arquivo: "painel/detalhes.png", cargo: "Sindico", acoes: [{ clicar: "Detalhes" }] },
-          },
-          {
-            titulo: "O painel do Conselheiro",
-            texto: "O Conselheiro vê o recebido no ano e os relatórios da receita. O número que o Cargo não pode ver aparece com um traço e a nota “fora do seu acesso”.",
-            print: { arquivo: "painel/conselheiro.png", cargo: "Conselheiro" },
           },
         ],
       },
@@ -278,13 +268,8 @@ export const PAGINAS = [
         titulo: "Criar um Usuário",
         passos: [
           {
-            titulo: "Ver quem tem acesso",
-            texto: "A lista mostra cada Usuário com o Cargo dele. Só o Desenvolvedor abre esta tela.",
-            print: { arquivo: "usuarios/lista.png" },
-          },
-          {
             titulo: "Cadastrar",
-            texto: "Toque em “Novo usuário”. Preencha o nome, o e-mail e, se tiver, o CPF. Escolha o Cargo. A senha inicial é opcional: em branco, o sistema gera uma senha temporária. Toque em “Cadastrar”.",
+            texto: "Só o Desenvolvedor abre esta tela. Toque em “Novo usuário”. Preencha o nome, o e-mail e, se tiver, o CPF. Escolha o Cargo. A senha inicial é opcional: em branco, o sistema gera uma senha temporária. Toque em “Cadastrar”.",
             print: { arquivo: "usuarios/novo.png", acoes: [{ clicar: "Novo usuário" }] },
           },
         ],
@@ -294,9 +279,9 @@ export const PAGINAS = [
         titulo: "Mudar o Cargo ou a senha",
         passos: [
           {
-            titulo: "Editar o Usuário",
-            texto: "Toque no lápis da linha do Usuário. Dá para mudar o nome, o Cargo e a senha; o e-mail não muda. Para uma senha nova sem digitar, toque na chave da linha: a senha temporária aparece uma vez só, então copie e repasse na hora.",
-            print: { arquivo: "usuarios/editar.png", acoes: [{ clicar: "Editar" }] },
+            titulo: "Editar na lista",
+            texto: "Na lista, toque no lápis da linha do Usuário. Abre o mesmo cadastro, com o nome, o Cargo e a senha para mudar; o e-mail não muda. Para uma senha nova sem digitar, toque na chave da linha. A senha temporária aparece uma vez só, então copie e repasse na hora.",
+            print: { arquivo: "usuarios/novo.png", acoes: [{ clicar: "Novo usuário" }] },
           },
         ],
       },

@@ -33,11 +33,6 @@ describe('Manual: login de cada print', () => {
     expect(inicio.email).toBe('sindico@exemplo.com.br')
   })
 
-  it('o painel do Conselheiro é fotografado com o login do Conselheiro', () => {
-    const conselheiro = planoDosPrints().find((p) => p.arquivo === 'painel/conselheiro.png')
-    expect(conselheiro.email).toBe('conselho@exemplo.com.br')
-  })
-
   it('recusa um print pedido por um Cargo que não vê a tela', () => {
     const pagina = {
       tela: 'Usuarios',
