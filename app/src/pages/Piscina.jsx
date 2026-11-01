@@ -1321,14 +1321,19 @@ const handleSort = (key) => {
             
             {/* Container do Olho + Asterisco */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Eye
-                size={18}
-                color={theme.brand}
-                style={{ cursor: 'pointer' }}
+              {/* Botão, como no Salão de festas: o <Eye> sozinho não recebia
+                  foco, e o script de prints do Manual não tinha como abrir a
+                  carteirinha. */}
+              <button
+                type="button"
+                aria-label={`Ver ficha de ${f.nome || "sem nome"}`}
                 onMouseEnter={() => { prefetchFoto(f.url_foto); }}
                 onTouchStart={() => { prefetchFoto(f.url_foto); }}
                 onClick={() => { setSelectedFesta(f); setShowViewModal(true); }}
-              />
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}
+              >
+                <Eye size={18} color={theme.brand} />
+              </button>
               
               {/* Asterisco */}
               {((f.divergencia_local === "Sim" || f.divergencia_local === true) || (f.obs && (String(f.obs || "").trim()) !== "")) && (

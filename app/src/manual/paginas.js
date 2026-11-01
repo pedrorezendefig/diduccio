@@ -13,7 +13,8 @@ import { podeVerTela } from "../auth/menu";
 // `rota` é o endereço da tela no app. Um passo pode ter `print`: `arquivo` é o
 // caminho do PNG dentro de public/manual/ e `acoes` são os cliques que o script
 // de prints (`npm run manual:prints`) faz na tela antes de fotografar, em
-// ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo.
+// ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo;
+// `{ rolarAte: "Texto" }` rola a tela até o primeiro texto igual a esse.
 // `cargo` (opcional) escolhe o login de exemplo que fotografa; sem ele, vale o
 // primeiro Cargo da tela no menu.
 export const PAGINAS = [
@@ -284,6 +285,339 @@ export const PAGINAS = [
             titulo: "Editar na lista",
             texto: "Na lista, toque no lápis da linha do Usuário. Abre o mesmo cadastro, com o nome, o Cargo e a senha para mudar; o e-mail não muda. Para uma senha nova sem digitar, toque na chave da linha. A senha temporária aparece uma vez só, então copie e repasse na hora.",
             print: { arquivo: "usuarios/novo.png", acoes: [{ clicar: "Novo usuário" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "moradores",
+    tela: "Moradores",
+    area: "Moradores",
+    rota: "/moradores",
+    titulo: "Moradores",
+    resumo: "Cadastrar o Morador na Unidade, com Vínculo e Tipo de morador, e corrigir o cadastro quando algo muda.",
+    tarefas: [
+      {
+        id: "cadastrar",
+        titulo: "Cadastrar um Morador",
+        passos: [
+          {
+            titulo: "Conferir se já existe",
+            texto: "Antes de cadastrar, busque pelo nome ou pelo CPF. Os filtros de bloco, Vínculo, Tipo de morador e status ajudam a achar quem já está na lista.",
+            print: { arquivo: "moradores/lista.png", acoes: [] },
+          },
+          {
+            titulo: "Preencher o cadastro",
+            texto: "Toque em “Novo morador”. Nome completo e Unidade são obrigatórios; o CPF é opcional, mas não pode repetir. Em Vínculo, escolha Proprietário ou Locatário. Em Tipo de morador, escolha Titular, Dependente ou Não Morador: o Titular é quem confirma o telefone e responde pela Unidade. Toque em “Cadastrar”.",
+            print: { arquivo: "moradores/novo-morador.png", acoes: [{ clicar: "Novo morador" }] },
+          },
+        ],
+      },
+      {
+        id: "corrigir",
+        titulo: "Consultar e corrigir um cadastro",
+        passos: [
+          {
+            titulo: "Abrir o cadastro",
+            texto: "Toque no olho na linha do Morador. O painel mostra a Unidade, o Tipo de morador, o Vínculo e os documentos. Com telefone cadastrado, aparecem os botões “Ligar” e “WhatsApp”.",
+            print: { arquivo: "moradores/detalhe.png", acoes: [{ clicar: "Ver Aline Furtado" }] },
+          },
+          {
+            titulo: "Editar o cadastro",
+            texto: "Toque em “Editar” no painel, ou no lápis da linha, mude o que precisa e toque em “Salvar”. Quando o Morador deixa a Unidade, preencha a “Data de saída” e mude o status para Inativo. Excluir um cadastro é só com o Síndico.",
+            print: { arquivo: "moradores/editar.png", acoes: [{ clicar: "Editar Aline Furtado" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "unidades",
+    tela: "Unidades",
+    area: "Moradores",
+    rota: "/unidades",
+    titulo: "Unidades",
+    resumo: "Cadastrar a Unidade e manter em dia a ocupação e a adimplência.",
+    tarefas: [
+      {
+        id: "cadastrar",
+        titulo: "Cadastrar uma Unidade",
+        passos: [
+          {
+            titulo: "Conferir a lista",
+            texto: "O alto da tela mostra quantas Unidades estão ocupadas e quantas estão inadimplentes, com o total em aberto. Busque por bloco ou número e use os filtros de ocupação e situação.",
+            print: { arquivo: "unidades/lista.png", acoes: [] },
+          },
+          {
+            titulo: "Preencher o cadastro",
+            texto: "Toque em “Nova unidade”, informe o bloco e o número e escolha a ocupação (Vazia ou Ocupada) e a situação (Adimplente ou Inadimplente). Toque em “Cadastrar”.",
+            print: { arquivo: "unidades/nova-unidade.png", acoes: [{ clicar: "Nova unidade" }] },
+          },
+        ],
+      },
+      {
+        id: "atualizar",
+        titulo: "Atualizar a ocupação e a adimplência",
+        passos: [
+          {
+            titulo: "Editar a Unidade",
+            texto: "Toque no lápis na linha da Unidade. Bloco e número não mudam depois do cadastro. Ao escolher Inadimplente, aparece o campo “Valor em aberto”: use vírgula para os centavos. Toque em “Salvar”.",
+            print: { arquivo: "unidades/editar.png", acoes: [{ clicar: "Editar unidade 1-101" }] },
+          },
+        ],
+      },
+      {
+        id: "exportar",
+        titulo: "Exportar a lista",
+        passos: [
+          {
+            titulo: "Escolher as colunas",
+            texto: "Toque em “Exportar” e escolha “Excel” ou “PDF”. No PDF, saem só as colunas marcadas.",
+            print: { arquivo: "unidades/exportar.png", acoes: [{ clicar: "Exportar" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "confirmacao",
+    tela: "Confirmação",
+    area: "Moradores",
+    rota: "/confirmacao",
+    titulo: "Confirmação",
+    resumo: "Confirmar por WhatsApp o telefone do Titular que vai receber os Avisos das Encomendas.",
+    tarefas: [
+      {
+        id: "confirmar",
+        titulo: "Confirmar o telefone do Titular",
+        passos: [
+          {
+            titulo: "Enviar a mensagem",
+            texto: "A tela lista os Titulares com telefone, separados nas abas “Sem envio”, “Aguardando”, “Confirmados” e “Sem resposta”. Na linha do Titular, toque no ícone de mensagem: o WhatsApp abre com a mensagem pronta e a linha passa para Aguardando.",
+            print: { arquivo: "confirmacao/lista.png", acoes: [] },
+          },
+          {
+            titulo: "Registrar a resposta",
+            texto: "Quando o Titular responder, toque no ícone de confirmado. Se ele não responder, marque como sem resposta. Para mandar de novo, use o ícone de reenviar: a linha volta para Aguardando.",
+            print: { arquivo: "confirmacao/confirmado.png", acoes: [{ clicar: "como confirmado" }] },
+          },
+        ],
+      },
+      {
+        id: "numero",
+        titulo: "Trocar o número",
+        passos: [
+          {
+            titulo: "Alterar o número",
+            texto: "Toque no ícone de telefone na linha, digite o número novo com DDD e toque em “Salvar e enviar”. O número muda também no cadastro do Morador, e o WhatsApp abre com a mensagem de Confirmação.",
+            print: { arquivo: "confirmacao/alterar-numero.png", acoes: [{ clicar: "Alterar número de" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "festas",
+    tela: "Festas",
+    area: "Reservas",
+    rota: "/festas",
+    titulo: "Salão de festas",
+    resumo: "Registrar a Reserva do salão de festas, com taxa e convidados, e gerar o contrato com o termo de responsabilidade.",
+    tarefas: [
+      {
+        id: "reservar",
+        titulo: "Reservar o salão de festas",
+        passos: [
+          {
+            titulo: "Abrir a Reserva",
+            texto: "Toque em “Nova reserva” e escolha a Unidade. Marque “Morador Cadastrado?” para escolher o Morador da Unidade e trazer nome, CPF e telefone. Se quem reserva não está cadastrado, preencha o responsável à mão.",
+            print: { arquivo: "festas/nova-reserva.png", acoes: [{ clicar: "Nova reserva" }] },
+          },
+          {
+            titulo: "Data, taxa e convidados",
+            texto: "Informe a data, o telefone, a taxa e quantos convidados vêm. Unidade, responsável, CPF, telefone, data e taxa são obrigatórios. Em “Pago?”, diga se a taxa já entrou. Anexe o comprovante em “Adicionar arquivos” e toque em “Salvar Mudanças”. Se a data já tem Reserva com status Agendado, o sistema não deixa salvar; se a outra está Pendente, ele pergunta antes.",
+            print: { arquivo: "festas/taxa-e-convidados.png", acoes: [{ clicar: "Nova reserva" }, { rolarAte: "Salvar Mudanças" }] },
+          },
+        ],
+      },
+      {
+        id: "termo",
+        titulo: "Gerar o contrato com o termo",
+        passos: [
+          {
+            titulo: "Contrato da Reserva",
+            texto: "Na linha da Reserva, toque nos três pontos e em “Gerar Contrato”. O PDF sai com os dados do responsável, a taxa, as regras do salão e o termo de responsabilidade, para o Morador assinar.",
+            print: { arquivo: "festas/gerar-contrato.png", acoes: [{ clicar: "Ações da reserva de" }] },
+          },
+          {
+            titulo: "Contrato em branco",
+            texto: "Para preencher à mão, toque em “Contrato” no alto da tela. Sai o mesmo contrato, com os campos vazios.",
+            print: { arquivo: "festas/lista.png", acoes: [] },
+          },
+        ],
+      },
+      {
+        id: "consultar",
+        titulo: "Consultar uma Reserva",
+        passos: [
+          {
+            titulo: "Abrir a Reserva",
+            texto: "Toque no olho na linha. O painel mostra o responsável, a data, os convidados, o valor da taxa, as observações e os comprovantes. O asterisco vermelho ao lado do olho avisa que a Reserva tem observação ou divergência.",
+            print: { arquivo: "festas/detalhe.png", acoes: [{ clicar: "Ver reserva de" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "churrasqueira",
+    tela: "Churrasqueira",
+    area: "Reservas",
+    rota: "/churrasqueira",
+    titulo: "Churrasqueira",
+    resumo: "Registrar a Reserva da churrasqueira CH-A ou CH-B e gerar o contrato.",
+    tarefas: [
+      {
+        id: "reservar",
+        titulo: "Reservar a churrasqueira",
+        passos: [
+          {
+            titulo: "Abrir a Reserva",
+            texto: "Toque em “Nova reserva” e escolha a Unidade. Marque “Morador Cadastrado?” para trazer os dados do Morador, ou preencha o responsável à mão.",
+            print: { arquivo: "churrasqueira/nova-reserva.png", acoes: [{ clicar: "Nova reserva" }] },
+          },
+          {
+            titulo: "Escolher a churrasqueira",
+            texto: "Informe a data e a hora, o telefone, o RG, a taxa e os convidados, e escolha a churrasqueira, CH-A ou CH-B. Anexe o comprovante em “Adicionar arquivos” e toque em “Salvar Mudanças”. O choque de data vale para a mesma churrasqueira: Reserva Agendada impede, Pendente faz o sistema perguntar antes.",
+            print: { arquivo: "churrasqueira/escolher.png", acoes: [{ clicar: "Nova reserva" }, { rolarAte: "Salvar Mudanças" }] },
+          },
+        ],
+      },
+      {
+        id: "contrato",
+        titulo: "Gerar o contrato",
+        passos: [
+          {
+            titulo: "Contrato da Reserva",
+            texto: "Na linha da Reserva, toque nos três pontos e em “Gerar Contrato”. Para um contrato em branco, toque em “Contrato” no alto da tela.",
+            print: { arquivo: "churrasqueira/gerar-contrato.png", acoes: [{ clicar: "Ações da reserva de" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "piscina",
+    tela: "Piscina",
+    area: "Reservas",
+    rota: "/piscina",
+    titulo: "Piscina",
+    resumo: "Cadastrar a Ficha da piscina, com foto e atestado médico, e baixar a carteirinha. A piscina não se reserva.",
+    tarefas: [
+      {
+        id: "cadastrar",
+        titulo: "Cadastrar a Ficha da piscina",
+        passos: [
+          {
+            titulo: "Abrir a Ficha",
+            texto: "Toque em “Novo cadastro” e escolha a Unidade. Marque “Morador Cadastrado?” para trazer nome, CPF e telefone do Morador.",
+            print: { arquivo: "piscina/novo-cadastro.png", acoes: [{ clicar: "Novo cadastro" }] },
+          },
+          {
+            titulo: "Atestado e foto",
+            texto: "Informe a data de nascimento e a validade do atestado. Unidade, nome e validade são obrigatórios. Em “Documentação”, anexe a foto do rosto e o atestado médico, em imagem ou PDF, e toque em “Salvar Cadastro”.",
+            print: { arquivo: "piscina/atestado.png", acoes: [{ clicar: "Novo cadastro" }, { rolarAte: "Salvar Cadastro" }] },
+          },
+        ],
+      },
+      {
+        id: "carteirinha",
+        titulo: "Baixar a carteirinha",
+        passos: [
+          {
+            titulo: "Ver a carteirinha",
+            texto: "Na lista, toque no olho na linha do Morador. A carteirinha aparece com a foto, a Unidade e a validade do atestado. Toque em “Baixar Carteirinha” para salvar a imagem.",
+            print: { arquivo: "piscina/carteirinha.png", acoes: [{ clicar: "Ver ficha de" }] },
+          },
+          {
+            titulo: "Atestado vencido",
+            texto: "Na lista, o ícone vermelho ao lado da data de validade marca atestado vencido, e a Ficha mostra o mesmo alerta. Para achar quem precisa trazer atestado novo, filtre pelo período de validade.",
+            print: { arquivo: "piscina/lista.png", acoes: [] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "mudancas",
+    tela: "Mudanças",
+    area: "Reservas",
+    rota: "/mudancas",
+    titulo: "Mudanças",
+    resumo: "Marcar a Mudança de entrada ou saída de uma Unidade, com período e responsável.",
+    tarefas: [
+      {
+        id: "marcar",
+        titulo: "Marcar uma Mudança",
+        passos: [
+          {
+            titulo: "Abrir a Mudança",
+            texto: "Toque em “Nova mudança” e escolha a Unidade. Marque “Morador Cadastrado?” para trazer os dados do Morador, ou preencha o responsável à mão.",
+            print: { arquivo: "mudancas/nova-mudanca.png", acoes: [{ clicar: "Nova mudança" }] },
+          },
+          {
+            titulo: "Datas, tipo e período",
+            texto: "Informe o início e a previsão de término, o telefone, o tipo (Entrada ou Saída) e o período (Manhã ou Tarde). Unidade, responsável, as duas datas e o telefone são obrigatórios. Toque em “Salvar Mudança”. Duas Mudanças no mesmo bloco e no mesmo dia travam o elevador: se a outra está Pendente, o sistema pergunta antes; nos outros status, não deixa salvar.",
+            print: { arquivo: "mudancas/datas.png", acoes: [{ clicar: "Nova mudança" }, { rolarAte: "Salvar Mudança" }] },
+          },
+        ],
+      },
+      {
+        id: "acompanhar",
+        titulo: "Acompanhar as Mudanças",
+        passos: [
+          {
+            titulo: "Filtrar a lista",
+            texto: "A lista mostra a Unidade, o responsável, a data, o tipo, o período e o status. Filtre por status, tipo, turno ou período para ver as Mudanças da semana.",
+            print: { arquivo: "mudancas/lista.png", acoes: [] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "agendamento",
+    tela: "Agendamento",
+    area: "Reservas",
+    rota: "/agendamento",
+    titulo: "Agendamento",
+    resumo: "Marcar um Atendimento com a administração, para Morador, prestador de serviço, administradora ou funcionário.",
+    tarefas: [
+      {
+        id: "marcar",
+        titulo: "Marcar um Atendimento",
+        passos: [
+          {
+            titulo: "Escolher o dia",
+            texto: "No calendário, toque no dia. Dia com ponto já tem Atendimento, e à direita aparecem os horários livres, das 10h às 16h. Toque num horário livre ou em “Novo Agendamento”.",
+            print: { arquivo: "agendamento/calendario.png", acoes: [] },
+          },
+          {
+            titulo: "Preencher o Atendimento",
+            texto: "Em “Tipo de Reunião”, escolha Morador, Prestador de Serviço, Administradora ou Funcionário; para Morador, escolha também a Unidade. Nome, data e hora de início são obrigatórios, e a duração vai de 30 minutos a 2 horas. Escreva o assunto e toque em “Salvar Agendamento”.",
+            print: { arquivo: "agendamento/novo.png", acoes: [{ clicar: "Novo Agendamento" }] },
+          },
+        ],
+      },
+      {
+        id: "remarcar",
+        titulo: "Remarcar ou cancelar",
+        passos: [
+          {
+            titulo: "Abrir o Atendimento",
+            texto: "Em “Próximos”, ou na grade do dia, toque no Atendimento. Mude a data, a hora ou o status (Agendado, Confirmado, Realizado ou Cancelado) e toque em “Salvar Alterações”.",
+            print: { arquivo: "agendamento/editar.png", acoes: [{ clicar: "Larissa Pontes" }] },
           },
         ],
       },
