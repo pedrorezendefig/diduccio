@@ -50,6 +50,7 @@ Ordem cronológica das migrations do Postgres do Diduccio (`app/supabase/migrati
 | 44 | `0044_notas_das_tarefas.sql` | O bloco de notas das Tarefas: um rascunho por pessoa. | 1 | 0 | 0 | 0 |
 | 45 | `0045_auxiliar_ve_so_as_dele.sql` | O auxiliar cuida só das tarefas dele; o síndico e o dev, de todas. | 0 | 0 | 0 | 0 |
 | 63 | `0063_modelo_do_veiculo.sql` | O modelo do veículo: como ele é, em texto livre. | 0 | 2 | 0 | 0 |
+| 64 | `0064_editar_anexo_segue_apagar.sql` | Quem não pode apagar um anexo também não pode sobrescrevê-lo. | 0 | 0 | 0 | 0 |
 
 **Legenda:** C = CREATE TABLE, A = ALTER TABLE (coluna ou FK), I = CREATE INDEX, D = DROP.
-**Total:** 45 migrations.
+**Total:** 46 migrations.
