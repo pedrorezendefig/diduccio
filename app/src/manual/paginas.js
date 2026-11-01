@@ -887,7 +887,7 @@ export const PAGINAS = [
           },
           {
             titulo: "Ver a Vaga",
-            texto: "Toque no olho da linha para ver o carro e a moto da Unidade, com modelo e placa, e o status da TAG. Se a placa no portão não bate com a da Vaga, avise a administração: a portaria confere, quem corrige o cadastro é a administração.",
+            texto: "Toque no olho da linha para ver o carro e a moto da Unidade, com modelo e placa, e o status da TAG. Se a placa no portão não bate com a da Vaga, avise a administração, que é quem corrige o cadastro.",
             print: {
               arquivo: "vagas/detalhe.png",
               acoes: [{ clicar: "Ver vaga da unidade" }],
