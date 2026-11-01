@@ -14,6 +14,10 @@ import { podeVerTela } from "../auth/menu";
 // caminho do PNG dentro de public/manual/ e `acoes` são os cliques que o script
 // de prints (`npm run manual:prints`) faz na tela antes de fotografar, em
 // ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo;
+// com `papel: "tab"`, `"radio"` ou `"checkbox"`, clica na aba, na opção ou na
+// caixa. `{ preencher: "Rótulo", com: "texto" }` digita no campo,
+// `{ selecionar: "Rótulo", opcao: "Opção" }` escolhe na lista,
+// `{ rolar: "Texto" }` rola a tela até o texto e
 // `{ rolarAte: "Texto" }` rola a tela até o primeiro texto igual a esse.
 // `cargo` (opcional) escolhe o login de exemplo que fotografa; sem ele, vale o
 // primeiro Cargo da tela no menu.
@@ -618,6 +622,373 @@ export const PAGINAS = [
             titulo: "Abrir o Atendimento",
             texto: "Em “Próximos”, ou na grade do dia, toque no Atendimento. Mude a data, a hora ou o status (Agendado, Confirmado, Realizado ou Cancelado) e toque em “Salvar Alterações”.",
             print: { arquivo: "agendamento/editar.png", acoes: [{ clicar: "Larissa Pontes" }] },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "retirada",
+    tela: "Encomendas",
+    area: "Portaria",
+    rota: "/encomendas",
+    titulo: "Retirada",
+    resumo: "Entregar a Encomenda com assinatura: inteira, só uma parte dos volumes ou para outra pessoa.",
+    tarefas: [
+      {
+        id: "inteira",
+        titulo: "Retirada inteira",
+        passos: [
+          {
+            titulo: "Abrir a Encomenda",
+            texto: "Na lista de Encomendas, toque em “Ver detalhes” na Encomenda de quem veio buscar. Confira a Unidade, o nome e quantos volumes são.",
+            print: {
+              arquivo: "retirada/detalhes.png",
+              acoes: [{ clicar: "Ver detalhes" }],
+            },
+          },
+          {
+            titulo: "Conferir o Código de retirada",
+            texto: "Toque em “Confirmar Entrega”. Se o Aviso foi enviado, peça o Código de retirada e digite no primeiro campo: ele é obrigatório, e o sistema confere se é desta Encomenda. Sem Aviso enviado, o campo fica fechado e a Retirada segue só pela identificação.",
+            print: {
+              arquivo: "retirada/entregar.png",
+              acoes: [{ clicar: "Ver detalhes" }, { clicar: "Confirmar Entrega" }],
+            },
+          },
+          {
+            titulo: "Identificar quem retira",
+            texto: "Preencha o nome e o CPF de quem está retirando. O CPF vai só com números.",
+            print: {
+              arquivo: "retirada/identificar.png",
+              acoes: [
+                { clicar: "Ver detalhes" },
+                { clicar: "Confirmar Entrega" },
+                { preencher: "Nome de quem está retirando", com: "Aline Furtado" },
+                { preencher: "CPF de quem está retirando", com: "11144477735" },
+              ],
+            },
+          },
+          {
+            titulo: "Assinar e concluir",
+            texto: "Confira se todos os volumes estão marcados em “Itens entregues agora”, peça a assinatura no quadro e toque em “Concluir retirada”. A Retirada fica guardada e não pode ser alterada nem apagada.",
+            print: {
+              arquivo: "retirada/assinar.png",
+              acoes: [
+                { clicar: "Ver detalhes" },
+                { clicar: "Confirmar Entrega" },
+                { preencher: "Nome de quem está retirando", com: "Aline Furtado" },
+                { preencher: "CPF de quem está retirando", com: "11144477735" },
+                { rolar: "Assinatura de quem está retirando" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        id: "parcial",
+        titulo: "Retirada parcial",
+        passos: [
+          {
+            titulo: "Desmarcar o que fica",
+            texto: "Na Retirada, a lista “Itens entregues agora” vem com todos os volumes marcados. Desmarque os que não vão sair agora. Se nenhum ficar marcado, a “Observação” passa a ser obrigatória e é ela que diz o que foi entregue.",
+            print: {
+              arquivo: "retirada/parcial.png",
+              acoes: [
+                { clicar: "Ver detalhes" },
+                { clicar: "Confirmar Entrega" },
+                { clicar: "Volume sem nota", papel: "checkbox" },
+              ],
+            },
+          },
+          {
+            titulo: "Assinar só o que saiu",
+            texto: "Identifique quem retira, peça a assinatura e toque em “Concluir retirada”. A assinatura vale para os volumes marcados.",
+            print: {
+              arquivo: "retirada/parcial-assinar.png",
+              acoes: [
+                { clicar: "Ver detalhes" },
+                { clicar: "Confirmar Entrega" },
+                { clicar: "Volume sem nota", papel: "checkbox" },
+                { rolar: "Assinatura de quem está retirando" },
+              ],
+            },
+          },
+          {
+            titulo: "O resto continua aguardando",
+            texto: "A Encomenda fica como “Parcialmente entregue” e continua na aba “Aguardando retirada”. Quando alguém voltar para buscar o resto, faça outra Retirada com os volumes que sobraram.",
+            print: {
+              arquivo: "retirada/lista.png",
+              acoes: [],
+            },
+          },
+        ],
+      },
+      {
+        id: "outra-pessoa",
+        titulo: "Retirada por outra pessoa",
+        passos: [
+          {
+            titulo: "Identificar quem veio",
+            texto: "Preencha o nome e o CPF de quem está na sua frente, não os do Morador. É essa pessoa que assina. Se o Aviso foi enviado, ela precisa trazer o Código de retirada que o Morador recebeu.",
+            print: {
+              arquivo: "retirada/outra-pessoa.png",
+              acoes: [
+                { clicar: "Ver detalhes" },
+                { clicar: "Confirmar Entrega" },
+                { preencher: "Nome de quem está retirando", com: "Marina Lopes" },
+                { preencher: "CPF de quem está retirando", com: "52998224725" },
+              ],
+            },
+          },
+          {
+            titulo: "Anotar quem autorizou",
+            texto: "Use o campo “Observação” para registrar quem autorizou, por exemplo: vizinha do 206, autorizada pelo Morador por telefone.",
+            print: {
+              arquivo: "retirada/observacao.png",
+              acoes: [
+                { clicar: "Ver detalhes" },
+                { clicar: "Confirmar Entrega" },
+                { preencher: "Nome de quem está retirando", com: "Marina Lopes" },
+                { preencher: "CPF de quem está retirando", com: "52998224725" },
+                { preencher: "Observação", com: "Vizinha do 206, autorizada pelo Morador por telefone." },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "entradas-e-saidas",
+    tela: "Entregas",
+    area: "Portaria",
+    rota: "/entregas",
+    titulo: "Entradas e Saídas",
+    resumo: "Registrar a Passagem de quem entra sem morar no condomínio: a chegada, o tempo permitido e a saída.",
+    tarefas: [
+      {
+        id: "chegada",
+        titulo: "Registrar a chegada",
+        passos: [
+          {
+            titulo: "Escolher o tipo",
+            texto: "Em “Registrar chegada”, toque no tipo da Pessoa de fora: Entregador, Motorista, Visitante, Temporada ou Serviço. O tipo vem primeiro porque muda o resto do formulário.",
+            print: {
+              arquivo: "entradas-e-saidas/tipos.png",
+              acoes: [{ clicar: "Visitante", papel: "radio" }],
+            },
+          },
+          {
+            titulo: "Identificar a pessoa",
+            texto: "Digite o CPF. Se a pessoa já passou por aqui, o nome e o veículo vêm preenchidos e a tela pergunta se ela está com o mesmo veículo: toque em “Sim, é esse” ou em “Não, é outro”. Na primeira vez, digite nome e sobrenome.",
+            print: {
+              arquivo: "entradas-e-saidas/identificar.png",
+              acoes: [
+                { clicar: "Visitante", papel: "radio" },
+                { preencher: "CPF", com: "52998224725" },
+                { preencher: "Nome e sobrenome", com: "MARINA LOPES" },
+              ],
+            },
+          },
+          {
+            titulo: "Unidade, veículo e quem liberou",
+            texto: "Em “Unidade de destino”, digite 5205 ou bloco 5 apto 205 e escolha na lista. Depois o veículo, a placa e, em “Liberado por”, o nome de quem autorizou no apartamento.",
+            print: {
+              arquivo: "entradas-e-saidas/unidade.png",
+              acoes: [
+                { clicar: "Visitante", papel: "radio" },
+                { preencher: "CPF", com: "52998224725" },
+                { preencher: "Nome e sobrenome", com: "MARINA LOPES" },
+                { preencher: "Liberado por", com: "Aline Furtado" },
+              ],
+            },
+          },
+          {
+            titulo: "Tempo permitido e registro",
+            texto: "Entregador, Motorista e Visitante começam com 15 minutos, que os botões de menos e mais mudam de 5 em 5. No Visitante dá para marcar “Ilimitado”. Temporada e Serviço ficam sem relógio. Toque em “Registrar chegada”.",
+            print: {
+              arquivo: "entradas-e-saidas/tempo.png",
+              acoes: [
+                { clicar: "Visitante", papel: "radio" },
+                { rolar: "Tempo permitido" },
+              ],
+            },
+          },
+          {
+            titulo: "Prestador de Serviço",
+            texto: "No tipo Serviço, informe a empresa que o prestador representa. Se é serviço do próprio condomínio, como manutenção ou jardinagem, marque “É serviço do próprio condomínio”: some a Unidade de destino e quem libera é você.",
+            print: {
+              arquivo: "entradas-e-saidas/servico.png",
+              acoes: [{ clicar: "Serviço", papel: "radio" }],
+            },
+          },
+        ],
+      },
+      {
+        id: "saida",
+        titulo: "Registrar a saída",
+        passos: [
+          {
+            titulo: "Ver quem está dentro",
+            texto: "Toque na aba “Dentro agora”. O mapa mostra quem está no condomínio, e o número no alto avisa quantos passaram do tempo.",
+            print: {
+              arquivo: "entradas-e-saidas/dentro-agora.png",
+              acoes: [{ clicar: "Dentro agora", papel: "tab" }],
+            },
+          },
+          {
+            titulo: "Fechar a Passagem",
+            texto: "Na linha da pessoa, toque no botão de saída, o primeiro à direita. No computador, os botões da linha aparecem quando o mouse passa por ela. A Passagem fecha com a hora da saída.",
+            print: {
+              arquivo: "entradas-e-saidas/saida.png",
+              acoes: [
+                { clicar: "Dentro agora", papel: "tab" },
+                { apontar: "Registrar saída de" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        id: "cadastrados",
+        titulo: "Consultar os cadastrados",
+        passos: [
+          {
+            titulo: "Abrir a lista",
+            texto: "Toque em “Cadastrados” para ver as Pessoas de fora que já passaram pela portaria e buscar pelo nome ou CPF. O cadastro some sozinho depois de 3 meses sem Passagem.",
+            print: {
+              arquivo: "entradas-e-saidas/cadastrados.png",
+              acoes: [{ clicar: "Cadastrados" }],
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "vagas",
+    tela: "Vagas",
+    area: "Portaria",
+    rota: "/vagas",
+    titulo: "Vagas",
+    resumo: "Conferir no portão o carro, a moto e a TAG de cada Unidade.",
+    tarefas: [
+      {
+        id: "conferir",
+        titulo: "Conferir um veículo",
+        passos: [
+          {
+            titulo: "Buscar a Unidade",
+            texto: "Na aba “Vagas”, digite a Unidade, o modelo ou a placa na busca. Os filtros de bloco, de veículo e de status da TAG estreitam a lista.",
+            print: {
+              arquivo: "vagas/lista.png",
+              acoes: [],
+            },
+          },
+          {
+            titulo: "Ver a Vaga",
+            texto: "Toque no olho da linha para ver o carro e a moto da Unidade, com modelo e placa, e o status da TAG. Se a placa no portão não bate com a da Vaga, avise a administração: a portaria confere, quem corrige o cadastro é a administração.",
+            print: {
+              arquivo: "vagas/detalhe.png",
+              acoes: [{ clicar: "Ver vaga da unidade" }],
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "tag",
+    tela: "Vagas",
+    area: "Portaria",
+    rota: "/vagas",
+    titulo: "TAG",
+    resumo: "O caminho da TAG do veículo: Solicitada pela portaria, Disponível pela administração e Aplicada quando colada no carro.",
+    tarefas: [
+      {
+        id: "solicitada",
+        titulo: "Pedir a TAG (Solicitada)",
+        passos: [
+          {
+            titulo: "Abrir o pedido",
+            texto: "Em Vagas, toque na aba “TAGs” e depois em “Nova TAG”. Na aba “Vagas”, a etiqueta na linha da Unidade abre o mesmo pedido.",
+            print: {
+              arquivo: "tag/nova.png",
+              acoes: [{ clicar: "TAGs", papel: "tab" }, { clicar: "Nova TAG" }],
+            },
+          },
+          {
+            titulo: "Preencher o pedido",
+            texto: "Escolha a Unidade, digite o nome de quem pede e escolha o tipo de solicitante e o veículo. Placa, modelo e cor vêm da Vaga. Se a Unidade não tem esse veículo cadastrado, peça à administração para registrar na Vaga primeiro.",
+            print: {
+              arquivo: "tag/pedido.png",
+              acoes: [
+                { clicar: "TAGs", papel: "tab" },
+                { clicar: "Nova TAG" },
+                { preencher: "Nome do solicitante", com: "Aline Furtado" },
+                { selecionar: "Tipo de solicitante", opcao: "Proprietário" },
+              ],
+            },
+          },
+          {
+            titulo: "Registrar",
+            texto: "Toque em “Registrar”. A TAG entra como Solicitada (na tela, “Solicitado”) e fica com a administração.",
+            print: {
+              arquivo: "tag/solicitada.png",
+              acoes: [
+                { clicar: "TAGs", papel: "tab" },
+                { selecionar: "Filtrar por status", opcao: "Solicitado" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        id: "disponivel",
+        titulo: "Esperar a liberação (Disponível)",
+        passos: [
+          {
+            titulo: "Acompanhar o status",
+            texto: "A administração providencia a TAG e muda o status para Disponível. Filtre a aba “TAGs” por “Disponível” para ver as que já podem ser coladas.",
+            print: {
+              arquivo: "tag/disponivel.png",
+              acoes: [
+                { clicar: "TAGs", papel: "tab" },
+                { selecionar: "Filtrar por status", opcao: "Disponível" },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        id: "aplicada",
+        titulo: "Colar e marcar (Aplicada)",
+        passos: [
+          {
+            titulo: "Abrir a TAG",
+            texto: "Com o carro na portaria, cole a TAG e toque no lápis da linha. A portaria só edita a TAG Disponível: antes disso o pedido está com a administração.",
+            print: {
+              arquivo: "tag/editar.png",
+              acoes: [
+                { clicar: "TAGs", papel: "tab" },
+                { selecionar: "Filtrar por status", opcao: "Disponível" },
+                { clicar: "Editar TAG da unidade" },
+              ],
+            },
+          },
+          {
+            titulo: "Marcar como Aplicada",
+            texto: "Em “Status”, escolha “Aplicado” e toque em “Salvar”. A TAG passa a Aplicada.",
+            print: {
+              arquivo: "tag/aplicada.png",
+              acoes: [
+                { clicar: "TAGs", papel: "tab" },
+                { selecionar: "Filtrar por status", opcao: "Disponível" },
+                { clicar: "Editar TAG da unidade" },
+                { selecionar: "Status", opcao: "Aplicado" },
+                { rolar: "Status" },
+              ],
+            },
           },
         ],
       },

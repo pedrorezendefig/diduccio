@@ -40,6 +40,18 @@ describe('Manual: páginas da Administração', () => {
   })
 })
 
+const PAGINAS_DA_PORTARIA = ['retirada', 'entradas-e-saidas', 'vagas', 'tag']
+
+describe('Manual: páginas da Portaria', () => {
+  it('o Porteiro vê as páginas de Retirada, Entradas e Saídas, Vagas e TAG', () => {
+    expect(ids('Porteiro')).toEqual(expect.arrayContaining(PAGINAS_DA_PORTARIA))
+  })
+
+  it('o Conselheiro não vê nenhuma das páginas da Portaria', () => {
+    expect(ids('Conselheiro').filter((id) => PAGINAS_DA_PORTARIA.includes(id))).toEqual([])
+  })
+})
+
 // Todo texto de uma página, inclusive os aninhados nas tarefas e nos passos.
 const textos = (valor) => {
   if (typeof valor === 'string') return [valor]

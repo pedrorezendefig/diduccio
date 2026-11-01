@@ -196,7 +196,7 @@ const tags = vagas
     id_vagas: v.id,
     id_unidade: v.id_unidade,
     veiculo: "Carro",
-    status: escolher(["Solicitado", "Entregue", "Entregue", "Cancelado"]),
+    status: escolher(["Solicitado", "Disponivel", "Aplicado"]),
   }));
 
 // ============================ USUÁRIOS ============================
