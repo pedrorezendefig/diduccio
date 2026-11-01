@@ -19,6 +19,20 @@ function normalizar(identificador: string): string {
   return `email:${limpo}`;
 }
 
+/** O IP de quem chamou, atrás do proxy do Supabase. O primeiro valor do
+ *  `x-forwarded-for` é o que o cliente mandou, e ele escreve o que quiser ali:
+ *  trocar esse valor a cada pedido zerava o limite por origem. O último é o que
+ *  o proxy acrescentou, o único em que dá para confiar. */
+export function origemDe(headers: Headers): string {
+  const encaminhado = (headers.get("x-forwarded-for") ?? "").split(",");
+  return encaminhado[encaminhado.length - 1].trim() || headers.get("cf-connecting-ip") || "desconhecida";
+}
+
+/** A chave do contador por origem. */
+export async function chaveDaOrigem(headers: Headers): Promise<string> {
+  return `origem:${await digerir(origemDe(headers))}`;
+}
+
 /** A chave do contador por conta. Com a conta resolvida, conta pelo e-mail
  *  dela: assim o CPF e o e-mail da mesma pessoa somam juntos. Sem conta (o
  *  identificador não existe), conta pelo identificador normalizado, senão

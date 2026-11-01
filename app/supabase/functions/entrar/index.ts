@@ -20,6 +20,7 @@
 //    rede, contra qualquer conta, para sempre. Limite só existe onde o
 //    atacante não controla o código — e o navegador é dele.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { chaveDaConta, chaveDaOrigem } from "./chaves.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -50,19 +51,6 @@ const JANELA_POR_CONTA = 15 * 60;
 const LIMITE_POR_ORIGEM = 30;
 const JANELA_POR_ORIGEM = 15 * 60;
 
-/** SHA-256 em hexadecimal. O identificador nunca é gravado em claro. */
-async function digerir(texto: string): Promise<string> {
-  const bytes = new TextEncoder().encode(texto);
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/** O IP de quem chamou, atrás do proxy do Supabase. */
-function origemDe(req: Request): string {
-  const encaminhado = req.headers.get("x-forwarded-for") ?? "";
-  return encaminhado.split(",")[0].trim() || req.headers.get("cf-connecting-ip") || "desconhecida";
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return responder({ success: false, message: "Método não suportado." }, 405);
@@ -81,11 +69,16 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  // ---- Antes de qualquer coisa: esta pessoa ainda pode tentar? ----
-  // O `toLowerCase` faz "ANA@X.COM" e "ana@x.com" caírem no mesmo contador;
-  // sem isso, trocar a caixa das letras zera o limite e ele deixa de existir.
-  const chaveConta = `conta:${await digerir(identificador.toLowerCase())}`;
-  const chaveOrigem = `origem:${await digerir(origemDe(req))}`;
+  // ---- Converte CPF (ou e-mail) no e-mail da conta ----
+  // Antes de contar: o contador é da conta, não do texto digitado. Contar pelo
+  // texto deixava "123.456.789-09" e "12345678909" valerem como contas
+  // diferentes, e cada grafia nova zerava o limite (issue #4). Pela conta, o
+  // CPF e o e-mail da mesma pessoa somam no mesmo contador.
+  const { data: email } = await admin.rpc("email_de_login", { identificador });
+
+  // ---- Esta pessoa ainda pode tentar? ----
+  const chaveConta = await chaveDaConta(identificador, email ? String(email) : null);
+  const chaveOrigem = await chaveDaOrigem(req.headers);
 
   for (const [chave, limite, janela] of [
     [chaveConta, LIMITE_POR_CONTA, JANELA_POR_CONTA],
@@ -123,9 +116,6 @@ Deno.serve(async (req) => {
     const { error } = await admin.rpc("limpar_tentativas_vencidas");
     if (error) console.error("faxina de tentativas falhou:", error.message);
   }
-
-  // ---- Converte CPF (ou e-mail) no e-mail da conta ----
-  const { data: email } = await admin.rpc("email_de_login", { identificador });
 
   // ---- Autentica ----
   // Com a chave publicável, e não com a service role: quem autentica devolve

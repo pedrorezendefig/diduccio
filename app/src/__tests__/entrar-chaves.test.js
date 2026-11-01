@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chaveDaConta } from '../../supabase/functions/entrar/chaves.ts'
+import { chaveDaConta, origemDe } from '../../supabase/functions/entrar/chaves.ts'
 
 // O limite de tentativas do login (Edge Function `entrar`) conta por conta.
 // Quem chuta senha não pode zerar o contador escrevendo o mesmo CPF ou e-mail
@@ -36,5 +36,20 @@ describe('contador de tentativas por conta', () => {
       chaveDaConta('98765432100', null),
     ])
     expect(a).not.toBe(b)
+  })
+})
+
+// A origem conta as tentativas por IP. O cliente escreve o que quiser no
+// começo do `x-forwarded-for`; quem acrescenta o último valor é o proxy.
+describe('origem das tentativas', () => {
+  it('vem do último valor do x-forwarded-for, que o proxy acrescenta', () => {
+    const headers = new Headers({ 'x-forwarded-for': '6.6.6.6, 203.0.113.7' })
+    expect(origemDe(headers)).toBe('203.0.113.7')
+  })
+
+  it('trocar o valor que o cliente forja não muda a origem', () => {
+    const a = new Headers({ 'x-forwarded-for': '1.1.1.1, 203.0.113.7' })
+    const b = new Headers({ 'x-forwarded-for': '2.2.2.2, 203.0.113.7' })
+    expect(origemDe(a)).toBe(origemDe(b))
   })
 })
