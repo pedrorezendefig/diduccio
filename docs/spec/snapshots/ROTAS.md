@@ -16,6 +16,8 @@ a coluna Cargos vem dos guards de `App.jsx` (nomes em `src/auth/permissions.js`)
 | Método | Rota | O que faz | Auth | Cargos |
 |--------|------|-----------|------|--------|
 | GET | `/dashboard` | Tela Dashboard (`src/pages/Dashboard.jsx`) | ✅ | todos |
+| GET | `/manual/*` | Tela Manual (`src/pages/Manual.jsx`) | ✅ | todos |
+| GET | `/processos` | Redireciona para `/manual/encomendas` | ✅ | todos |
 | GET | `/entregas` | Tela Entregas (`src/pages/Entregas.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
 | GET | `/assembleia` | Tela Assembleia (`src/pages/Assembleia.jsx`) | ✅ | Sindico, Auxiliar Administrativo, Desenvolvedor, Conselheiro |
 | GET | `/unidades` | Tela Unidades (`src/pages/Unidades.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
@@ -30,7 +32,6 @@ a coluna Cargos vem dos guards de `App.jsx` (nomes em `src/auth/permissions.js`)
 | GET | `/comunicado` | Tela Comunicado (`src/pages/Comunicado.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
 | GET | `/patrimonio` | Tela Patrimonio (`src/pages/Patrimonio.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
 | GET | `/encomendas` | Tela Encomendas (`src/pages/Encomendas.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
-| GET | `/processos` | Tela Processos (`src/pages/Processos.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
 | GET | `/agendamento` | Tela Agendamento (`src/pages/Agendamento.jsx`) | ✅ | Porteiro, Sindico, Auxiliar Administrativo, Desenvolvedor |
 | GET | `/tarefas` | Tela Tarefas (`src/pages/Tarefas.jsx`) | ✅ | Sindico, Auxiliar Administrativo, Desenvolvedor |
 | GET | `/confirmacao` | Tela Confirmacao (`src/pages/Confirmacao.jsx`) | ✅ | Sindico, Auxiliar Administrativo, Desenvolvedor |
@@ -41,4 +42,4 @@ a coluna Cargos vem dos guards de `App.jsx` (nomes em `src/auth/permissions.js`)
 
 ---
 
-**Totais:** 25 rotas em 2 grupos, 92% exigem login.
+**Totais:** 26 rotas em 2 grupos, 92% exigem login.

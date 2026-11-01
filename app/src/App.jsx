@@ -18,7 +18,7 @@ import Patrimonio from "./pages/Patrimonio";
 import Encomendas from "./pages/Encomendas";
 import Entregas from "./pages/Entregas";
 import Confirmacao from "./pages/Confirmacao";
-import Processos from "./pages/Processos";
+import Manual from "./pages/Manual";
 import Assembleia from "./pages/Assembleia";
 import Agendamento from "./pages/Agendamento";
 import Usuarios from "./pages/Usuarios";
@@ -171,6 +171,13 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard user={usuarioLogado} />} />
 
+                      {/* Manual: todo Cargo entra; cada um vê só as páginas das
+                          próprias telas. A antiga tela Processos virou a página
+                          de Encomendas, e o endereço velho, que pode estar em
+                          favorito, leva até ela. */}
+                      <Route path="/manual/*" element={<Manual user={usuarioLogado} />} />
+                      <Route path="/processos" element={<Navigate to="/manual/encomendas" replace />} />
+
                       {["Porteiro", "Sindico", "Auxiliar Administrativo", "Desenvolvedor"].includes(usuarioLogado.cargo) && (
                         <Route path="/entregas" element={<Entregas user={usuarioLogado} />} />
                       )}
@@ -198,7 +205,6 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
                           <Route path="/comunicado" element={<Comunicado user={usuarioLogado} />} />
                           <Route path="/patrimonio" element={<Patrimonio user={usuarioLogado} />} />
                           <Route path="/encomendas" element={<Encomendas user={usuarioLogado} />} />
-                          <Route path="/processos" element={<Processos user={usuarioLogado} />} />
                           <Route path="/agendamento" element={<Agendamento user={usuarioLogado} />} />
                         </>
                       )}
