@@ -19,13 +19,17 @@ function normalizar(identificador: string): string {
   return `email:${limpo}`;
 }
 
-/** O IP de quem chamou, atrás do proxy do Supabase. O primeiro valor do
- *  `x-forwarded-for` é o que o cliente mandou, e ele escreve o que quiser ali:
- *  trocar esse valor a cada pedido zerava o limite por origem. O último é o que
- *  o proxy acrescentou, o único em que dá para confiar. */
+/** O IP de quem chamou, atrás do proxy do Supabase. A documentação do
+ *  Supabase (guides/api/securing-your-api e os exemplos de Edge Function) lê o
+ *  cliente no primeiro valor do `x-forwarded-for`: o gateway põe o IP do
+ *  cliente na frente e acrescenta os saltos internos depois dele. O último
+ *  valor seria o proxy, igual para todo mundo, e o limite por origem viraria
+ *  um contador só para o sistema inteiro. O `cf-connecting-ip`, quando chega,
+ *  vem na frente. Conferir o cabeçalho real na plataforma quando houver deploy;
+ *  o contador por conta é a trava principal e não depende disto. */
 export function origemDe(headers: Headers): string {
-  const encaminhado = (headers.get("x-forwarded-for") ?? "").split(",");
-  return encaminhado[encaminhado.length - 1].trim() || headers.get("cf-connecting-ip") || "desconhecida";
+  const primeiro = (headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+  return headers.get("cf-connecting-ip")?.trim() || primeiro || "desconhecida";
 }
 
 /** A chave do contador por origem. */

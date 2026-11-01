@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chaveDaConta, origemDe } from '../../supabase/functions/entrar/chaves.ts'
+import { chaveDaConta, chaveDaOrigem, origemDe } from '../../supabase/functions/entrar/chaves.ts'
 
 // O limite de tentativas do login (Edge Function `entrar`) conta por conta.
 // Quem chuta senha não pode zerar o contador escrevendo o mesmo CPF ou e-mail
@@ -39,17 +39,27 @@ describe('contador de tentativas por conta', () => {
   })
 })
 
-// A origem conta as tentativas por IP. O cliente escreve o que quiser no
-// começo do `x-forwarded-for`; quem acrescenta o último valor é o proxy.
+// A origem conta as tentativas por IP. Pela documentação do Supabase, o
+// gateway põe o IP do cliente na frente do `x-forwarded-for` e acrescenta os
+// saltos internos depois dele (cadeia "cliente, proxy"). A conferência do
+// cabeçalho real na plataforma fica para quando houver deploy (PR #17).
 describe('origem das tentativas', () => {
-  it('vem do último valor do x-forwarded-for, que o proxy acrescenta', () => {
-    const headers = new Headers({ 'x-forwarded-for': '6.6.6.6, 203.0.113.7' })
-    expect(origemDe(headers)).toBe('203.0.113.7')
+  it('vem do primeiro valor do x-forwarded-for, o cliente antes do proxy', () => {
+    const headers = new Headers({ 'x-forwarded-for': '198.51.100.23, 10.0.0.1' })
+    expect(origemDe(headers)).toBe('198.51.100.23')
   })
 
-  it('trocar o valor que o cliente forja não muda a origem', () => {
-    const a = new Headers({ 'x-forwarded-for': '1.1.1.1, 203.0.113.7' })
-    const b = new Headers({ 'x-forwarded-for': '2.2.2.2, 203.0.113.7' })
-    expect(origemDe(a)).toBe(origemDe(b))
+  it('dois clientes atrás do mesmo proxy não dividem o contador', async () => {
+    const a = new Headers({ 'x-forwarded-for': '198.51.100.23, 10.0.0.1' })
+    const b = new Headers({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' })
+    expect(await chaveDaOrigem(a)).not.toBe(await chaveDaOrigem(b))
+  })
+
+  it('prefere o cf-connecting-ip quando ele existe', () => {
+    const headers = new Headers({
+      'cf-connecting-ip': '203.0.113.7',
+      'x-forwarded-for': '198.51.100.23, 10.0.0.1',
+    })
+    expect(origemDe(headers)).toBe('203.0.113.7')
   })
 })
