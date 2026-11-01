@@ -35,3 +35,16 @@ export const planoDosPrints = (paginas = PAGINAS) =>
         }))
     )
   );
+
+/**
+ * Para antes de abrir o navegador se o app não vai subir em modo demo: print
+ * do Manual nunca mostra dado de morador de verdade (ADR 0003). `env` é o
+ * ambiente que o Vite resolveu para o app.
+ */
+export const exigeModoDemo = (env) => {
+  if (env.VITE_DEMO !== "true") {
+    throw new Error(
+      "Os prints do Manual só saem do modo demo (VITE_DEMO=true). Rode `npm run manual:prints` sem mudar o VITE_DEMO."
+    );
+  }
+};

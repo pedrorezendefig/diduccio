@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planoDosPrints } from '../manual/prints.js'
+import { planoDosPrints, exigeModoDemo } from '../manual/prints.js'
 
 describe('Manual: plano dos prints do modo demo', () => {
   it('a página de Encomendas é fotografada com o login da portaria, com a Retirada aberta antes do print', () => {
@@ -24,5 +24,16 @@ describe('Manual: plano dos prints do modo demo', () => {
         'encomendas/retirada.png',
       ])
     )
+  })
+})
+
+describe('Manual: o script de prints só roda no modo demo', () => {
+  it('recusa quando o modo demo não está ligado', () => {
+    expect(() => exigeModoDemo({ VITE_DEMO: 'false' })).toThrow(/modo demo/)
+    expect(() => exigeModoDemo({})).toThrow(/modo demo/)
+  })
+
+  it('segue quando o modo demo está ligado', () => {
+    expect(() => exigeModoDemo({ VITE_DEMO: 'true' })).not.toThrow()
   })
 })
