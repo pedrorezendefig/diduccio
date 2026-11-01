@@ -113,5 +113,11 @@ export const PAGINAS = [
   },
 ];
 
+/** A pasta dos prints, dentro de public/. É também o caminho no navegador. */
+export const PASTA_DOS_PRINTS = "manual";
+
+/** O endereço do print no app, a partir do `arquivo` declarado no passo. */
+export const enderecoDoPrint = (arquivo) => `/${PASTA_DOS_PRINTS}/${arquivo}`;
+
 /** As páginas do Manual que o Cargo vê, na ordem do conteúdo. */
 export const paginasDoCargo = (cargo) => PAGINAS.filter((p) => podeVerTela(cargo, p.tela));

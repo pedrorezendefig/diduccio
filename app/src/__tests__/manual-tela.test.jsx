@@ -35,6 +35,12 @@ describe('Manual: página de uma tela', () => {
     expect(screen.getByRole('heading', { name: 'Registrar a Retirada' })).toBeInTheDocument()
   })
 
+  it('o passo de abrir a Retirada mostra o print do diálogo aberto', () => {
+    abrir('Porteiro', '/manual/encomendas')
+    const print = screen.getByRole('img', { name: 'Abrir a Encomenda' })
+    expect(print).toHaveAttribute('src', '/manual/encomendas/retirada.png')
+  })
+
   it('o Conselheiro que abre o endereço de Encomendas volta para a página inicial', () => {
     abrir('Conselheiro', '/manual/encomendas')
     expect(screen.queryByRole('heading', { name: 'Registrar uma Encomenda' })).not.toBeInTheDocument()
