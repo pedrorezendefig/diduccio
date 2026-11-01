@@ -8,10 +8,15 @@ import { TABELAS, SENHA_DEMO } from "../demo/dados";
 
 export { PASTA_DOS_PRINTS };
 
-// O login de exemplo que fotografa a página: o do primeiro Cargo da lista do
-// menu para aquela tela, que é quem mais usa a tela (Encomendas: Porteiro).
-const loginDaTela = (tela) => {
-  const cargo = (TELAS_DO_MENU[tela] ?? [])[0];
+// O login de exemplo que fotografa o passo: o do Cargo que o print pede
+// (`print.cargo`) ou, sem pedido, o do primeiro Cargo da lista do menu para
+// aquela tela, que é quem mais usa a tela (Encomendas: Porteiro).
+const loginDoPrint = (tela, cargoPedido) => {
+  const cargos = TELAS_DO_MENU[tela] ?? [];
+  if (cargoPedido && !cargos.includes(cargoPedido)) {
+    throw new Error(`O Cargo ${cargoPedido} não vê a tela ${tela}`);
+  }
+  const cargo = cargoPedido ?? cargos[0];
   const usuario = TABELAS.usuarios.find((u) => u.cargo === cargo);
   if (!usuario) throw new Error(`Nenhum login de exemplo vê a tela ${tela}`);
   return { email: usuario.email, senha: SENHA_DEMO };
@@ -26,7 +31,7 @@ export const planoDosPrints = (paginas = PAGINAS) =>
         .map((passo) => ({
           arquivo: passo.print.arquivo,
           rota: pagina.rota,
-          ...loginDaTela(pagina.tela),
+          ...loginDoPrint(pagina.tela, passo.print.cargo),
           acoes: passo.print.acoes ?? [],
         }))
     )

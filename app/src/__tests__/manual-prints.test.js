@@ -27,6 +27,22 @@ describe('Manual: plano dos prints do modo demo', () => {
   })
 })
 
+describe('Manual: login de cada print', () => {
+  it('o painel é fotografado com o login do Síndico, que o passo pede, e não com o da portaria', () => {
+    const inicio = planoDosPrints().find((p) => p.arquivo === 'painel/inicio.png')
+    expect(inicio.email).toBe('sindico@exemplo.com.br')
+  })
+
+  it('recusa um print pedido por um Cargo que não vê a tela', () => {
+    const pagina = {
+      tela: 'Usuarios',
+      rota: '/usuarios',
+      tarefas: [{ passos: [{ print: { arquivo: 'x.png', cargo: 'Sindico' } }] }],
+    }
+    expect(() => planoDosPrints([pagina])).toThrow(/Sindico/)
+  })
+})
+
 describe('Manual: o script de prints só roda no modo demo', () => {
   it('recusa quando o modo demo não está ligado', () => {
     expect(() => exigeModoDemo({ VITE_DEMO: 'false' })).toThrow(/modo demo/)
