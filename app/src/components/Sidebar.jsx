@@ -2,51 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ListTodo, Building2, Users, Car, Waves, Megaphone, Package,
-  ArrowLeftRight, BadgeCheck, ClipboardList, Gavel, PartyPopper, Flame, Truck,
+  ArrowLeftRight, BadgeCheck, BookOpen, Gavel, PartyPopper, Flame, Truck,
   CalendarDays, FileText, UsersRound, Palette,
   LogOut, Moon, Sun, Menu, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useTheme } from "../theme/useTheme";
 import Logo from "../brand/Logo";
-
-const ROLES = {
-  PORTEIRO: "Porteiro",
-  SINDICO: "Sindico",
-  AUX: "Auxiliar Administrativo",
-  DEV: "Desenvolvedor",
-  CONSELHEIRO: "Conselheiro",
-};
-
-// Mapa de permissões preservado sem alteração: mexer aqui é mexer em acesso.
-const PERMISSIONS = {
-  Dashboard: [ROLES.PORTEIRO, ROLES.SINDICO, ROLES.AUX, ROLES.DEV, ROLES.CONSELHEIRO],
-
-  // Quadro de tarefas da administração (0042).
-  Tarefas: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-
-  Unidades: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Moradores: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  // A portaria confere placa no portão o dia inteiro, e é ela que precisa
-  // corrigir o cadastro quando o morador troca de carro num sábado à noite.
-  // Quem libera de verdade é o 0037; isto só faz o menu aparecer.
-  Vagas: [ROLES.PORTEIRO, ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Piscina: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Comunicado: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Assembleia: [ROLES.SINDICO, ROLES.AUX, ROLES.CONSELHEIRO, ROLES.DEV],
-
-  Encomendas: [ROLES.PORTEIRO, ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Entregas: [ROLES.PORTEIRO, ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  "Confirmação": [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Processos: [ROLES.PORTEIRO, ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-
-  Festas: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Churrasqueira: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  "Mudanças": [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-  Agendamento: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
-
-  Usuarios: [ROLES.DEV],
-  Vitrine: [ROLES.DEV],
-};
+// Quem vê cada item mora em src/auth/menu.js, a mesma tabela que o Manual lê.
+import { TELAS_DO_MENU, podeVerTela } from "../auth/menu";
 
 // Nome exibido quando difere da chave de permissão.
 //
@@ -86,8 +49,8 @@ const CATEGORIAS = [
     ],
   },
   {
-    titulo: "Processos",
-    itens: [["Processos", ClipboardList]],
+    titulo: "Ajuda",
+    itens: [["Manual", BookOpen]],
   },
   {
     titulo: "Assembleia",
@@ -153,13 +116,14 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
   const gavetaRef = useRef(null);
   const botaoMenuRef = useRef(null);
 
-  const podeVer = (rotulo) => (PERMISSIONS[rotulo] ?? []).includes(user?.cargo);
+  const podeVer = (rotulo) => podeVerTela(user?.cargo, rotulo);
 
   // Mantém o item destacado em sincronia com a URL, inclusive após F5.
   useEffect(() => {
-    const caminho = location.pathname.slice(1);
+    // Só o primeiro trecho: /manual/encomendas ainda é o item Manual.
+    const caminho = location.pathname.split("/")[1];
     if (!caminho) return;
-    const casado = Object.keys(PERMISSIONS).find((r) => paraRota(r) === caminho);
+    const casado = Object.keys(TELAS_DO_MENU).find((r) => paraRota(r) === caminho);
     setActive(casado ?? caminho.charAt(0).toUpperCase() + caminho.slice(1));
   }, [location, setActive]);
 
@@ -333,7 +297,7 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
                   onClick={() => alternarCategoria(titulo)}
                   aria-expanded={!fechada}
                   aria-controls={idLista}
-                  /* "Processos" e "Assembleia" são nome de categoria E de
+                  /* "Assembleia" é nome de categoria E de
                      item. Sem este prefixo o leitor de tela anuncia dois
                      botões idênticos e não dá para saber qual navega e qual
                      recolhe. O rótulo visível continua dentro do nome. */
