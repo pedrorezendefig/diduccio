@@ -54,8 +54,14 @@ try {
     await pagina.goto(new URL(item.rota, base).href);
     await pagina.waitForLoadState("networkidle");
     for (const acao of item.acoes) {
-      if (!acao.clicar) throw new Error(`Ação desconhecida no print ${item.arquivo}: ${JSON.stringify(acao)}`);
-      await pagina.getByRole("button", { name: acao.clicar }).first().click();
+      if (acao.clicar) {
+        await pagina.getByRole("button", { name: acao.clicar }).first().click();
+      } else if (acao.rolarAte) {
+        // Formulário comprido: rola até o texto para o print mostrar o fim.
+        await pagina.getByText(acao.rolarAte, { exact: true }).first().scrollIntoViewIfNeeded();
+      } else {
+        throw new Error(`Ação desconhecida no print ${item.arquivo}: ${JSON.stringify(acao)}`);
+      }
     }
     // Espera a animação de abertura dos diálogos terminar.
     await pagina.waitForTimeout(600);

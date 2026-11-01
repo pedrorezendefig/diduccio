@@ -571,9 +571,20 @@ export default function Agendamento({ user }) {
                 const [, m, d] = ag.data.split("-").map(Number);
                 const labelData = isHoje ? "Hoje" : `${d}/${m}`;
                 return (
+                  // role e teclado: a div clicável não recebia foco, e o
+                  // script de prints do Manual não tinha como abrir o
+                  // Atendimento.
                   <div
                     key={ag.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => { setSelectedDate(ag.data); abrirModalEditar(ag); }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      setSelectedDate(ag.data);
+                      abrirModalEditar(ag);
+                    }}
                     style={{ background: theme.bg, borderRadius: 8, padding: 8, borderLeft: `3px solid ${c.border}`, marginBottom: 6, cursor: "pointer" }}
                   >
                     <div style={{ fontSize: 10, color: theme.textSecondary }}>{labelData} · {ag.hora_inicio}</div>

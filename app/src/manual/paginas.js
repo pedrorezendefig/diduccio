@@ -13,7 +13,8 @@ import { podeVerTela } from "../auth/menu";
 // `rota` é o endereço da tela no app. Um passo pode ter `print`: `arquivo` é o
 // caminho do PNG dentro de public/manual/ e `acoes` são os cliques que o script
 // de prints (`npm run manual:prints`) faz na tela antes de fotografar, em
-// ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo.
+// ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo;
+// `{ rolarAte: "Texto" }` rola a tela até o primeiro texto igual a esse.
 // `cargo` (opcional) escolhe o login de exemplo que fotografa; sem ele, vale o
 // primeiro Cargo da tela no menu.
 export const PAGINAS = [
@@ -319,13 +320,13 @@ export const PAGINAS = [
         passos: [
           {
             titulo: "Abrir o cadastro",
-            texto: "Toque no olho na linha do Morador. O painel mostra a Unidade, o Tipo de morador, o Vínculo e os documentos, com os botões “Ligar” e “WhatsApp”.",
-            print: { arquivo: "moradores/detalhe.png", acoes: [{ clicar: "Ver Alice Bandeira" }] },
+            texto: "Toque no olho na linha do Morador. O painel mostra a Unidade, o Tipo de morador, o Vínculo e os documentos. Com telefone cadastrado, aparecem os botões “Ligar” e “WhatsApp”.",
+            print: { arquivo: "moradores/detalhe.png", acoes: [{ clicar: "Ver Aline Furtado" }] },
           },
           {
             titulo: "Editar o cadastro",
             texto: "Toque em “Editar” no painel, ou no lápis da linha, mude o que precisa e toque em “Salvar”. Quando o Morador deixa a Unidade, preencha a “Data de saída” e mude o status para Inativo. Excluir um cadastro é só com o Síndico.",
-            print: { arquivo: "moradores/editar.png", acoes: [{ clicar: "Editar Alice Bandeira" }] },
+            print: { arquivo: "moradores/editar.png", acoes: [{ clicar: "Editar Aline Furtado" }] },
           },
         ],
       },
