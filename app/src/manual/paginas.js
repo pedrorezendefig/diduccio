@@ -9,11 +9,17 @@ import { podeVerTela } from "../auth/menu";
 //
 // Para escrever uma página nova, siga o glossário do CONTEXT.md e cite os
 // botões com o rótulo exato da tela, entre aspas.
+//
+// `rota` é o endereço da tela no app. Um passo pode ter `print`: `arquivo` é o
+// caminho do PNG dentro de public/manual/ e `acoes` são os cliques que o script
+// de prints (`npm run manual:prints`) faz na tela antes de fotografar, em
+// ordem. `{ clicar: "Rótulo" }` clica no primeiro botão com esse rótulo.
 export const PAGINAS = [
   {
     id: "encomendas",
     tela: "Encomendas",
     area: "Portaria",
+    rota: "/encomendas",
     titulo: "Encomendas",
     resumo: "Registrar a Encomenda que chegou, mandar o Aviso ao morador e registrar a Retirada.",
     tarefas: [
@@ -24,6 +30,10 @@ export const PAGINAS = [
           {
             titulo: "Abrir o cadastro",
             texto: "Toque em “Novo recebimento” e escolha a unidade. A busca aceita 5206, 206 ou “bloco 5”.",
+            print: {
+              arquivo: "encomendas/novo-recebimento.png",
+              acoes: [{ clicar: "Novo recebimento" }],
+            },
           },
           {
             titulo: "Conferir o destinatário",
@@ -58,6 +68,10 @@ export const PAGINAS = [
           {
             titulo: "Mandar de novo",
             texto: "Para repetir o Aviso, toque em “Ver detalhes” na Encomenda e depois em “Reenviar Notificação”.",
+            print: {
+              arquivo: "encomendas/detalhes.png",
+              acoes: [{ clicar: "Ver detalhes" }],
+            },
           },
           {
             titulo: "Encomenda sem código",
@@ -72,6 +86,10 @@ export const PAGINAS = [
           {
             titulo: "Abrir a Encomenda",
             texto: "Na lista, toque em “Ver detalhes” e depois em “Confirmar Entrega”.",
+            print: {
+              arquivo: "encomendas/retirada.png",
+              acoes: [{ clicar: "Ver detalhes" }, { clicar: "Confirmar Entrega" }],
+            },
           },
           {
             titulo: "Conferir o Código de retirada",
