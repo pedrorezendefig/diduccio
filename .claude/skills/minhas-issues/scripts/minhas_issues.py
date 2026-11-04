@@ -8,7 +8,7 @@ Uso:
   python3 minhas_issues.py            login do `gh api user`
   python3 minhas_issues.py @login     fila de outra pessoa
 
-"Minha" segue a regra do filtro de responsável do Diduccio OS (issue #1039):
+"Minha" segue a regra do filtro de responsável do PedroOS (issue #1039):
 atribuída à pessoa; sem ninguém atribuído, quem criou.
 """
 
@@ -21,12 +21,35 @@ import subprocess
 import sys
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "onda-enxuta" / "scripts"))
+import fluxo as config_do_fluxo  # noqa: E402
 
 STATUS_PAGE = "https://www.githubstatus.com/api/v2/components.json"
 SEM_RUNNER = "not acquired by Runner"
 JANELA_DIAS = 45
 SUBIDA = "python3 .claude/skills/onda-enxuta/scripts/fechar_onda.py"
 TRIAGEM = ("ready-for-agent", "ready-for-human", "needs-triage", "needs-info")
+
+# O PRD do leitor (`prd_do_leitor` no .claude/fluxo.json):
+# uma needs-triage criada fora do repo com a metade de negócio do PRD, sem label própria.
+# O que a distingue é o marcador do Projeto mais a seção "Ficou em aberto"; com
+# "Decisões de implementação" no corpo, o /to-prd já passou. Sem a chave, nada muda.
+FICOU_EM_ABERTO = re.compile(r"^## Ficou em aberto\s*$", re.M)
+DECISOES_TECNICAS = re.compile(r"^## Decisões de implementação\s*$", re.M)
+
+
+def _marcador_do_prd_do_leitor() -> re.Pattern | None:
+    try:
+        cfg = config_do_fluxo.carregar(Path(__file__).resolve().parents[4])
+    except config_do_fluxo.Erro:
+        return None
+    padrao = (cfg.get("prd_do_leitor") or {}).get("marcador")
+    return re.compile(padrao) if padrao else None
+
+
+MARCADOR_DO_PRD_DO_LEITOR = _marcador_do_prd_do_leitor()
 
 VEREDITO = {
     "verde": "dá pra desenvolver: sim",
@@ -43,6 +66,18 @@ def minhas(issues: list[dict], login: str) -> list[dict]:
         i for i in issues
         if login in i["assignees"] or (not i["assignees"] and i["author"] == login)
     ]
+
+
+def grill_tecnico_pendente(i: dict) -> bool:
+    """needs-triage com PRD do leitor que ainda não ganhou as seções técnicas."""
+    corpo = i.get("body") or ""
+    return (
+        MARCADOR_DO_PRD_DO_LEITOR is not None
+        and "needs-triage" in i["labels"]
+        and bool(MARCADOR_DO_PRD_DO_LEITOR.search(corpo))
+        and bool(FICOU_EM_ABERTO.search(corpo))
+        and not DECISOES_TECNICAS.search(corpo)
+    )
 
 
 def cancelados_por_runner(runs: list[dict]) -> int:
@@ -268,8 +303,11 @@ def montar(d: dict) -> str:
     saida += ["", "**2. Na fila**", ""]
     if linhas_fila:
         saida += ["| grupo | issues | label | parada |", "|---|---|---|---|", *linhas_fila]
+    grill = [i for i in triagem if grill_tecnico_pendente(i)]
+    for i in grill:
+        saida.append(f"grill técnico pendente: #{i['number']} (`/grill-with-docs #{i['number']}`)")
     for rotulo in ("needs-triage", "needs-info"):
-        dessa = [i for i in triagem if rotulo in i["labels"]]
+        dessa = [i for i in triagem if rotulo in i["labels"] and i not in grill]
         if dessa:
             saida.append(f"{rotulo}: {', '.join('#' + str(i['number']) for i in dessa)} (`/triage`)")
     saida += ["", "**3. Plano**", ""]
@@ -300,7 +338,7 @@ CONSULTA_ISSUES = """
 query($q: String!) {
   search(query: $q, type: ISSUE, first: 100) {
     nodes { ... on Issue {
-      number title createdAt updatedAt author { login }
+      number title body createdAt updatedAt author { login }
       assignees(first: 10) { nodes { login } }
       labels(first: 20) { nodes { name } }
       parent { number title }
@@ -340,6 +378,7 @@ def _issues(repo: str, filtro: str) -> list[dict]:
         {
             "number": n["number"],
             "title": n["title"],
+            "body": n["body"],
             "labels": [l["name"] for l in n["labels"]["nodes"]],
             "assignees": [a["login"] for a in n["assignees"]["nodes"]],
             "author": (n["author"] or {}).get("login"),
