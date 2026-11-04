@@ -1,0 +1,22 @@
+{
+  "contrato": 1,
+  "nome": "Diduccio",
+  "slug": "diduccio",
+  "app": "app/",
+  "leitor": "os sócios",
+  "bloco": "Para os sócios",
+  "humano": "Pedro",
+  "ask": "ask-diduccio",
+  "designado_tira_da_fila": false,
+  "dado_sensivel": "dado de morador (CPF, telefone, placa, foto)",
+  "migrations": {
+    "pasta": "app/supabase/migrations",
+    "aplicar": "aplique no banco de produção"
+  },
+  "testes": "ferramenta: `uv run --no-project --python \">=3.12\" --with pytest --with pyyaml python -m pytest tools/ -q` e, se tocou uma skill, `python3 tools/lint_skills.py --dir .claude/skills`; app: dentro de `app/`, `npm run lint`, `npm test` e `npm run build` (o job `app` do `ci.yml`)",
+  "varredura": null,
+  "decisoes": {
+    "fluxo": "docs/adr/0001-instalacao-do-fluxo-de-trabalho.md"
+  },
+  "aviso_celular": true
+}
