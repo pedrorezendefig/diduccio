@@ -2,6 +2,8 @@
 
 ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
 
+**If the repository has `docs/agents/domain.md`, that file is the source of truth for the ADR format** (for example: frontmatter with a closed `status` set and two-way supersession, enforced by a `lint-adr` CI). Follow it instead of the template below.
+
 Create the `docs/adr/` directory lazily, only when the first ADR is needed.
 
 ## Template

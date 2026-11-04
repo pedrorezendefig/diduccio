@@ -7,7 +7,9 @@ description: Quebra um plano ou PRD em fatias verticais independentes (tracer bu
 
 Break a plan into independently-grabbable issues using vertical slices (tracer bullets).
 
-> **Idioma (Diduccio):** título e corpo de cada issue em **pt-BR** (O que construir, Critérios de aceite). Use a terminologia de `CONTEXT.md`. Veja `CLAUDE.md`.
+> **Idioma:** título e corpo de cada issue em **pt-BR** (O que construir, Critérios de aceite). Use a terminologia de `CONTEXT.md`. Veja `CLAUDE.md`.
+
+> **Projeto:** esta skill é a mesma em todo Projeto. Use a terminologia do `CONTEXT.md` do Projeto e rode `python3 .claude/skills/onda-enxuta/scripts/fluxo.py notas to-issues`: o que ele imprimir vale por cima desta skill. O `bloco` e o `leitor` do `fluxo.py` dizem o título do bloco leigo (`<bloco>` abaixo) e para quem ele é escrito.
 
 Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`). Triage label = `ready-for-agent` (veja `docs/agents/triage-labels.md`). Se faltar esse contexto, leia os dois arquivos de `docs/agents/`.
 
@@ -44,11 +46,11 @@ Slices may be **HITL** or **AFK**. HITL slices require human interaction (archit
 
 Se nem os lotes conseguem fechar verde sozinhos, mantenha a sequência mas use uma integration branch compartilhada, com todas as issues bloqueando uma issue final de integrate-and-verify: o verde só é prometido lá.
 
-#### Paralelismo real (ADR 0068)
+#### Paralelismo real (decisão do fluxo)
 
-A `/onda-enxuta` roda juntas todas as fatias desbloqueadas. O único separador de ondas é a dependência, não o arquivo (ADR 0068): a subida mergeia PR a PR, e conflito tira só aquele PR, que o `diduccio-corretor` rebaseia. Fatie para que elas andem juntas de verdade:
+A `/onda-enxuta` roda juntas todas as fatias desbloqueadas. O único separador de ondas é a dependência, não o arquivo (decisão do fluxo): a subida mergeia PR a PR, e conflito tira só aquele PR, que o `onda-corretor` rebaseia. Fatie para que elas andem juntas de verdade:
 
-- **Arquivo de costura:** o arquivo onde várias funcionalidades se registram (`main.py`, `config.py`, `AdminSidebar.tsx`, `fechar_onda.py` e afins). Fatias que só compartilham o arquivo andam na mesma onda. Só a dependência real separa, e o mesmo ponto é a mesma entrada: as duas fatias editam a mesma rota, o mesmo item de menu ou a mesma função, ou uma usa o que a outra cria. Cada fatia acrescentar a própria linha de `include_router` no `main.py` ou o próprio item no `AdminSidebar.tsx` não é mesmo ponto: as duas rodam juntas, e a subida PR a PR resolve o conflito de texto. Exemplo: as fatias 1 e 2 criam as rotas `/cursos` e `/alunos`, cada uma com o próprio `include_router` no `main.py`, e andam na mesma onda; a fatia 3 muda a rota `/cursos` que a 1 cria e anda depois da 1, com o `blocked_by` dela. Quando é mesmo ponto, a de depois ganha o `blocked_by` nativo da de antes (passo 5). Confira o ponto de registro antes de propor a divisão: no Mapa do terreno do PRD (comentário `## Mapa do terreno` de autor `OWNER`, `MEMBER` ou `COLLABORATOR`) ou, sem Mapa, no código (`git grep` do ponto de registro: rota, item de menu, setting).
+- **Arquivo de costura:** o arquivo onde várias funcionalidades se registram (`main.py`, `config.py`, `AdminSidebar.tsx`, `fechar_onda.py` e afins). Fatias que só compartilham o arquivo andam na mesma onda. Só a dependência real separa, e o mesmo ponto é a mesma entrada: as duas fatias editam a mesma rota, o mesmo item de menu ou a mesma função, ou uma usa o que a outra cria. Cada fatia acrescentar a própria linha de `include_router` no `main.py` ou o próprio item no `AdminSidebar.tsx` não é mesmo ponto: as duas rodam juntas, e a subida PR a PR resolve o conflito de texto. Exemplo: as fatias 1 e 2 criam as rotas `/pedidos` e `/clientes`, cada uma com o próprio `include_router` no `main.py`, e andam na mesma onda; a fatia 3 muda a rota `/pedidos` que a 1 cria e anda depois da 1, com o `blocked_by` dela. Quando é mesmo ponto, a de depois ganha o `blocked_by` nativo da de antes (passo 5). Confira o ponto de registro antes de propor a divisão: no Mapa do terreno do PRD (comentário `## Mapa do terreno` de autor `OWNER`, `MEMBER` ou `COLLABORATOR`) ou, sem Mapa, no código (`git grep` do ponto de registro: rota, item de menu, setting).
 - **G sem bloqueio:** fatia G que não bloqueia ninguém vira duas M.
 - **Ondas previstas:** agrupe as fatias pelo grafo de dependência (onda 1 é toda fatia sem bloqueio; a seguinte, as que dependem só das anteriores) e leve o agrupamento à lista do passo 4 e ao corpo do PRD (passo 5).
 
@@ -63,7 +65,7 @@ Apresente a divisão como uma **lista numerada em pt-BR**. Para cada fatia, most
 - **Histórias cobertas**: quais histórias de usuário esta fatia atende (se a fonte tiver)
 - **Arquivo de costura**: os que ela toca e o ponto de registro que edita, ou "nenhum"; só o mesmo ponto de outra fatia vira "Bloqueada por"
 
-Depois da lista, as **ondas previstas**: uma linha por onda com as fatias que andam juntas e, para cada fatia fora da onda 1, a dependência que a segura (ex.: "Onda 1: fatias 1 e 2, cada uma com o próprio `include_router` no `main.py`. Onda 2: fatia 3, depois da 1, muda a rota `/cursos` que a 1 cria"). Arquivo de costura em comum não é motivo de onda.
+Depois da lista, as **ondas previstas**: uma linha por onda com as fatias que andam juntas e, para cada fatia fora da onda 1, a dependência que a segura (ex.: "Onda 1: fatias 1 e 2, cada uma com o próprio `include_router` no `main.py`. Onda 2: fatia 3, depois da 1, muda a rota `/pedidos` que a 1 cria"). Arquivo de costura em comum não é motivo de onda.
 
 Pergunte ao usuário: a granularidade está boa (grossa/fina demais)? As dependências estão corretas? Alguma fatia deve ser unida ou dividida? As marcações HITL/AFK estão certas? As ondas previstas fazem sentido? Itere até aprovar.
 
@@ -73,14 +75,14 @@ Antes de publicar, determine o **número da issue-PRD pai** (`$PRD`): a issue cr
 
 Para cada fatia aprovada, publique uma issue com `gh issue create`, usando o template de corpo abaixo (**em pt-BR**), com a label `ready-for-agent` salvo instrução em contrário. Publique em ordem de dependência (bloqueadores primeiro) pra poder criar as **dependências nativas** com números reais.
 
-**Classifique o tamanho de cada fatia** e aplique o label `fatia:P`, `fatia:M` ou `fatia:G` junto com `ready-for-agent` (uma por fatia; nunca no PRD pai). Critério: **P** = poucas horas, escopo contido, 1 camada dominante; **M** = fatia vertical completa de escopo conhecido (meio período); **G** = dia cheio ou mais (muitas camadas, UI nova ou integração externa). Labels e critério vivem em `docs/agents/triage-labels.md`; o Diduccio OS filtra por eles (chips `fatia:` da aba Issues), e a `/onda-enxuta` escolhe por eles o esforço do implementador (`xhigh` na G, `high` na P e na M): classifique pelo escopo, não pela pressa.
+**Classifique o tamanho de cada fatia** e aplique o label `fatia:P`, `fatia:M` ou `fatia:G` junto com `ready-for-agent` (uma por fatia; nunca no PRD pai). Critério: **P** = poucas horas, escopo contido, 1 camada dominante; **M** = fatia vertical completa de escopo conhecido (meio período); **G** = dia cheio ou mais (muitas camadas, UI nova ou integração externa). Labels e critério vivem em `docs/agents/triage-labels.md`; o PedroOS filtra por eles (chips `fatia:` da aba Issues), e a `/onda-enxuta` escolhe por eles o esforço do implementador (`xhigh` na G, `high` na P e na M): classifique pelo escopo, não pela pressa.
 
-**Toda issue abre com o bloco "Para os sócios"** (ADR 0068): um resumo em linguagem simples, no topo do corpo, antes da parte técnica. É a porta de entrada de quem lê as issues direto no GitHub sem abrir o código; sem ele, a parte técnica é só ruído pra essa pessoa. Formato fixo, mínimo de palavras, zero jargão:
+**Toda issue abre com o bloco "<bloco>"** (decisão do fluxo): um resumo em linguagem simples, no topo do corpo, antes da parte técnica. É a porta de entrada de quem lê as issues direto no GitHub sem abrir o código; sem ele, a parte técnica é só ruído pra essa pessoa. Formato fixo, mínimo de palavras, zero jargão:
 
-- **O que muda:** uma frase de valor, não-técnica: o que o sistema passa a fazer pelo Diduccio.
+- **O que muda:** uma frase de valor, não-técnica: o que o sistema passa a fazer por <leitor>.
 - **O que você precisa saber:** de 2 a 3 regras simples que deixem o leitor reconhecer a feature funcionando.
 
-**Humanizer antes de cada `gh issue create`** (ADR 0071): passe o corpo da fatia pela Skill tool com `humanizer` em modo embutido, com atenção ao bloco "Para os sócios". A amostra de voz é o bloco "Para os sócios" do próprio PRD pai: ele manda no tom, o humanizer só tira os cacoetes. O resto do corpo fica neutro e direto; critérios de aceite continuam verificáveis e termos do `CONTEXT.md` não mudam.
+**Humanizer antes de cada `gh issue create`** (ADR 0071 da origem do fluxo): passe o corpo da fatia pela Skill tool com `humanizer` em modo embutido, com atenção ao bloco "<bloco>". A amostra de voz é o bloco "<bloco>" do próprio PRD pai: ele manda no tom, o humanizer só tira os cacoetes. O resto do corpo fica neutro e direto; critérios de aceite continuam verificáveis e termos do `CONTEXT.md` não mudam.
 
 **Vincule cada fatia como sub-issue nativa do PRD**: dá barra de progresso (ex.: "2 de 4 concluídas") e navegação pai↔filha na UI do GitHub. Logo após criar a fatia:
 
@@ -96,12 +98,12 @@ BLOCKER_ID=$(gh api "repos/$REPO/issues/<X>" --jq '.id')
 gh api --method POST "repos/$REPO/issues/$CHILD/dependencies/blocked_by" -F issue_id="$BLOCKER_ID"
 ```
 
-A dependência nativa é a **única** fonte de bloqueio (ADR 0068): a fatia bloqueada nasce com `ready-for-agent` mesmo assim, porque a fila filtra com `-is:blocked` e ela reaparece sozinha quando a bloqueadora fecha. Não escreva "Bloqueada por: #X" no corpo nem use label `blocked`.
+A dependência nativa é a **única** fonte de bloqueio (decisão do fluxo): a fatia bloqueada nasce com `ready-for-agent` mesmo assim, porque a fila filtra com `-is:blocked` e ela reaparece sozinha quando a bloqueadora fecha. Não escreva "Bloqueada por: #X" no corpo nem use label `blocked`.
 
 Se o endpoint de sub-issues falhar (feature indisponível ou permissão), **não trave**: a seção `Pai: #$PRD` no corpo (abaixo) garante a referência cruzada. Reporte o erro e siga.
 
 <issue-template>
-## Para os sócios
+## <bloco>
 
 **O que muda:** uma frase de valor, não-técnica.
 
