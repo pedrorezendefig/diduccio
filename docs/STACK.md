@@ -1,6 +1,6 @@
 # Stack
 
-O que o projeto usa hoje e o que está previsto. Peça nova na stack entra aqui, no mesmo PR que a traz. O Diduccio OS mostra este arquivo na Documentação, sub-aba Stack.
+O que o projeto usa hoje e o que está previsto. Peça nova na stack entra aqui, no mesmo PR que a traz. A Página do Projeto no PedroOS mostra este arquivo na aba Documentação.
 
 ## Hoje: o app em `app/`
 
@@ -17,15 +17,14 @@ Base importada do ViT (`novorecreio351-droid/sistema-condominio`), o sistema do 
 | PWA (manifest e service worker) | o app instalável no celular; o SW guarda só a casca |
 | Vitest e Testing Library, ESLint 9 | os gates de teste e lint (`npm test`, `npm run lint`, `npm run build`) |
 
-## Hoje: Diduccio OS
+## Hoje: o fluxo de trabalho
 
 | Peça | Para que serve |
 |---|---|
-| Python 3.12, só a biblioteca padrão | o coletor e o servidor do painel (`tools/workflow-dashboard/`), sem dependências para instalar |
-| HTML, CSS e JavaScript sem build | o front do painel, servido como arquivos estáticos; o `marked` vem copiado em `static/vendor/` |
-| `gh` (GitHub CLI) | a fonte dos dados do painel: issues, PRs e comentários |
+| Python 3.12, só a biblioteca padrão | os scripts das skills e os lints de `tools/` |
+| `gh` (GitHub CLI) | as skills falam com issues e PRs por ele |
 | GitHub Actions | o CI dos PRs (gates do app, testes de `tools/` e o lint de texto) |
-| pytest e Node | os testes do painel; o Node roda o `app.js` de verdade nos testes |
+| pytest | os testes de `tools/` |
 
 ## Prevista
 

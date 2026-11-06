@@ -28,4 +28,4 @@ O script não commita. Quem roda decide se o resultado entra no PR.
 | `INTEGRACOES.md` | O nome das chaves do `app/.env.example` e dos secrets que as Edge Functions leem com `Deno.env.get`, por serviço (Supabase, Gemini, Groq, WhatsApp, Vercel). Nunca o valor. |
 | `FLUXOGRAMAS.md` | O diagrama de contexto (app no centro, serviços em volta) no subset Mermaid que o dashboard desenha. |
 
-O formato é o do `/snapshot` do Hospital, que o `tools/workflow-dashboard/` lê (`areas.py` e `diagramas.py`). O que o parser de SQL não entende (ALTER em tabela que nenhuma migration criou, como `usuarios`; ALTER montado com `format()` em bloco DO) sai como aviso no stderr.
+O formato é o do `/snapshot` do Hospital, que a Página do Projeto no PedroOS lê (aba Áreas). O que o parser de SQL não entende (ALTER em tabela que nenhuma migration criou, como `usuarios`; ALTER montado com `format()` em bloco DO) sai como aviso no stderr.

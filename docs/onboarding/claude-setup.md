@@ -1,6 +1,6 @@
 # Setup do Claude Code para trabalhar no Diduccio
 
-Guia de setup da máquina, feito uma vez. Depois dele, siga o [`dev.md`](./dev.md), que leva do clone ao Diduccio OS aberto e explica o dia a dia. Tempo estimado: 15 minutos.
+Guia de setup da máquina, feito uma vez. Depois dele, siga o [`dev.md`](./dev.md), que leva do clone ao primeiro dia e explica o dia a dia. Tempo estimado: 15 minutos.
 
 O Diduccio ainda não tem deploy nem serviço externo. Por isso este guia não tem CLI de plataforma, token de produção nem `tokens/.env`: quando a plataforma for escolhida, a seção de acessos externos entra aqui.
 
@@ -23,7 +23,7 @@ Todas as skills do time já vêm no clone, em `.claude/skills/` (lista e roteame
 | **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | O agente |
 | **GitHub CLI** (`gh`) | `brew install gh` | Issues, PRs e merge. As skills falam com o GitHub por ele |
 | **`jq`** | `brew install jq` | Leitura de JSON nos scripts das skills |
-| **Python 3** | já vem no macOS, ou `brew install python@3.12` | O Diduccio OS (Python sem dependências) e os scripts das skills |
+| **Python 3** | já vem no macOS, ou `brew install python@3.12` | Os scripts das skills e os lints de `tools/` |
 | **`uv`** | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | Roda os testes de `tools/` com o Python 3.12, como no CI |
 
 Conferir:

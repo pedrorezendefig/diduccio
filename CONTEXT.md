@@ -137,9 +137,6 @@ _Evitar_: tutorial, help, Processos
 
 ## O repositório
 
-**Diduccio OS**:
-O painel local, só de leitura, que mostra issues, PRs, produção e documentação (`tools/workflow-dashboard/`).
-
 **App**:
 O código do sistema em `app/`. PR que toca `app/` é PR do app e passa pelo `diduccio-revisor`; o resto é PR de ferramenta.
 _Evitar_: plataforma, sistema, ViT

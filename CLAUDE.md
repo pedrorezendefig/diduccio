@@ -1,6 +1,6 @@
 # Diduccio
 
-Repositório do sistema de gestão do Condomínio Diduccio (portaria, encomendas, moradores, reservas), em `app/`, com o Diduccio OS e as skills do fluxo ao lado. O glossário fica em `CONTEXT.md` e as decisões em `docs/adr/`. O mapa das pastas é o `README.md`.
+Repositório do sistema de gestão do Condomínio Diduccio (portaria, encomendas, moradores, reservas), em `app/`, com as skills do fluxo ao lado. O glossário fica em `CONTEXT.md` e as decisões em `docs/adr/`. O mapa das pastas é o `README.md`.
 
 ## Regras
 
@@ -34,11 +34,10 @@ Várias sessões do Claude Code rodam issues `ready-for-agent` diferentes ao mes
 
 ## Proibido criar
 - Docs de estado ou de processo paralelos (`PRODUCAO.md`, `deploy-history.md`, `dashboard.html`, pastas `planos/`, `implementacoes/`, `blueprint/`): estado vive em `docs/spec/deploy/*.json` e o trabalho nas **GitHub Issues**.
-- Exceção: o **Diduccio OS** (`tools/workflow-dashboard/`), painel local só de leitura desses JSONs e do `gh` (`http://localhost:8801`).
 
 ## Docs vivos
 - `CONTEXT.md` e `docs/adr/`: domínio e decisões (curados por humano). ADR: consuma só `status: accepted`; supersessão e emenda são bidirecionais (`supersedes`/`superseded_by`, `amends`/`amended_by`), travadas pelo CI `lint-adr`.
 - `docs/spec/snapshots/`: mapa **factual** do app, gerado pelo `/snapshot`.
 - `docs/spec/deploy/`: contrato e estado de deploy (`project.json`, `state.json`, `history.json`). Sem plataforma de deploy ainda.
-- `docs/onboarding/`: do clone ao painel aberto (`dev.md`) e setup do Claude Code (`claude-setup.md`). O `/setup-maquina` confere.
+- `docs/onboarding/`: do clone ao primeiro dia (`dev.md`) e setup do Claude Code (`claude-setup.md`). O `/setup-maquina` confere.
 - `README.md`: o mapa das pastas, com o bloco `cobertura` que o teste `tools/test_docs_fluxo.py` confere.
