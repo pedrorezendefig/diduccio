@@ -60,7 +60,7 @@ O ato de alguém buscar a Encomenda, com assinatura na tela, nome, CPF e hora. P
 _Evitar_: baixa, entrega ao morador
 
 **Aviso**:
-A mensagem que diz ao Morador que a Encomenda chegou. Hoje é um link de WhatsApp que o Porteiro clica; com o App do morador vira notificação no celular, e o WhatsApp fica para quem não ativou.
+A mensagem que diz ao Morador que a Encomenda chegou. Hoje é um link de WhatsApp que o Porteiro clica; com o App do morador vira notificação no celular. O WhatsApp só sai para a Unidade em que nenhum Morador ativou a notificação.
 _Evitar_: notificação (reservado para a Notificação de infração)
 
 **Pessoa de fora**:
@@ -144,3 +144,7 @@ _Evitar_: plataforma, sistema, ViT
 **App do morador**:
 A parte do App que o Morador usa no celular, instalada como PWA, para ver as Encomendas da Unidade e receber o Aviso.
 _Evitar_: app do condômino, aplicativo
+
+**Convite**:
+O link que a administração gera para um Morador com CPF, de qualquer Tipo de morador, criar a senha da própria conta. Serve uma vez e vence em 7 dias. Vai pelo WhatsApp do Morador. O Morador não se cadastra sozinho.
+_Evitar_: cadastro, autocadastro
