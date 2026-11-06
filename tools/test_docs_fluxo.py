@@ -1,7 +1,7 @@
 """Testes da documentação do fluxo (issue #6).
 
 Cada teste trava um critério de aceite da issue: as labels documentadas são as
-do repo, o onboarding leva do clone ao painel aberto, o README tem o mapa de
+do repo, o onboarding leva do clone ao primeiro passo, o README tem o mapa de
 pastas no formato do Hospital e nenhum doc diz que o Diduccio já tem Coolify,
 Vercel ou Manual.
 """
@@ -38,13 +38,13 @@ def test_triage_labels_lista_as_mesmas_labels_do_repo() -> None:
     assert _labels_nas_tabelas(texto) == LABELS_DO_REPO
 
 
-def test_onboarding_dev_leva_do_clone_ao_painel_aberto_passando_pelo_hook() -> None:
+def test_onboarding_dev_leva_do_clone_ao_primeiro_passo_passando_pelo_hook() -> None:
     texto = (RAIZ / "docs/onboarding/dev.md").read_text(encoding="utf-8")
     passos = [
         "gh repo clone pedrorezendefig/diduccio",
         "git config core.hooksPath .githooks",
-        "tools/workflow-dashboard/install-launchd.sh",
-        "http://localhost:8801",
+        "/setup-maquina",
+        "/ask-diduccio",
     ]
     posicoes = [texto.find(p) for p in passos]
     assert -1 not in posicoes, dict(zip(passos, posicoes))

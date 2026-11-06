@@ -46,7 +46,7 @@ Teste rápido entre B e C: **alguém precisa conferir que fez o que foi pedido?*
 ## Pós-entrega
 
 - `/snapshot`: mapa factual da app em `docs/spec/snapshots/`.
-- **Pendência humana pós-ciclo** (credencial, ato externo): vira issue `ready-for-human` ligada ao PRD (`/ship` Passo 10); os sócios acompanham no card **Humana** da aba Issues do **Diduccio OS** e fecham a issue ao concluir.
+- **Pendência humana pós-ciclo** (credencial, ato externo): vira issue `ready-for-human` ligada ao PRD (`/ship` Passo 10); os sócios acompanham pela `/minhas-issues` e fecham a issue ao concluir.
 
 ## Máquina nova
 

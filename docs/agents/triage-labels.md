@@ -42,7 +42,7 @@ Família descritiva, não de estado. O `/to-issues` aplica uma por fatia na queb
 | `fatia:M` | Média: meio período, fatia vertical completa |
 | `fatia:G` | Grande: dia cheio ou mais, mais risco (muitas camadas, tela nova, integração externa) |
 
-O Diduccio OS agrupa essas labels no filtro `fatia:` da aba Issues, e a `/onda-enxuta` escolhe por elas o esforço do implementador.
+A `/onda-enxuta` escolhe por essas labels o esforço do implementador.
 
 ## Natureza da mudança
 

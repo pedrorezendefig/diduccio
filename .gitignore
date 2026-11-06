@@ -3,6 +3,5 @@
 .claude/settings.local.json
 local/
 tokens/.env
-tools/workflow-dashboard/__pycache__/
 __pycache__/
 .pytest_cache/
