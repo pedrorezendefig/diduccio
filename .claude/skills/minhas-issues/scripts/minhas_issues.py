@@ -9,7 +9,7 @@ Uso:
   python3 minhas_issues.py @login     fila de outra pessoa
 
 "Minha" segue a regra do filtro de responsável do PedroOS (issue #1039):
-atribuída à pessoa; sem ninguém atribuído, quem criou.
+atribuída à pessoa (o assignee é o dono do card; quem criou não conta, ADR 0009 do PedroOS).
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ VEREDITO = {
 def minhas(issues: list[dict], login: str) -> list[dict]:
     return [
         i for i in issues
-        if login in i["assignees"] or (not i["assignees"] and i["author"] == login)
+        if login in i["assignees"]
     ]
 
 
@@ -487,7 +487,7 @@ def coletar(login: str | None) -> dict:
     repo = gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner").strip()
     agora = datetime.now(timezone.utc)
     vistas, issues = set(), []
-    for filtro in (f"assignee:{login}", f"author:{login} no:assignee"):
+    for filtro in (f"assignee:{login}",):
         for i in _issues(repo, filtro):
             if i["number"] not in vistas:
                 vistas.add(i["number"])
