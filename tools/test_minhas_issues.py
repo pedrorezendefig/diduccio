@@ -26,7 +26,9 @@ EU = "pedrorezendefig"
 AGORA = "2026-10-05T21:00:00Z"
 
 
-def issue(n, titulo="t", labels=(), donos=(), autor=EU, parent=None, upd="2026-10-05T10:00:00Z"):
+def issue(n, titulo="t", labels=(), donos=None, autor=EU, parent=None, upd="2026-10-05T10:00:00Z"):
+    """Sem `donos`, a issue nasce com o autor como dono, como a Action dono-do-card faz."""
+    donos = [autor] if donos is None else donos
     return {
         "number": n,
         "title": titulo,
@@ -62,18 +64,18 @@ def dados(issues=(), prs=(), worktrees=(), componente="operational", cancelados=
     }
 
 
-# Quem é "meu": a regra do painel (ADR 0061, emenda de 05/10/2026)
+# Quem é "meu": só o assignee, o dono do card (o criador deixou de ser reserva)
 
 
-def test_conta_atribuida_e_criada_sem_dono_e_deixa_fora_a_criada_que_outro_assumiu():
+def test_conta_so_a_atribuida_a_mim_e_deixa_fora_a_criada_sem_dono():
     abertas = [
         issue(941, donos=[EU]),
-        issue(942),  # criada por mim, sem dono
+        issue(942, donos=[]),  # criada por mim, sem dono: vai para "ninguém assumiu", não para mim
         issue(650, donos=["lucassampaioc1"]),  # criada por mim, outro assumiu
-        issue(700, autor="lucassampaioc1"),  # de outro, sem dono
+        issue(700, autor="lucassampaioc1", donos=[]),  # de outro, sem dono
         issue(701, autor="lucassampaioc1", donos=[EU]),  # de outro, atribuída a mim
     ]
-    assert [i["number"] for i in mi.minhas(abertas, EU)] == [941, 942, 701]
+    assert [i["number"] for i in mi.minhas(abertas, EU)] == [941, 701]
 
 
 # Semáforo, só Actions

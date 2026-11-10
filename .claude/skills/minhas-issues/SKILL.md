@@ -15,7 +15,7 @@ Mostra numa tela só o que está aberto com quem pede, onde cada coisa parou, se
 
 Sem argumento, a pessoa é o login do `gh api user`. Com `@login`, mostra a fila de outra pessoa (cobrar alguém, cobrir férias).
 
-"Minha" é o que a pessoa tem que fazer: atribuída a ela; sem ninguém atribuído, quem criou. O painel filtrado pela pessoa mostra também o que ela criou e outro assumiu, então lá o total pode ser maior.
+"Minha" é o que a pessoa tem que fazer: atribuída a ela. Quem criou a issue não conta: issue sem assignee não é de ninguém e aparece no painel em "ninguém assumiu".
 
 ## Fluxo
 
