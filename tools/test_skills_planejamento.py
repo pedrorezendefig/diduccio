@@ -3,7 +3,8 @@
 Vieram do repositório do Hospital pelo MANIFESTO do kit
 `tools/instalar-fluxo/`. Estes testes travam a adaptação: o router é o
 `/ask-diduccio`, e nenhuma regra fala do Hospital, do diretor ou do Manual. Citar o
-Hospital como origem é permitido (a linha diz "origem").
+Hospital como origem é permitido (a linha diz "origem"), e como exemplo só nos
+trechos de EXEMPLO_DO_HOSPITAL e SECAO_DA_DEMANDA.
 
 O critério do lint do cabeçalho mora no último teste de `test_lint_skills.py`,
 que roda contra o `.claude/skills/` real.
@@ -49,6 +50,29 @@ PROIBIDO = re.compile(
     r"|[Dd]iretor|hospital-issue-|Hospital OS"
 )
 
+# O Pacote do fluxo do PedroOS cita o Hospital de propósito, como exemplo. Só estes
+# trechos saem da busca: o parêntese "(no Hospital, ...)", o parêntese com o caminho
+# do roteiro do manual de lá, o nome da seção "Manual: páginas que mudam" do PRD e a
+# seção do triage que só vale para a Demanda que chega do app do Hospital.
+EXEMPLO_DO_HOSPITAL = re.compile(
+    r"\(no Hospital, [^()]*\)|\(`hospital-" r"reunioes/frontend/scripts/manual/[^`]*`[^()]*\)"
+    r"|Manual: páginas que mudam"
+)
+SECAO_DA_DEMANDA = ("triage", "## Primeira resposta numa Demanda")
+
+
+def _linhas_conferidas(arquivo: Path):
+    """(número, linha) do arquivo sem os trechos de EXEMPLO_DO_HOSPITAL e sem a
+    SECAO_DA_DEMANDA, do título dela até o próximo `## ` fora de bloco de código."""
+    na_secao = no_codigo = False
+    for n, linha in enumerate(arquivo.read_text(encoding="utf-8").splitlines(), 1):
+        if linha.startswith("```"):
+            no_codigo = not no_codigo
+        elif not no_codigo and linha.startswith("## "):
+            na_secao = (arquivo.parent.name, linha.strip()) == SECAO_DA_DEMANDA
+        if not na_secao:
+            yield n, EXEMPLO_DO_HOSPITAL.sub("", linha)
+
 
 def _arquivos(skill: str) -> list[Path]:
     return sorted(p for p in (SKILLS / skill).rglob("*") if p.is_file() and p.suffix in {".md", ".py", ".sh"})
@@ -76,7 +100,7 @@ def test_skill_so_cita_o_hospital_como_origem(skill: str) -> None:
     assert arquivos, f"a skill {skill} não está instalada"
     achados = []
     for arquivo in arquivos:
-        for n, linha in enumerate(arquivo.read_text(encoding="utf-8").splitlines(), 1):
+        for n, linha in _linhas_conferidas(arquivo):
             regra_do_hospital = "hospital" in linha.lower() and "origem" not in linha.lower()
             if regra_do_hospital or PROIBIDO.search(linha):
                 achados.append(f"{arquivo.relative_to(SKILLS)}:{n}: {linha.strip()[:120]}")

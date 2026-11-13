@@ -94,7 +94,7 @@ def _rodar_subida(monkeypatch, tmp_path: Path, arquivos_do_pr: list[str]):
     monkeypatch.setattr(fo, "criar_worktree", lambda raiz, sessao: tmp_path / "wt")
     monkeypatch.setattr(fo, "remover_worktree", lambda raiz, wt: None)
     monkeypatch.setattr(fo, "versao_em_producao", lambda wt, ref: "0.0.0")
-    monkeypatch.setattr(fo, "preparar_pr", lambda raiz, wt, info: info["headRefOid"])
+    monkeypatch.setattr(fo, "preparar_pr", lambda raiz, wt, info, entraram: info["headRefOid"])
     monkeypatch.setattr(fo, "mergear_pela_api", lambda raiz, n, head, titulo: mergeados.append(n) or "s" * 40)
     monkeypatch.setattr(fo, "limpar_worktrees_de_agente", lambda raiz, entregues=None: 0)
     for passo in ("coolify_json", "setar_app_version_nos_apps", "imagem_no_ar", "criar_tag", "esperar_build",
