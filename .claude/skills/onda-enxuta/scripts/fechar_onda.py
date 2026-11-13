@@ -85,7 +85,11 @@ cabe em 10 linhas mais uma por PR, fora as da migration):
      acabou de andar pelo merge anterior) nao e causa: a subida espera 5 s e
      tenta de novo, ate 3 vezes. PR empilhado e o que a conferencia do lote
      (conferir_lote.py) mandou rebasear sobre a branch de um irmao: carrega os
-     commits dele e so entra depois dele
+     commits dele e so entra depois dele. Depois do squash do irmao, a subida
+     o tira de cima dele com `rebase --onto origin/main <head conferido do
+     irmao>` (issue #527), push com `--force-with-lease` e o CI do head novo;
+     a linha `merge:` dele diz que foi rebaseado. O `--onto` que bate deixa o
+     PR de fora com os arquivos, como o conflito com a main
   5. tag vX.Y.Z no squash do ultimo PR que entrou, pela API (tag que falha nao
      para o deploy)
   6. um build: o deploy que o webhook do Coolify dispara para cada squash
@@ -129,7 +133,8 @@ cabe em 10 linhas mais uma por PR, fora as da migration):
      main de antes do lote e cada squash, na ordem, e o primeiro vermelho sai por um PR
      `revert/<chave>-pr<N>` (testado aqui, CI verde, squash pela API); a issue dele volta para
      `ready-for-agent` com a falha e o Estado da Onda ganha o evento `revert` (saida 9).
-     Revert que nao entra: nada e mergeado e a onda quebra (saida 10). Detalhe no
+     Revert que nao entra: nada e mergeado e a onda quebra (saida 10). A ponta que falha e
+     depois passa e o Teste instavel: evento `instavel` com o nome do teste e saida normal. Detalhe no
      teste_da_main.py. O lote de app com deploy nao roda o passo: o revert pediria outro
      build, e o health e o rollback ja guardam producao
 
@@ -348,6 +353,12 @@ def bash_path(p: Path) -> str:
 
 # ------------------------------------------------------------- pre-condicoes
 
+def tem_workflow(raiz: Path) -> bool:
+    """O Projeto tem algum workflow do Actions (issue #434)."""
+    pasta = raiz / ".github" / "workflows"
+    return any(pasta.glob("*.yml")) or any(pasta.glob("*.yaml"))
+
+
 def checar_pre_condicoes(raiz: Path, prs: list[int], dry: bool,
                          plataforma: bool = True) -> tuple[list[dict], list[tuple[str, str]]]:
     """Devolve as infos dos PRs e (head, caminho) de cada migration nova do lote.
@@ -396,7 +407,11 @@ def checar_pre_condicoes(raiz: Path, prs: list[int], dry: bool,
         elif not checks:
             # o CI nao rodou: o ruleset exige os checks e o esperar_checks nao
             # aceita lista vazia, entao vale para app e ferramenta (issue #965)
-            problemas.append(f"#{n} sem nenhum check (o CI nao rodou)")
+            if tem_workflow(raiz):
+                problemas.append(f"#{n} sem nenhum check (o CI nao rodou)")
+            else:
+                problemas.append(f"#{n} sem nenhum check: o Projeto nao tem CI. Crie um workflow em "
+                                 ".github/workflows/ que rode em pull_request (basta um)")
         infos.append(info)
     if problemas:
         falhar("pre-condicao: " + "; ".join(problemas) + ".", EXIT_PRECOND)
@@ -669,7 +684,7 @@ def entrar_na_branch_do_pr(wt: Path, info: dict) -> str:
     run(["git", "checkout", "-q", "--detach", f"origin/{branch}"], cwd=wt)
     ponta = run(["git", "rev-parse", "HEAD"], cwd=wt).stdout.strip()
     # um push no PR durante a espera da migration entraria sem a conferencia do sha256
-    conferido = info.get("head_conferido") or info.get("headRefOid")
+    conferido = info.get("head_rebaseado") or info.get("head_conferido") or info.get("headRefOid")
     if conferido and ponta != conferido:
         raise EntregaFalhou(f"#{n} andou depois das pre-condicoes ({ponta[:8]}): rode de novo")
     if run(["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"], cwd=wt, check=False).returncode == 0:
@@ -795,11 +810,40 @@ def entregar(raiz: Path, wt: Path, branch: str, pr: int | None, titulo: str, cor
     return pr, head
 
 
-def preparar_pr(raiz: Path, wt: Path, info: dict) -> str:
+def rebasear_empilhado(wt: Path, info: dict, entraram: list[dict]) -> None:
+    """O PR empilhado sobre um irmao que ja entrou (conferir_lote.py) carrega os
+    commits originais dele, e o squash do irmao na main conflita com eles. Aqui
+    ele vai com `rebase --onto` para cima da main, a partir do head conferido do
+    ultimo irmao que ele carrega (na cadeia A, B, C, o C sai de cima do B), e o
+    push e com `--force-with-lease`. O novo head vai em `head_rebaseado`, que o
+    merge confere no lugar do das pre-condicoes. `--onto` que bate: MergeConflito,
+    com a branch do PR intacta. Sem irmao dentro, nada muda."""
+    n, branch, head = info["number"], info["headRefName"], info["head_conferido"]
+    dentro = [i["head_conferido"] for i in entraram
+              if run(["git", "merge-base", "--is-ancestor", i["head_conferido"], head], cwd=wt,
+                     check=False).returncode == 0]
+    if not dentro:
+        return
+    run(["git", "checkout", "-q", "--detach", head], cwd=wt)
+    if run(["git", "rebase", "-q", "--onto", "origin/main", dentro[-1]], cwd=wt, check=False).returncode != 0:
+        conflitos = run(["git", "diff", "--name-only", "--diff-filter=U"], cwd=wt, check=False).stdout.split()
+        run(["git", "rebase", "--abort"], cwd=wt, check=False)
+        raise MergeConflito(n, conflitos)
+    novo = run(["git", "rev-parse", "HEAD"], cwd=wt).stdout.strip()
+    proc = run(["git", "push", "-q", f"--force-with-lease=refs/heads/{branch}:{head}", "origin",
+                f"HEAD:refs/heads/{branch}"], cwd=wt, check=False)
+    if proc.returncode != 0:
+        raise EntregaFalhou(f"push do rebase na branch {branch} recusado ({(proc.stderr or '').strip()[:160]})")
+    info["head_rebaseado"] = novo
+
+
+def preparar_pr(raiz: Path, wt: Path, info: dict, entraram: list[dict]) -> str:
     """Leva um PR do lote ao ponto de merge sem mexer na branch dele: o head das
     pre-condicoes, sem a main trazida e sem push, e o CI verde que ele ja tinha
-    (ADR 0068). Devolve o head."""
+    (ADR 0068). A excecao e o PR empilhado sobre um irmao de `entraram` (os que
+    ja estao na main): esse e rebaseado e espera o CI do head novo. Devolve o head."""
     run(["git", "fetch", "-q", "origin", "main"], cwd=wt)  # o squash do PR anterior do lote
+    rebasear_empilhado(wt, info, entraram)
     head = entrar_na_branch_do_pr(wt, info)
     esperar_checks(raiz, info["number"], head)
     return head
@@ -1567,8 +1611,8 @@ class GitHubDaSubida:
 
 def testar_a_main(raiz: Path, chave: str, avulso: bool, mergeados: list[tuple[dict, str, float]]) -> int | None:
     """O passo depois do merge da onda (issue #327), com o `teste_da_main` do fluxo.json. Devolve
-    EXIT_REVERT, EXIT_QUEBRADA, ou None: main verde, Projeto sem o comando, PR avulso, ou o passo que nao
-    rodou (a linha `aviso:` diz por que)."""
+    EXIT_REVERT, EXIT_QUEBRADA, ou None: main verde, Teste instavel (so o evento `instavel`), Projeto sem o
+    comando, PR avulso, ou o passo que nao rodou (a linha `aviso:` diz por que)."""
     comando = _CFG.get("teste_da_main")
     if avulso or not comando:
         return None
@@ -1727,8 +1771,14 @@ def main() -> int:
         falhar("--sessao so aceita letras, numeros, ponto, hifen e underscore.", EXIT_PRECOND)
     raiz = Path(args.raiz).resolve() if args.raiz else Path(
         run(["git", "rev-parse", "--show-toplevel"]).stdout.strip()).resolve()
-    projeto = ler_json(raiz / SPEC / "deploy" / "project.json")
-    servicos_cfg = {s["id"]: s for s in projeto["services"]}
+    arquivo_projeto = raiz / SPEC / "deploy" / "project.json"
+    if arquivo_projeto.exists():
+        projeto = ler_json(arquivo_projeto)
+    else:
+        # sem o arquivo vale o mesmo que `services` vazio: so merge (issue #434)
+        projeto = {}
+        print(f"aviso: sem {SPEC}/deploy/project.json; sigo como Projeto sem deploy (só merge).")
+    servicos_cfg = {s["id"]: s for s in projeto.get("services") or []}
     plataforma = tem_plataforma(projeto)
     global SEM_SEMAFORO
     SEM_SEMAFORO = not precisa_semaforo(raiz, plataforma)
@@ -1772,7 +1822,8 @@ def main() -> int:
         base = run(["git", "rev-parse", "--short=8", "HEAD"], cwd=wt).stdout.strip()
 
         # classe, versao e servicos saem do lote inteiro, antes do primeiro merge
-        versao_antiga = versao_em_producao(wt, base)
+        # sem plataforma nao ha versao: state.json e history.json nao entram (issue #434)
+        versao_antiga = versao_em_producao(wt, base) if plataforma else None
         # --no-renames, como o detector do CI: o `files` do gh mostra um rename so
         # pelo caminho novo, e tirar codigo do app passaria por ferramenta
         arquivos = set()
@@ -1794,7 +1845,8 @@ def main() -> int:
         if args.dry_run:
             prds = prds_do_lote(raiz, infos)
             migs = [Path(c).name for _, c in novas]
-            classe = (f"ferramenta: só merge, versao segue v{versao_antiga}" if ferramenta
+            classe = ("sem deploy: só merge" if not plataforma
+                      else f"ferramenta: só merge, versao segue v{versao_antiga}" if ferramenta
                       else f"app: bump {tipo} v{versao_antiga} -> v{versao_nova}")
             print("plano: " + ", ".join(f"PR #{i['number']} ({rotulo_issues(i)})" for i in infos)
                   + f"; {classe}; chave {args.sessao}")
@@ -1822,6 +1874,8 @@ def main() -> int:
         versao = versao_nova or versao_antiga
         if versao_nova:
             print(f"versao: v{versao_antiga} -> v{versao_nova} ({tipo}), sem commit: vai no APP_VERSION e na tag")
+        elif not plataforma:
+            print("versao: sem deploy, só merge")
         else:
             print(f"versao: segue v{versao_antiga} (ferramenta)")
         conferir_modo_imagem_no_coolify(servicos_cfg)
@@ -1840,7 +1894,7 @@ def main() -> int:
                 if sobre:
                     raise EntregaFalhou(f"empilhado sobre o #{sobre}, que ficou de fora: entra na subida "
                                         "seguinte, depois dele")
-                head = preparar_pr(raiz, wt, info)
+                head = preparar_pr(raiz, wt, info, [i for i, _, _ in mergeados])
                 if antes_do_primeiro:
                     if not ferramenta:
                         # daqui em diante, morrer deixa prod pela metade: a trava de
@@ -1879,7 +1933,8 @@ def main() -> int:
                 continue
             info["head_mergeado"] = head  # a imagem que o CI publicou e a dele (issue #1001)
             mergeados.append((info, sha, t))
-            print(f"merge: PR #{n} na main pela API, squash {sha[:8]}")
+            print(f"merge: PR #{n} na main pela API, squash {sha[:8]}"
+                  + (" (rebaseado de cima do irmao que entrou antes)" if info.get("head_rebaseado") else ""))
             marcar_criterios(raiz, info)
         remover_worktree(raiz, wt)
         wt = None
@@ -1922,7 +1977,8 @@ def main() -> int:
                 return EXIT_REGISTRO
             semaforo(raiz, "soltar", args.sessao)
             semaforo_pego = False
-            print(f"{fechou} (ferramenta: só merge): versao segue v{versao_antiga} · PRs {entraram} · "
+            versao_txt = f"versao segue v{versao_antiga}" if plataforma else "sem deploy"
+            print(f"{fechou} (ferramenta: só merge): {versao_txt} · PRs {entraram} · "
                   f"squash {squashes} · sem build, health nem registro"
                   + (f" · build do webhook cancelado ({', '.join(cancelados)})" if cancelados else "")
                   + f" · {n_wt} worktrees limpos · {dur(time.time() - T0)}")
