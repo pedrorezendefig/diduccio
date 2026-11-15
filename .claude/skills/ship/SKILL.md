@@ -25,33 +25,38 @@ Do código ao PR verde e, com os gates verdes, a subida (`fechar_onda.py`), sem 
 
 **Nunca pare para perguntar** (decisão do fluxo): dúvida, impasse ou revisor sem veredito é baixa, com uma linha de motivo.
 
+**Passo da issue** (ADR 0027): com `--issue N`, o `/ship` grava o Passo que o PedroOS mostra na linha da issue, da raiz do repositório: Revisão, Correção e Verde nos gates e o fim na baixa (Passo 8). A subida grava Mergeada depois do merge e encerra o Passo sozinha. Com `--skip-review` (o `onda-implementador`, dentro de uma Onda), o `/ship` não grava Passo: ali o Passo é o status que a Onda grava no Estado da Onda, e o PedroOS fica com o mais novo dos dois. O `passo.py` sempre sai 0: a linha `passo:` que ele imprimir é só aviso, e a skill segue.
+
 ## Passos 1 a 8: branch, código, testes, commit, PR
 
 1. **Pre-flight:** `git fetch origin`. Arquivo alheio no working tree fica de fora do commit, sem perguntar. Com `--issue N` fora da `main`, a branch tem que terminar em `-<N>`; senão, pare (a árvore pode ser de outra sessão).
 2. **Branch:** `<type>/<slug>[-<N>]` (slug minúsculo, ASCII, até 50 caracteres). Já na branch do `/pegar-issue`, pule.
 3. **Issue:** `gh issue view N --json title,body,labels`. "O que construir" vira o contexto do PR; os critérios de aceite, o checklist e a lista de testes do `/tdd`.
 4. **Código:** chame a Skill tool com `tdd`. Com `--from-diff`, pule.
-5. **Testes locais, o mesmo comando do CI:** o `testes` do `fluxo.py` diz o comando de cada lado (ferramenta e app) neste Projeto; sem ele, rode o que o `.github/workflows/ci.yml` roda para os arquivos que o diff toca e, se tocou uma skill, `python3 tools/lint_skills.py --dir .claude/skills` quando o arquivo existir. O `python3` do macOS é velho: prefira o `uv run --no-project --python ">=3.12"` do CI. Vermelho local nunca vira PR: o CI inteiro é a prova, não a lista de arquivos que você lembrou de rodar (o #1046 da origem do fluxo caiu por trocar uma string que um teste de outro arquivo asserta).
+5. **Testes locais, só do que o diff toca:** rode os arquivos de teste que o diff mudou e os que cobrem os arquivos que ele mudou, com o comando de cada lado (ferramenta e app) que o `testes` do `fluxo.py` diz neste Projeto, apontado para esses arquivos. Trocou uma string que aparece em tela, em saída de comando ou em skill? Procure a string antiga com `grep` na pasta de testes e rode o teste que a asserta (o #1046 da origem do fluxo caiu assim). Se tocou uma skill, rode `python3 tools/lint_skills.py --dir .claude/skills` quando o arquivo existir. O `python3` do macOS é velho: prefira o `uv run --no-project --python ">=3.12"` do CI. Vermelho local nunca vira PR. A suíte inteira é do CI, que roda no PR: não a rode aqui (medido em 15/11/2026, ela repetia no Mac o que o CI roda logo depois).
 6. **Commit:** Conventional Commits, `git add` com lista explícita (nunca `-A` nem `.`), nada do `hard_excluded` do `project.json`. Sem versão no PR: a versão sai na subida.
 7. **Push:** `git push -u origin "$BRANCH"`. Falhou: reporte o erro bruto e pare.
 8. **PR:** `gh pr create --base main --title "$SUBJECT" --body-file <scratchpad>/pr-$BRANCH.md`, mais `--label type:$TYPE --label area:<...>` só quando a label existe no repositório (`gh label list`): o `gh pr create` recusa label que não existe, e nem todo Projeto tem as `type:*` e as `area:*`. O arquivo do corpo leva o nome da branch: agentes paralelos na mesma sessão já se atropelaram num `pr.md` compartilhado (o #796 saiu com o `Closes` da issue errada). Corpo pelo `.github/PULL_REQUEST_TEMPLATE.md`: **Valor entregue** (um parágrafo `**O que muda:**` de 1 a 3 frases, escrito a partir da issue como quem explica a <leitor> (o `leitor` do `fluxo.py`) o que ela entrega, sem jargão; passe o parágrafo pela skill `humanizer` em modo embutido antes de abrir o PR), contexto (sem `--issue`, o Contexto abre com "Decisão registrada neste PR" e o porquê da mudança: é a casa da decisão de ferramenta, decisão do fluxo, regra 12), critérios de aceite, **Evidência** (antes e depois: o teste que falhava e passa, a saída de comando que mudou ou o print; nunca só "testes verdes"), **Perigo do merge** (porta de uma ou duas vias pela lista do template, com o motivo, e o raio) e `Closes #N`. Cada linha `Candidata: <slug>/<sessao>-onda<N> #<n>` ou `Candidata: <id> #<n>` (a da Candidata comum, que a Análise das Retros imprime) que vier no pedido (a `/retro-onda` imprime uma por Candidata aceita) vai copiada para o corpo do PR sem mudança, uma por linha, no fim do corpo: é por ela que o PedroOS dá a Candidata por corrigida quando o PR entra na main. Aberto o PR com `--issue N`, apague os anexos que o `anexos.py` do Projeto tenha baixado: `rm -rf local/anexos/<N>` na raiz do clone (sem a pasta, o comando não faz nada). Com migration nova, a seção `## Migration NNN (conferência por hash)` com o `sha256` do arquivo (`shasum -a 256`) e o SQL completo: a subida confere e para se faltar ou divergir.
 
 ## Passo 8: gates
 
-**PR de ferramenta** (`fluxo.py classe --pr "$PR"` diz `ferramenta`: nenhum arquivo na pasta do app, decisão do fluxo): só o CI. Verde, vá ao Passo 9.
+**PR de ferramenta** (`fluxo.py classe --pr "$PR"` diz `ferramenta`: nenhum arquivo na pasta do app, decisão do fluxo): só o CI. Verde, grave o Passo Verde (**Gates verdes**, abaixo) e vá ao Passo 9.
 
 **PR do app**, na ordem:
 
 - **Gate 2, `sensivel.py`** (rode primeiro): `uv run --no-project --python ">=3.12" python .claude/skills/onda-enxuta/scripts/sensivel.py "$PR"`. Saída 0: o prompt do revisor leva `Sensível: <arquivos impressos>`. Saída 1: nada. Outra saída: rode de novo; na segunda falha, baixa.
-- **Gate 1, `onda-revisor`**, prompt de `.claude/skills/onda-enxuta/references/prompts.md`. Última linha do comentário: `VEREDITO: LIMPO` ou `VEREDITO: MUST-FIX (n)`. Com issue vinculada, o revisor também confere spec × diff.
+- **Gate 1, `onda-revisor`**, antes grave Revisão (`python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue N --passo Revisão`), prompt de `.claude/skills/onda-enxuta/references/prompts.md`. Última linha do comentário: `VEREDITO: LIMPO` ou `VEREDITO: MUST-FIX (n)`. Com issue vinculada, o revisor também confere spec × diff.
 - **Gate 3, CI:** `gh pr checks "$PR" --watch`.
 
 Correção:
+- Antes de cada `onda-corretor` (must-fix, CI vermelho ou conflito na subida), grave Correção: `python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue N --passo Correção`.
 - `MUST-FIX` → `onda-corretor` motivo `revisao` com o comentário inteiro. Uma revisão, uma correção, sem re-revisão: depois do corretor, quem confere é o CI. Corretor com `pendente` é baixa.
 - CI vermelho → `onda-corretor` motivo `ci` com as últimas 60 linhas de `gh run view <id> --log-failed`; a segunda falha da fatia vai com `effort: max`. Depois, `gh pr checks --watch` de novo.
 - Cada falha conta uma tentativa; na terceira, baixa.
 
-**Baixa:** `gh issue edit N --remove-label in-progress --add-label ready-for-human`, comentário com `<!-- automacao -->` na primeira linha e o diagnóstico (gate, achado, hipótese) e `PushNotification` de uma linha ("<nome do Projeto>: #N ficou com você, <gate>"; dentro de uma Onda, quem avisa é a `/onda-enxuta`, pelo evento `pronto-para-voce`). O PR fica aberto e a subida não roda.
+**Gates verdes** (o CI verde e, no app, `VEREDITO: LIMPO` ou corretor sem `pendente`): grave Verde, `python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue N --passo Verde`, e vá ao Passo 9.
+
+**Baixa:** `gh issue edit N --remove-label in-progress --add-label ready-for-human`, o Passo encerrado (`python3 .claude/skills/onda-enxuta/scripts/passo.py encerrar --issue N`), comentário com `<!-- automacao -->` na primeira linha e o diagnóstico (gate, achado, hipótese) e `PushNotification` de uma linha ("<nome do Projeto>: #N ficou com você, <gate>"; dentro de uma Onda, quem avisa é a `/onda-enxuta`, pelo evento `pronto-para-voce`). O PR fica aberto e a subida não roda.
 
 Todo comentário do agente no GitHub leva `<!-- automacao -->` na primeira linha.
 

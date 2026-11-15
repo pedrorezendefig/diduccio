@@ -50,6 +50,22 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 - "Move #42 to ready-for-agent"
 - "What's ready for agents to pick up?"
 
+## Passo
+
+A triagem diz em que Passo a issue está (ADR 0027 do PedroOS): **Triando**. Ao pegar uma issue para triar (o número veio no pedido, o maintainer escolheu uma da lista ou ela está no loop do revisor), grave o Passo antes de qualquer outra coisa nela:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue <N> --passo Triando
+```
+
+Ao terminar com ela (o papel aplicado, as notas postadas, a issue fechada ou largada pelo maintainer), encerre o Passo antes de passar para a próxima:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py encerrar --issue <N>
+```
+
+A falha do comando não para a skill. O `passo.py` sai sempre com sucesso e, quando não grava, avisa numa linha `passo: ...`. Com aviso, erro ou sem o script (Projeto sem o Pacote do fluxo), siga a triagem sem repetir o comando nem consertar nada.
+
 ## Primeira resposta numa Demanda
 
 Quando a issue é uma Demanda do diretor com o Bloco do desenvolvedor (a seção cujo título tem "Para o desenvolvedor", com ou sem emoji, que o app do Hospital escreve logo depois do bloco "Para o diretor"), a primeira resposta da sessão é a explicação do card, antes de qualquer pergunta, recomendação ou mudança de label. Leia o corpo com `gh issue view <N>` e responda neste formato:
@@ -124,6 +140,8 @@ Reply to the reviewer summarizing what was done with their comment. The reply ca
      - **Rejected (bug)**: polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
    - `needs-triage`: apply the role. Optional comment if there's partial progress.
+
+6. **Encerre o Passo** com o `encerrar` da seção Passo.
 
 ## Quick state override
 

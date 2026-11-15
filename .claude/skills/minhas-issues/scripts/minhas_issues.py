@@ -42,7 +42,12 @@ DECISOES_TECNICAS = re.compile(r"^## Decisões de implementação\s*$", re.M)
 
 def _marcador_do_prd_do_leitor() -> re.Pattern | None:
     try:
-        cfg = config_do_fluxo.carregar(Path(__file__).resolve().parents[4])
+        # a raiz é a pasta cujo `.claude/skills` é a das skills deste script, e não quatro pastas acima: o
+        # `.claude/skills` pode ser atalho para uma pasta do Projeto (o do Estúdio, #820)
+        aqui = Path(__file__).resolve()
+        raiz = next((p for p in aqui.parents if (p / ".claude" / "skills").resolve() == aqui.parents[2]),
+                    aqui.parents[4])
+        cfg = config_do_fluxo.carregar(raiz)
     except config_do_fluxo.Erro:
         return None
     padrao = (cfg.get("prd_do_leitor") or {}).get("marcador")

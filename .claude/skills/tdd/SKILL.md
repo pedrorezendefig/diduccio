@@ -7,7 +7,9 @@ description: Test-driven development em loop red-green-refactor. Use para constr
 
 > **Prova por mutação (decisão do fluxo):** teste verde não prova nada. Prove cada critério com um mutante: quebre no código a coisa que o critério promete, rode o teste e veja o vermelho, depois restaure. O teto é um mutante por critério de aceite, não por teste. Cada mutante mexe em uma coisa só (dois cortes juntos não dizem qual deles o teste pegou), e quando o teste do critério tem detector próprio (varredura, regex, fuzz) o mutante é o efeito que o detector deve pegar, para provar que ele não é cego.
 
-> **Cadência de verificação:** durante o ciclo, rode só o arquivo de teste em que está mexendo. Rode os linters da stack com regularidade, não só no fim: `pytest` local não pega lint e o gate de CI pega. A suíte completa roda uma vez, antes de invocar `/ship`, que vem em seguida, sem esperar mensagem (decisão do fluxo).
+> **Cadência de verificação:** durante o ciclo, rode só o arquivo de teste em que está mexendo. Rode os linters da stack com regularidade, não só no fim: `pytest` local não pega lint e o gate de CI pega. A suíte completa é do CI, que roda no PR: não a rode aqui. Terminado o ciclo, invoque `/ship`, sem esperar mensagem (decisão do fluxo).
+
+> **Passo (ADR 0027):** rodado com uma issue, dê sinal de vida ao começar e a cada passo verde, da raiz do repositório: `python3 .claude/skills/onda-enxuta/scripts/passo.py sinal --issue <N>`. O `/tdd` só dá sinal, não troca o Passo: quem o grava é quem pegou a issue (Implementando no `/pegar-issue`, Correção no `/ship`), e dentro de uma Onda o Passo é o status da Onda. O `passo.py` sempre sai 0: a linha `passo:` que ele imprimir é só aviso, e a skill segue.
 
 # Test-Driven Development
 

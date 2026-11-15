@@ -29,7 +29,11 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-RAIZ = Path(__file__).resolve().parents[4]
+# A raiz do checkout deste script: a pasta cujo `.claude/skills` é a pasta das skills em que ele mora. Nem sempre
+# quatro pastas acima: o `.claude/skills` pode ser atalho para uma pasta do Projeto (o do Estúdio aponta para
+# editor/skills_ia/baixadas, #820).
+_AQUI = Path(__file__).resolve()
+RAIZ = next((p for p in _AQUI.parents if (p / ".claude" / "skills").resolve() == _AQUI.parents[2]), _AQUI.parents[4])
 FLUXO_JSON = RAIZ / ".claude" / "fluxo.json"
 
 
