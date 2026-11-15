@@ -11,6 +11,22 @@ This skill takes the current conversation context and codebase understanding and
 
 Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`). Triage label = `ready-for-agent` (veja `docs/agents/triage-labels.md`). Se faltar esse contexto, leia os dois arquivos de `docs/agents/`.
 
+## Passo
+
+Quando o PRD parte de uma issue (o argumento é `#N`, ou o grill desta conversa foi sobre a issue #N, como no Refino), a skill diz em que Passo essa issue está (ADR 0027 do PedroOS): **Planejando**. Grave antes do passo 1:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue <N> --passo Planejando
+```
+
+Ao terminar, com o PRD publicado no passo 3 ou sem ele, encerre:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py encerrar --issue <N>
+```
+
+O `<N>` é a issue de onde o PRD partiu, não o PRD novo. O PRD que não parte de uma issue não grava nada. A falha do comando não para a skill. O `passo.py` sai sempre com sucesso e, quando não grava, avisa numa linha `passo: ...`. Com aviso ou erro, siga sem repetir o comando nem consertar nada.
+
 ## Process
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary (`CONTEXT.md`) vocabulary throughout the PRD, and respect any ADRs (`docs/adr/`) in the area you're touching.
@@ -44,6 +60,8 @@ Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`)
    **Humanizer antes do `gh issue create`** (ADR 0071 da origem do fluxo): passe o corpo pela Skill tool com `humanizer` em modo embutido, com atenção ao bloco "<bloco>". A amostra de voz é o bloco "<bloco>" de um PRD já publicado: ela manda no tom, o humanizer só tira os cacoetes. O resto do corpo fica neutro e direto; termos do `CONTEXT.md`, títulos do template e histórias no formato "Como `<ator>`" não mudam.
 
    Capture e **anuncie o número** da issue-PRD criada (o `gh issue create` devolve a URL; o número é o último segmento, ex.: `URL=$(gh issue create …); PRD=${URL##*/}`). Diga ao usuário, ex.: _"PRD publicado como **#41**"_. Esse número é o **pai** das fatias: o `/to-issues` o usa pra vincular cada fatia como **sub-issue** nativa. Rodando `/to-issues` em seguida nesta mesma conversa, ele já tem o `#41` no contexto.
+
+   Se o PRD partiu de uma issue, encerre o Passo dela (o `encerrar` da seção Passo).
 
 <prd-template>
 

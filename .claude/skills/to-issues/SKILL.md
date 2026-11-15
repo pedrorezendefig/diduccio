@@ -13,6 +13,22 @@ Break a plan into independently-grabbable issues using vertical slices (tracer b
 
 Issue tracker = **GitHub Issues** via `gh` (veja `docs/agents/issue-tracker.md`). Triage label = `ready-for-agent` (veja `docs/agents/triage-labels.md`). Se faltar esse contexto, leia os dois arquivos de `docs/agents/`.
 
+## Passo
+
+O fatiamento de um PRD diz em que Passo o PRD está (ADR 0027 do PedroOS): **Planejando**. Assim que souber o número do PRD (o argumento do passo 1, ou o PRD que o `/to-prd` publicou nesta conversa), grave:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue "$PRD" --passo Planejando
+```
+
+Ao terminar, com as fatias publicadas no passo 5 ou sem elas, encerre:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py encerrar --issue "$PRD"
+```
+
+O plano sem PRD (a fatia avulsa) não grava nada. A falha do comando não para a skill. O `passo.py` sai sempre com sucesso e, quando não grava, avisa numa linha `passo: ...`. Com aviso ou erro, siga sem repetir o comando nem consertar nada.
+
 ## Process
 
 ### 1. Gather context
@@ -168,6 +184,8 @@ gh issue edit "$PRD" --body-file "${TMPDIR:-/tmp}/prd-$PRD.md"
 ```
 
 Fora essa seção, não feche o PRD pai nem mexa no corpo e nos labels dele: só vincule as fatias como sub-issues. Quando a última sub-issue aberta fechar, a Action de higiene (`.github/workflows/higiene-issues.yml`) fecha o PRD sozinha, com um comentário.
+
+Com as fatias e as Ondas previstas publicadas, encerre o Passo do PRD (o `encerrar` da seção Passo).
 
 ### Paralelismo
 

@@ -72,7 +72,10 @@ cabe em 10 linhas mais uma por PR, fora as da migration):
      commit, de que a main entra sem conflito; o CI verde que o head ja tinha e
      merge pela API (squash, conferindo o sha do head); logo depois, as caixas
      vazias da issue que ele fecha viram `- [x]`, menos a riscada
-     (`- [ ] ~~...~~`, descopada). Antes do primeiro
+     (`- [ ] ~~...~~`, descopada), e o Passo dela vira Mergeada (passo.py,
+     ADR 0027; na onda, com a chave como nome da sessao). Quando a subida
+     termina, em qualquer saida, o Passo de cada issue que entrou e
+     encerrado; o aviso do passo.py nunca para a subida. Antes do primeiro
      merge: a imagem no ar de cada app do lote (alvo do rollback; em modo
      imagem, a tag do ultimo deploy dele no state.json) e o
      APP_VERSION no backend e no frontend do Coolify (o backend a le no runtime,
@@ -128,8 +131,9 @@ cabe em 10 linhas mais uma por PR, fora as da migration):
      bot e cancelado (issue #851)
   9. limpeza (worktrees, worktrees de agente ja entregues) e soltar o semaforo
  10. teste da main (issue #327): so no lote de ferramenta de uma onda (nao no PR avulso) e
-     com o `teste_da_main` do fluxo.json. O teste roda na ponta da origin/main num worktree
-     descartavel (`~/wt-<chave>-main`); verde, uma linha e nada mais. Vermelha, ele testa a
+     com o `teste_da_main` do fluxo.json. Com o CI verde no commit da ponta da origin/main, o passo
+     so le esse resultado; sem isso, o teste roda na ponta num worktree descartavel
+     (`~/wt-<chave>-main`); verde, uma linha e nada mais. Vermelha, ele testa a
      main de antes do lote e cada squash, na ordem, e o primeiro vermelho sai por um PR
      `revert/<chave>-pr<N>` (testado aqui, CI verde, squash pela API); a issue dele volta para
      `ready-for-agent` com a falha e o Estado da Onda ganha o evento `revert` (saida 9).
@@ -259,8 +263,14 @@ SEMAFORO = ".claude/skills/deploy/scripts/semaforo.sh"
 SPEC = "docs/spec"
 HISTORY = f"{SPEC}/deploy/history.json"
 STATE = f"{SPEC}/deploy/state.json"
+# A raiz do checkout deste script: a pasta cujo `.claude/skills` e a pasta das skills em que ele mora. Nem sempre
+# quatro pastas acima: o `.claude/skills` pode ser atalho para uma pasta do Projeto (o do Estudio aponta para
+# editor/skills_ia/baixadas, #820).
+_AQUI = Path(__file__).resolve()
+RAIZ_DO_SCRIPT = next((p for p in _AQUI.parents if (p / ".claude" / "skills").resolve() == _AQUI.parents[2]),
+                      _AQUI.parents[4])
 try:
-    _CFG = config_do_fluxo.carregar(Path(__file__).resolve().parents[4])
+    _CFG = config_do_fluxo.carregar(RAIZ_DO_SCRIPT)
 except config_do_fluxo.Erro as _e:
     print(f"pre-condicao: {_e}", file=sys.stderr)
     sys.exit(EXIT_PRECOND)
@@ -271,7 +281,7 @@ APLICAR_MIGRACAO = (_CFG.get("migrations") or {}).get("aplicar") or "aplique no 
 # do mesmo checkout deste script. Projeto sem `migrations` (o PedroOS) nao tem tools/.
 checar_migration_repetida = None
 if _CFG.get("migrations"):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools"))
+    sys.path.insert(0, str(RAIZ_DO_SCRIPT / "tools"))
     import checar_migration_repetida  # noqa: E402
 BUILD_WAIT_WEBHOOK_S = 120
 BUILD_POLL_S = 10
@@ -972,6 +982,26 @@ def avisar_ondas_das_baixas(raiz: Path, lote: list[dict], chave: str) -> None:
         return
     for linha in r.stdout.split():
         print(f"ondas: baixa resolvida em {Path(linha).stem}")
+
+
+def passo_das_issues(raiz: Path, lote: list[dict], acao: str, *extra: str) -> None:
+    """O Passo de cada issue que o lote fecha, para o PedroOS (passo.py, docs/passo.md, ADR 0027):
+    Mergeada logo depois do merge e encerrado quando a subida termina. Falha aqui so avisa: o
+    Passo nunca para a subida."""
+    nums = sorted({ref["number"] for info in lote for ref in info.get("closingIssuesReferences") or []})
+    # Projeto sem `.claude/fluxo.json` nao tem Pacote do fluxo: nada a gravar
+    if not nums or not (raiz / ".claude" / "fluxo.json").exists():
+        return
+    script = Path(__file__).resolve().parent / "passo.py"
+    for n in nums:
+        try:
+            r = subprocess.run([sys.executable, str(script), acao, "--issue", str(n), *extra], cwd=raiz,
+                               capture_output=True, text=True, encoding="utf-8", timeout=30)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            print(f"aviso: Passo da issue #{n} nao gravado ({str(e)[:200]})")
+            continue
+        if r.returncode != 0 or r.stderr.strip():
+            print(f"aviso: Passo da issue #{n} nao gravado ({' '.join(r.stderr.split())[:200]})")
 
 
 def rotulo_issues(info: dict) -> str:
@@ -1692,13 +1722,12 @@ def checar_health(service: dict, versao_esperada: str | None) -> dict:
 # ------------------------------------------------------------------ limpeza
 
 def limpar_worktrees_de_agente(raiz: Path, entregues: dict[str, str] | None = None) -> int:
-    """Remove worktrees de agente cuja branch ja esta na main. `entregues` e
-    branch -> head que entrou: com squash a branch nao vira ancestral da main e
-    o `--merged` nao a acha, entao vale o worktree parado no head entregue."""
+    """Remove worktrees de agente cujo trabalho entrou num PR mergeado do lote.
+    `entregues` e branch -> head que entrou. Nao vale o `--merged`: com squash a
+    branch de um PR nunca vira ancestral da main, e a que vira e a do agente que
+    acabou de nascer, sem commit, na ponta da main (#643)."""
     entregues = entregues or {}
     porcelain = run(["git", "worktree", "list", "--porcelain"], cwd=raiz, check=False).stdout
-    merged = set(b.strip().lstrip("* ").strip() for b in
-                 run(["git", "branch", "--merged", "origin/main"], cwd=raiz, check=False).stdout.splitlines())
     removidos = 0
     atual_path, atual_branch, atual_head = None, None, None
     entradas = []
@@ -1719,13 +1748,17 @@ def limpar_worktrees_de_agente(raiz: Path, entregues: dict[str, str] | None = No
     proprios = {raiz.resolve()}
     heads = {h for h in entregues.values() if h}
 
-    def dentro_de_um_entregue(head: str | None, path: str) -> bool:
+    def ancestral(head: str, de: str) -> bool:
+        return run(["git", "merge-base", "--is-ancestor", head, de], cwd=raiz, check=False).returncode == 0
+
+    def dentro_de_um_entregue(head: str | None) -> bool:
         # o corretor trabalha noutra branch, e o worktree do autor fica num commit
         # anterior ao do corretor: os dois estao dentro de um head que entrou.
-        # So sai limpo, sem arquivo mexido nem solto, porque o --force apagaria
-        if not head or not any(run(["git", "merge-base", "--is-ancestor", head, h], cwd=raiz,
-                                   check=False).returncode == 0 for h in heads):
-            return False
+        # Head sem commit proprio (na main) e o agente que acabou de nascer (#643)
+        return bool(head) and not ancestral(head, "origin/main") and any(ancestral(head, h) for h in heads)
+
+    def limpo(path: str) -> bool:
+        # sem arquivo mexido nem solto: o --force apagaria o trabalho do agente (#643)
         st = run(["git", "status", "--porcelain"], cwd=Path(path), check=False)
         return st.returncode == 0 and not st.stdout.strip()
 
@@ -1736,10 +1769,11 @@ def limpar_worktrees_de_agente(raiz: Path, entregues: dict[str, str] | None = No
         if p in proprios or cwd == p or p in cwd.parents:
             continue
         entregue = bool(head) and entregues.get(branch) == head
-        contido = not entregue and branch not in merged and dentro_de_um_entregue(head, path)
-        if (branch in merged or entregue or contido) and branch != "main":
-            run(["git", "worktree", "remove", "--force", path], cwd=raiz, check=False)
-            run(["git", "branch", "-D" if entregue or contido else "-d", branch], cwd=raiz, check=False)
+        # um --force so: o git recusa o worktree travado, que e o do agente rodando, e
+        # a branch e a conta so andam com o worktree removido de verdade (#643)
+        if (entregue or dentro_de_um_entregue(head)) and branch != "main" and limpo(path) and \
+                run(["git", "worktree", "remove", "--force", path], cwd=raiz, check=False).returncode == 0:
+            run(["git", "branch", "-D", branch], cwd=raiz, check=False)
             removidos += 1
     run(["git", "worktree", "prune"], cwd=raiz, check=False)
     return removidos
@@ -1936,6 +1970,9 @@ def main() -> int:
             print(f"merge: PR #{n} na main pela API, squash {sha[:8]}"
                   + (" (rebaseado de cima do irmao que entrou antes)" if info.get("head_rebaseado") else ""))
             marcar_criterios(raiz, info)
+            # na onda, o nome da sessao e a chave (o do Estado da Onda); no avulso, o da sessao do Claude Code
+            passo_das_issues(raiz, [info], "gravar", "--passo", "Mergeada",
+                             *([] if avulso else ["--sessao", args.sessao]))
         remover_worktree(raiz, wt)
         wt = None
 
@@ -2094,6 +2131,9 @@ def main() -> int:
         if semaforo_pego:
             semaforo(raiz, "soltar", args.sessao)
         return EXIT_MERGE
+    finally:
+        # a sessao acabou para cada issue que entrou, em qualquer saida: o Passo sai da tela (ADR 0027)
+        passo_das_issues(raiz, [i for i, _, _ in mergeados], "encerrar")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,22 @@ Antes da primeira rodada, leia o `CONTEXT.md`, o `CONTEXT-MAP.md` (se existir) e
 
 Num Projeto com o pacote do fluxo (existe `.claude/fluxo.json`), rode também `python3 .claude/skills/onda-enxuta/scripts/fluxo.py notas grill-with-docs` antes da primeira rodada: o que ele imprimir vale por cima desta skill, inclusive o que fazer quando o argumento é uma issue (`/grill-with-docs #N`).
 
+## Passo
+
+Num Projeto com o pacote do fluxo (existe `.claude/fluxo.json`), o grill de uma issue diz em que Passo ela está (ADR 0027 do PedroOS): **Planejando**. Vale para o `/grill-with-docs #N` e para o Refino de uma Demanda, que o PedroOS abre assim. Antes da primeira rodada, grave:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue <N> --passo Planejando
+```
+
+Quando o grill termina (o entendimento fechou no Fim, ou acabou o fechamento que as notas mandam, como o do Refino), encerre:
+
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py encerrar --issue <N>
+```
+
+O grill sem issue não grava nada, e fora de um Projeto com o pacote do fluxo também não. A falha do comando não para a skill. O `passo.py` sai sempre com sucesso e, quando não grava, avisa numa linha `passo: ...`. Com aviso ou erro, siga o grill sem repetir o comando nem consertar nada.
+
 ## Árvore de decisões
 
 Monte o assunto como uma **árvore de decisões**: cada decisão abre as decisões que dependem dela.
@@ -100,3 +116,5 @@ A sessão termina quando a fronteira fica vazia: todo galho da árvore visitado,
 - **C, PR direto** (`/ship "<descrição>" --from-diff`): ferramenta (`.claude/`, `tools/`, `.github/`, `docs/`) ou chore do app que não muda comportamento. A decisão vai no corpo do PR. Pode ser feita nesta mesma sessão, agora.
 
 Não invoque `/to-prd` sem a porta A confirmada.
+
+No grill de uma issue, encerre o Passo (o `encerrar` da seção Passo) quando o entendimento fechar, antes de seguir para a porta escolhida.

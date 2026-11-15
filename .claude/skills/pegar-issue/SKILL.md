@@ -64,6 +64,12 @@ Se o `--remove-label` falhar porque `ready-for-agent` já não estava lá, **out
 
 Com `designado_tira_da_fila: true` no `fluxo.py`, o assignee é o dono do card e o card tem um dono só: quando a issue já tem dono, o claim é sem o `--add-assignee @me` (o dono não muda); sem dono, mantenha o comando acima.
 
+Logo depois do claim, grave o Passo Implementando (ADR 0027), que o PedroOS mostra na linha da issue:
+```bash
+python3 .claude/skills/onda-enxuta/scripts/passo.py gravar --issue <N> --passo Implementando
+```
+O `passo.py` sempre sai 0: a linha `passo:` que ele imprimir é só aviso, e a skill segue.
+
 ### 6. Criar o worktree da issue a partir da `origin/main`
 Derive o tipo do label `type:*` (feature→`feat`, fix→`fix`, etc.) e um slug curto do título. Branch determinística por número (nunca colide), num worktree próprio, nascido da `origin/main` recém-buscada (decisão do fluxo: a árvore principal fica na `main` e não recebe branch de trabalho):
 ```bash
@@ -93,5 +99,6 @@ Terminado o TDD (testes verdes), chame a Skill tool com `ship`: abre o PR com `C
 Abandonou? Devolva ao pool:
 ```bash
 gh issue edit <N> --remove-assignee @me --remove-label in-progress --add-label ready-for-agent
+python3 .claude/skills/onda-enxuta/scripts/passo.py encerrar --issue <N>
 ```
-Com `designado_tira_da_fila: true`, devolva sem o `--remove-assignee @me`: o dono continua o mesmo.
+Com `designado_tira_da_fila: true`, devolva sem o `--remove-assignee @me`: o dono continua o mesmo. O `encerrar` tira o Passo da tela: a issue volta para a Fila sem ninguém nela.

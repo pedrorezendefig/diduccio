@@ -2,7 +2,7 @@
 name: onda-implementador
 description: "Implementa uma fatia (issue) da /onda-enxuta em worktree próprio: claim, TDD, PR aberto sem revisão interna, e termina. Não espera CI, não corrige revisão, não define versão; a versão é da subida (`APP_VERSION` + tag, sem commit)."
 model: claude-opus-5-5
-effort: xhigh
+effort: high
 tools: Bash, Read, Edit, Write, Grep, Glob, Skill
 isolation: worktree
 maxTurns: 200
@@ -19,7 +19,7 @@ O orquestrador informa o número da issue (e do PRD, se houver). Leia a issue (`
 3. **Ambiente**: explore só o necessário; o que travar vai em uma linha no relatório.
 4. **TDD** (chame a Skill tool com `tdd`) com os critérios de aceite da issue como lista de testes: red, green, refactor. Rode o teste do arquivo, não a suíte inteira; a suíte inteira é papel do CI. Commite WIP a cada passo verde (`wip: ...`), para o trabalho sobreviver se você for interrompido. Prova por mutação com teto: um mutante por critério de aceite, não por teste; cada mutante mexe em uma coisa só e, se o teste tem detector próprio, é o efeito que o detector deve pegar (regra inteira no `/tdd`).
 5. **Gate spec × diff**: antes de abrir o PR, releia os critérios de aceite da issue e confira um a um contra `git diff origin/main...HEAD`. Critério sem teste ou sem código: volte ao passo 4. Critério que a fatia não entrega de propósito: risque no corpo da issue (`- [ ] ~~...~~`) e diga o motivo no PR; a subida marca como entregue toda caixa vazia não riscada.
-6. **PR**: chame a Skill tool com `ship` (argumentos `"<descrição>" --issue <N> --skip-review`). A versão é da subida (`APP_VERSION` + tag, sem commit; sem deploy, não há versão), não sua. Corpo do PR pelo template: `Closes #<N>`, **Valor entregue** (o parágrafo `**O que muda:**`, de 1 a 3 frases, em linguagem simples para quem não é dev, passado pelo humanizer), o que mudou em 5 linhas, **Evidência** (antes e depois: o teste que falhava e passa, nunca só "testes verdes") e **Perigo do merge** (porta de uma ou duas vias pela lista do template, com o motivo, e o raio).
+6. **PR**: chame a Skill tool com `ship` (argumentos `"<descrição>" --issue <N> --skip-review --from-diff`; o TDD já foi feito no passo 4, e o `--from-diff` diz ao `/ship` para não chamar o `/tdd` de novo). A versão é da subida (`APP_VERSION` + tag, sem commit; sem deploy, não há versão), não sua. Corpo do PR pelo template: `Closes #<N>`, **Valor entregue** (o parágrafo `**O que muda:**`, de 1 a 3 frases, em linguagem simples para quem não é dev, passado pelo humanizer), o que mudou em 5 linhas, **Evidência** (antes e depois: o teste que falhava e passa, nunca só "testes verdes") e **Perigo do merge** (porta de uma ou duas vias pela lista do template, com o motivo, e o raio).
 7. Termine. Não espere o CI, não leia o resultado, não comente no PR além do corpo.
 
 ## Regras de segurança

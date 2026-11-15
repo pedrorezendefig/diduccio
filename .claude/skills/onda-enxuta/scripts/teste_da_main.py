@@ -5,7 +5,9 @@ Quem chama e o `fechar_onda.py`, no fim do lote sem deploy de uma onda, com o `t
 squashes que o lote pos na main, na ordem.
 
   1. Espera o CI do commit da ponta da origin/main terminar, ate PRAZO_DO_CI_S (os dois juntos no Mac
-     caiam por carga, issue #528), e testa a ponta num worktree descartavel. Verde: termina sem abrir PR.
+     caiam por carga, issue #528). CI verde na ponta: a main esta verde e o passo termina, sem rodar a
+     mesma suite de novo no Mac (o CI da main tem que cobrir o `teste_da_main`). CI vermelho, cancelado,
+     sem run ou sem resposta: testa a ponta num worktree descartavel. Verde: termina sem abrir PR.
   2. Vermelha: testa a main de antes do lote (o pai do primeiro squash, o ultimo ponto verde) e depois
      cada squash do lote, na ordem. O primeiro vermelho e o culpado. Main ja vermelha antes do lote, ou
      nenhum squash vermelho (quebrou por um merge de fora do lote): a Onda quebra, nada e desfeito.
@@ -47,6 +49,8 @@ FIM_DA_SAIDA = 60  # linhas da falha que vao no PR do revert e na issue reaberta
 TETO_S = 30 * 60  # o teste que nao termina conta como vermelho
 PRAZO_DO_CI_S = 20 * 60  # o CI do merge que nao termina nisso nao segura mais o teste da main
 INTERVALO_DO_CI_S = 30
+ESPERA_DO_RUN_S = 30  # o run do push leva uns segundos para nascer no GitHub; sem nenhum nesse tempo, o teste roda no Mac
+SEM_FALHA_NO_CI = {"success", "skipped", "neutral"}
 CHAVE_DA_ONDA = re.compile(r"^(.+)-onda(\d+)$")  # a chave da subida da Onda: `<sessao>-onda<N>`
 
 
@@ -132,37 +136,48 @@ def remover_worktree(raiz: Path, wt: Path) -> None:
     git(raiz, "worktree", "prune", check=False)
 
 
-def runs_rodando(raiz: Path, sha: str) -> int | None:
-    """Quantos runs do CI do `sha` ainda nao terminaram, ou None quando o `gh` nao responde."""
+def runs_do_ci(raiz: Path, sha: str) -> list[dict] | None:
+    """Os runs do CI do `sha`, com `status` e `conclusion`, ou None quando o `gh` nao responde."""
     try:
-        proc = subprocess.run(["gh", "run", "list", "--commit", sha, "--limit", "50", "--json", "status"],
+        proc = subprocess.run(["gh", "run", "list", "--commit", sha, "--limit", "50", "--json", "status,conclusion"],
                               cwd=str(raiz), capture_output=True, text=True, encoding="utf-8", timeout=60)
         runs = json.loads(proc.stdout or "[]") if proc.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         runs = None
-    if not isinstance(runs, list):
-        return None
-    return sum(1 for r in runs if r.get("status") != "completed")
+    return runs if isinstance(runs, list) else None
 
 
-def esperar_o_ci(raiz: Path, sha: str) -> None:
-    """Segura o teste da main enquanto o CI do `sha` roda, ate PRAZO_DO_CI_S. O `gh` que nao responde nao
-    segura nada: o teste roda e a linha `aviso:` diz por que."""
+def ci_verde(runs: list[dict]) -> bool:
+    """Todo run do commit terminou sem falha e ao menos um passou de verdade: o run so pulado nao prova nada,
+    e o cancelado ou vermelho manda o teste rodar no Mac."""
+    return (any(r.get("conclusion") == "success" for r in runs)
+            and all(r.get("status") == "completed" and r.get("conclusion") in SEM_FALHA_NO_CI for r in runs))
+
+
+def esperar_o_ci(raiz: Path, sha: str) -> bool:
+    """Segura o teste da main enquanto o CI do `sha` roda, ate PRAZO_DO_CI_S, e devolve True quando ele
+    terminou verde: ai o teste da main nao roda de novo no Mac. O run que ainda nao nasceu e esperado por
+    ESPERA_DO_RUN_S. O `gh` que nao responde nao segura nada: o teste roda e a linha `aviso:` diz por que."""
     inicio = time.monotonic()
     esperou = False
     while True:
-        rodando = runs_rodando(raiz, sha)
-        if rodando is None:
+        runs = runs_do_ci(raiz, sha)
+        if runs is None:
             print(f"aviso: o CI de {sha[:8]} não foi consultado; o teste da main roda sem esperar")
-            return
+            return False
+        decorrido = time.monotonic() - inicio
+        if not runs and decorrido < ESPERA_DO_RUN_S:
+            time.sleep(INTERVALO_DO_CI_S)
+            continue
+        rodando = sum(1 for r in runs if r.get("status") != "completed")
         if not rodando:
             if esperou:
-                print(f"teste da main: o CI de {sha[:8]} terminou, o teste roda agora")
-            return
-        if time.monotonic() - inicio >= PRAZO_DO_CI_S:
+                print(f"teste da main: o CI de {sha[:8]} terminou")
+            return ci_verde(runs)
+        if decorrido >= PRAZO_DO_CI_S:
             print(f"teste da main: o CI de {sha[:8]} passou do prazo de {PRAZO_DO_CI_S / 60:g} min e segue "
                   "rodando; o teste roda mesmo assim")
-            return
+            return False
         if not esperou:
             print(f"teste da main: esperando o CI de {sha[:8]} terminar ({rodando} run(s) rodando)")
             esperou = True
@@ -265,7 +280,9 @@ def depois_do_merge(raiz: Path, chave: str, comando: str, merges: list[Merge], g
     criar_worktree(raiz, wt)
     try:
         ponta = git(wt, "rev-parse", "HEAD").stdout.strip()
-        esperar_o_ci(raiz, ponta)
+        if esperar_o_ci(raiz, ponta):
+            print(f"teste da main: verde em {ponta[:8]} pelo CI, sem rodar de novo no Mac")
+            return VERDE
         estado, falha = veredito(wt, comando, ponta)
         if estado == VERDE:
             print(f"teste da main: verde em {ponta[:8]}")
