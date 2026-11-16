@@ -31,7 +31,12 @@ SLUG=$(jq -r '.slug // (.nome // empty | ascii_downcase)' "$FLUXO_JSON" 2>/dev/n
 # {pasta, aplicar, editor} das migrations; null = o Projeto não tem migration para o humano aplicar
 MIGRACOES=$(jq -c '.migrations // null' "$FLUXO_JSON" 2>/dev/null); [ -n "$MIGRACOES" ] || MIGRACOES=null
 REPO=$(git -C "$RAIZ" remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')
-HEALTH_URL="${HR_ONDAS_HEALTH:-$(jq -r '[.services[]? | .health_check.url? // empty][0] // empty' "$RAIZ/docs/spec/deploy/project.json" 2>/dev/null)}"
+# o health do backend, como a subida lê (url_do_health do fechar_onda.py): o deploy.health_check de cada serviço,
+# o backend primeiro; o health_check solto no serviço é o desenho antigo
+HEALTH_URL="${HR_ONDAS_HEALTH:-$(jq -r '[.services // [] | (map(select(.name == "backend")) + map(select(.name != "backend")))[]
+  | (.deploy.health_check // .health_check // null) as $h | select($h != null)
+  | $h.url // (if (.deploy.fqdn // "") != "" and ($h.path // "") != "" then .deploy.fqdn + $h.path else empty end)][0] // empty' \
+  "$RAIZ/docs/spec/deploy/project.json" 2>/dev/null)}"
 CACHE_DIR="${HR_ONDAS_CACHE:-$TMP/hr-ondas/$SLUG}"; CACHE="$CACHE_DIR/remoto.json"; TRAVA="$CACHE_DIR/trava"
 # registro durável (fora do TMPDIR, que o macOS limpa): uma linha "<numero> <quando>" por declaração;
 # o do Hospital guarda o nome de antes
