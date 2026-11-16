@@ -862,26 +862,34 @@ async function registrarAplicadas($: EngineInterface, numeros: number[]) {
 
 /**
  * Copia o .sql inteiro, byte a byte como está no arquivo, para colar no SQL Editor do Studio.
- * Nunca abre editor (o VS Code pesava na memória). No terminal do Mac confere o clipboard
- * contra o arquivo antes de dizer que copiou.
+ * Nunca abre editor (o VS Code pesava na memória). No terminal do Mac, o hooks/copiar.sh faz o
+ * `pbcopy < <caminho>` da subida e confere a área de transferência pelo sha256 do arquivo; o
+ * $.ui.copy do Claude Code fica para fora do Mac (o pbcopy dele não é esperado, e o OSC 52 que ele
+ * manda junto o Terminal do Mac ignora).
  */
 async function copiarSql($: EngineInterface, m: Migration, surface: RenderSurface) {
   const reserva = `rode: ! pbcopy < '${m.caminho}'`
+  const copiada = async (extra: string) =>
+    $.ui.toast(`Migration ${m.numero} copiada inteira (${m.linhas} linhas${extra}): ${aplicarDa(await read($, coleta))}`)
   try {
-    const texto = await $.fs.read(m.caminho)
-    const r = await $.ui.copy({ text: texto, surface })
+    if (surface === 'terminal') {
+      const r = await $.process.run(['/bin/bash', `${$.plugin.root}/hooks/copiar.sh`, m.caminho], { timeoutMs: 15_000 })
+      if (r.exitCode === 0) {
+        await copiada(`, sha256 ${r.stdout.trim().slice(0, 12)}`)
+        return
+      }
+      // 4: sem pbcopy (fora do Mac), vai pelo copiar do Claude Code; o resto é falha
+      if (r.exitCode !== 4) {
+        $.ui.toast(`Não copiei a migration ${m.numero}: ${r.stderr.trim().slice(0, 120) || `saída ${r.exitCode}`}; ${reserva}`)
+        return
+      }
+    }
+    const r = await $.ui.copy({ text: await $.fs.read(m.caminho), surface })
     if (!r.isCopied) {
       $.ui.toast(`Não copiei a migration ${m.numero} (${r.reason}); ${reserva}`)
       return
     }
-    if (surface === 'terminal') {
-      const colado = await $.process.run(['/usr/bin/pbpaste'], { timeoutMs: 5_000 })
-      if (colado.exitCode === 0 && colado.stdout !== texto) {
-        $.ui.toast(`O clipboard não bate com a migration ${m.numero}; ${reserva}`)
-        return
-      }
-    }
-    $.ui.toast(`Migration ${m.numero} copiada inteira (${m.linhas} linhas): ${aplicarDa(await read($, coleta))}`)
+    await copiada('')
   } catch (falha) {
     $.ui.toast(`Não copiei a migration ${m.numero}: ${String(falha).slice(0, 120)}; ${reserva}`)
   }
@@ -1112,30 +1120,18 @@ export const register: Register = on => {
     return r
   })
 
+  // A faixa acima do prompt é só a fase da sessão: as migrations que esperam você ficam no painel das ondas,
+  // com o copiar SQL, no "Precisa de você".
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const rest = await next(e)
     if (e.props.hasSurvey) return rest
-    const c = await read($, coleta)
-    const p = c ? pendentes(c) : []
     const linhas = linhasDaFaixa(await read($, faixa), (await read($, relogio)) || (await $.clock.now()))
-    if (!p.length && !linhas.length) return rest
-    const { Box, Text, Link, Button } = $.ui.resolve(e)
-    const editor = editorDa(c)
+    if (!linhas.length) return rest
+    const { Box, Text } = $.ui.resolve(e)
 
     return (
       <Box flexDirection="column">
         {rest}
-        {p.map(m => (
-          <Box key={`m${m.numero}`} flexDirection="row">
-            <Text color="warning">
-              ⏳ migration {m.numero} esperando você: {aplicarDa(c)} ({m.linhas} linhas, {m.sessao}, há{' '}
-              {minutos(c!.em - m.mtime)}){' '}
-            </Text>
-            <Button key={`copiar-faixa-${m.numero}`} label="copiar SQL" onPress={press => void copiarSql($, m, press.surface)} />
-            {editor ? <Text color="warning"> · </Text> : null}
-            {editor ? <Link href={editor} label={rotuloDoEditor(editor)} /> : null}
-          </Box>
-        ))}
         {linhas.map(l => (
           <Text key={l.chave} wrap="truncate-end">
             {l.partes.map(x => (

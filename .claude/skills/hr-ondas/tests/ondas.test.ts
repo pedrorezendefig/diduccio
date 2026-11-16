@@ -305,28 +305,29 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await pane.find({ text: /em andamento/ })).toBeTruthy()
   })
 
-  test(`faixa acima do prompt avisa a migration com o link (${surface})`, async ($, on) => {
+  test(`a migration que espera você fica no painel, com o copiar SQL, e não na faixa acima do prompt (${surface})`, async ($, on) => {
     await montar($, on)
+    const pane = await $.ui.mount({ plugin: 'hr-ondas', surface, component: 'Pane', requestId: 'ondas', props: {} as any })
+    expect(await pane.find({ text: /migration 117 cole no Studio/ })).toBeTruthy()
+    expect(await pane.find({ key: 'copiar-117' })).toBeTruthy()
     const faixa = await $.ui.mount({ plugin: 'hr-ondas', surface, component: 'AbovePrompt', props: { hasSurvey: false } as any })
-    expect(await faixa.find({ text: /migration 117 esperando você: cole no Studio/ })).toBeTruthy()
+    expect(await faixa.find({ text: /migration/ })).toBeUndefined()
+    expect(await faixa.find({ key: 'copiar-faixa-117' })).toBeUndefined()
   })
 }
 
-test('copiar SQL põe o arquivo inteiro no clipboard, confere e nunca aponta para o VS Code', async ($, on) => {
-  const SQL = '-- 117\nCREATE TABLE x (\n  id int\n);\n\nSELECT 1;\n'
-  const lidos: string[] = []
+/** Monta o painel com a migration 117 e responde o copiar.sh, o fs.read e o $.ui.copy como o motor. */
+const montarCopia = async ($: any, on: any, copiarSh: { exitCode: number; stdout: string; stderr: string }) => {
+  const SQL = '-- 117: Segurança\nCREATE TABLE x (\n  id int\n);\n'
+  const chamadas: string[][] = []
   const copiados: string[] = []
   const avisos: string[] = []
   mock.clock(on, { now: AGORA })
-  on('process.run', (_$: any, e: any) => ({
-    value: e.argv[0] === '/usr/bin/pbpaste'
-      ? { exitCode: 0, stdout: copiados.at(-1) ?? '', stderr: '' }
-      : { exitCode: 0, stdout: JSON.stringify(COLETA), stderr: '' },
-  }))
-  on('fs.read', (_$: any, e: any) => {
-    lidos.push(e.path)
-    return { value: SQL }
+  on('process.run', (_$: any, e: any) => {
+    chamadas.push(e.argv)
+    return { value: String(e.argv[1]).endsWith('/hooks/copiar.sh') ? copiarSh : { exitCode: 0, stdout: JSON.stringify(COLETA), stderr: '' } }
   })
+  on('fs.read', () => ({ value: SQL }))
   on('ui.copy', (_$: any, e: any) => {
     copiados.push(e.text)
     return { value: { isCopied: true } }
@@ -341,12 +342,41 @@ test('copiar SQL põe o arquivo inteiro no clipboard, confere e nunca aponta par
   on('command.run', () => ({ text: '' }))
   on('ui.render', () => null)
   await $.command.run({ command: 'ondas', args: '', origin: 'user', presentation: 'text' })
+  return { SQL, chamadas, copiados, avisos }
+}
+
+const SHA = 'a'.repeat(64)
+
+test('copiar SQL no terminal copia o arquivo pelo caminho (copiar.sh confere o sha256), sem o $.ui.copy e nunca o VS Code', async ($, on) => {
+  const { chamadas, copiados, avisos } = await montarCopia($, on, { exitCode: 0, stdout: `${SHA}\n`, stderr: '' })
   const pane = await $.ui.mount({ plugin: 'hr-ondas', surface: 'terminal', component: 'Pane', requestId: 'ondas', props: {} as any })
   expect(await pane.find({ text: /VS Code/ })).toBeUndefined()
   await pane.press({ key: 'copiar-117' })
-  expect(lidos).toEqual(['/tmp/fechar_onda/onda-ia-onda1/117_contas_medicas_ia.sql'])
-  expect(copiados).toEqual([SQL])
-  expect(avisos.some(a => /Migration 117 copiada inteira \(210 linhas\)/.test(a))).toBe(true)
+  const copia = chamadas.filter(a => String(a[1]).endsWith('/hooks/copiar.sh'))
+  expect(copia.map(a => a.slice(2))).toEqual([['/tmp/fechar_onda/onda-ia-onda1/117_contas_medicas_ia.sql']])
+  expect(copia[0]![0]).toBe('/bin/bash')
+  expect(copiados).toEqual([])
+  expect(avisos.some(a => a.startsWith(`Migration 117 copiada inteira (210 linhas, sha256 ${SHA.slice(0, 12)})`))).toBe(true)
+})
+
+test('copiar SQL no terminal: área de transferência que não bate não vira "copiada"', async ($, on) => {
+  const { copiados, avisos } = await montarCopia($, on, { exitCode: 3, stdout: '', stderr: 'a área de transferência não bate com o arquivo\n' })
+  const pane = await $.ui.mount({ plugin: 'hr-ondas', surface: 'terminal', component: 'Pane', requestId: 'ondas', props: {} as any })
+  await pane.press({ key: 'copiar-117' })
+  expect(copiados).toEqual([])
+  expect(avisos.some(a => /copiada/.test(a))).toBe(false)
+  expect(avisos.some(a => a.includes("não bate com o arquivo; rode: ! pbcopy < '/tmp/fechar_onda/onda-ia-onda1/117_contas_medicas_ia.sql'"))).toBe(true)
+})
+
+test('copiar SQL fora do Mac (copiar.sh sem pbcopy) e fora do terminal vai pelo $.ui.copy com o arquivo inteiro', async ($, on) => {
+  const { SQL, copiados, avisos } = await montarCopia($, on, { exitCode: 4, stdout: '', stderr: 'sem pbcopy nesta máquina\n' })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const pane = await $.ui.mount({ plugin: 'hr-ondas', surface, component: 'Pane', requestId: 'ondas', props: {} as any })
+    await pane.press({ key: 'copiar-117' })
+    await pane.unmount()
+  }
+  expect(copiados).toEqual([SQL, SQL])
+  expect(avisos.filter(a => a.startsWith('Migration 117 copiada inteira (210 linhas)'))).toHaveLength(2)
 })
 
 const iniciar = async ($: any, on: any, isInteractive: boolean) => {
