@@ -1,0 +1,190 @@
+/* ======================= COMUNICADO (com-) =======================
+   A tela: assistente de IA e "no app" à esquerda, o editor com a folha A4 à
+   direita. A folha em si mora em comunicado-folha.css (cores fixas de papel). */
+
+.com-grade {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: var(--space-7);
+  align-items: start;
+}
+.com-lado { display: grid; gap: var(--space-6); min-width: 0; }
+
+.com-cartao {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: var(--space-7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+.com-cartao__topo { display: flex; align-items: center; gap: var(--space-4); }
+.com-cartao__topo h2 {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--fg-heading);
+}
+.com-cartao__icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
+  color: var(--fg-brand);
+}
+.com-gerar.vit-btn { width: 100%; justify-content: center; }
+.com-dica {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.com-dica svg { flex: none; margin-top: 2px; color: var(--fg-brand); }
+
+/* ---- O que está no app ---- */
+.com-noapp { list-style: none; margin: 0; padding: 0; display: grid; }
+.com-noapp li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.com-noapp li:first-child { border-top: 0; padding-top: 0; }
+.com-noapp__texto { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.com-noapp__texto strong {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  color: var(--fg-default);
+}
+.com-noapp__texto strong svg { flex: none; color: var(--fg-brand); }
+.com-noapp__texto small, .com-nota { margin: 0; font-size: var(--text-xs); color: var(--fg-muted); }
+
+/* ---- O editor: barra de ferramentas + palco com a folha ---- */
+.com-editor {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+.com-ferramentas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.com-ferramenta {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.com-ferramenta:hover { background: var(--bg-hover); color: var(--fg-default); }
+.com-ferramenta[aria-pressed="true"] { background: var(--bg-active); border-color: var(--brand-200); color: var(--fg-brand); }
+.com-ferramenta:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.com-divisor { width: 1px; height: 20px; margin: 0 var(--space-2); background: var(--border); }
+
+/* A cor livre (o seletor do navegador) e a cor da marca, lado a lado. */
+.com-cor.vit-input {
+  width: 32px;
+  height: 32px;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.com-cor-marca {
+  width: 24px;
+  height: 24px;
+  margin: 0 var(--space-1);
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-full);
+  background: var(--brand-700);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  cursor: pointer;
+}
+.com-tamanho.vit-select { width: auto; height: 32px; padding-top: 0; padding-bottom: 0; font-size: var(--text-sm); }
+.com-tamanho-atual {
+  min-width: 40px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--fg-secondary);
+}
+
+.com-palco {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: var(--space-7);
+  background: var(--surface-3);
+}
+
+@media (max-width: 1024px) {
+  .com-grade { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .com-palco { padding: var(--space-4); }
+  .com-cartao { padding: var(--space-6); }
+}
+
+.com-exporta { margin-bottom: var(--space-7); }
+
+/* Exportar: a prévia do que sai, no formato escolhido (23/11/2026). */
+.com-previa { margin: var(--space-5) 0 var(--space-6); }
+.com-previa__nota { margin: 0 0 var(--space-4); font-size: var(--text-sm); color: var(--fg-secondary); }
+.com-previa__paginas {
+  display: flex; flex-wrap: wrap; gap: var(--space-4); max-height: 320px; overflow: auto;
+  padding: var(--space-4); border-radius: var(--radius-md); background: var(--surface-3);
+}
+.com-previa__pagina { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.com-previa__pagina img { display: block; width: 120px; height: auto; background: #fff; box-shadow: var(--shadow-sm); }
+.com-previa__pagina--longa img { width: 150px; }
+.com-previa__pagina figcaption { font: 600 var(--text-xs) var(--font-mono); color: var(--fg-muted); }
+
+/* O cartão "No app do morador": o topo abre a janela de notícias (23/11/2026). */
+.com-cartao__abrir {
+  width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  border-radius: var(--radius-md);
+}
+.com-cartao__abrir:hover h2 { color: var(--fg-brand); }
+.com-cartao__abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.com-cartao__seta { margin-left: auto; color: var(--fg-muted); }
+.com-ver-todas { margin-top: var(--space-3); align-self: flex-start; }
+
+/* A janela "Notícias no app": o ver. */
+.com-noticia__icone {
+  display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--radius-lg);
+  background: var(--bg-active); color: var(--fg-brand);
+}
+.com-noticia__texto {
+  margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius-md); background: var(--surface-2);
+  font-size: var(--text-sm); line-height: 1.6; color: var(--fg-default); max-height: 320px; overflow: auto;
+}
+.com-noticia__texto p + p { margin-top: var(--space-3); }
+.com-noticia__anexos { margin-top: var(--space-5); }

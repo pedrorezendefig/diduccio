@@ -196,7 +196,7 @@ const tags = vagas
     id_vagas: v.id,
     id_unidade: v.id_unidade,
     veiculo: "Carro",
-    status: escolher(["Solicitado", "Disponivel", "Aplicado"]),
+    status: escolher(["Solicitado", "Entregue", "Entregue", "Cancelado"]),
   }));
 
 // ============================ USUÁRIOS ============================
@@ -225,7 +225,10 @@ function reserva(i, campoData, extras = {}) {
     [campoData]: dia(offset),
     valor_taxa: String(entre(80, 320)),
     pago: rnd() > 0.35 ? "Sim" : "Não",
-    status: offset < 0 ? escolher(["Concluída", "Concluída", "Cancelada"]) : escolher(["Pendente", "Aprovada"]),
+    // As situações que as telas de reserva gravam (Pendente, Agendado,
+    // Realizado, Cancelado): com "Concluída"/"Aprovada" as pílulas de
+    // contagem ficavam zeradas no modo demonstração.
+    status: offset < 0 ? escolher(["Realizado", "Realizado", "Cancelado"]) : escolher(["Pendente", "Agendado"]),
     cpf: m.cpf,
     rg: m.rg,
     convidados: String(entre(8, 60)),
@@ -238,7 +241,7 @@ function reserva(i, campoData, extras = {}) {
 const festas = Array.from({ length: 16 }, (_, i) => reserva(i, "data_reserva"));
 
 const churrasqueira = Array.from({ length: 18 }, (_, i) =>
-  reserva(i, "data_reserva", { churrasqueira: escolher(["Churrasqueira 1", "Churrasqueira 2"]) })
+  reserva(i, "data_reserva", { churrasqueira: escolher(["CH-A", "CH-B"]) })
 );
 
 const mudancas = Array.from({ length: 9 }, (_, i) => {
@@ -251,7 +254,11 @@ const mudancas = Array.from({ length: 9 }, (_, i) => {
     contato: m.telefone,
     data_mudanca: dia(offset),
     data_fim: "",
-    status: offset < 0 ? "Concluída" : "Pendente",
+    // As situações que a tela de Mudanças grava (Pendente, Agendado,
+    // Realizado, Cancelado). "Concluída" não existe lá: deixava as pílulas
+    // de contagem zeradas no modo demonstração.
+    status: offset < 0 ? escolher(["Realizado", "Realizado", "Cancelado"]) : escolher(["Pendente", "Agendado"]),
+    monitor: escolher(["Bira", "Elias", "Nayra", ""]),
     cpf: m.cpf,
     rg: m.rg,
     tipo: escolher(["Entrada", "Saída"]),
@@ -298,7 +305,8 @@ const agendamentos = Array.from({ length: 12 }, (_, i) => {
       "Entrega de documentos",
     ]),
     obs: "",
-    status: escolher(["Agendado", "Agendado", "Concluído"]),
+    // As situações da tela (Agendado, Confirmado, Realizado, Cancelado).
+    status: escolher(["Agendado", "Agendado", "Confirmado", "Realizado"]),
   };
 });
 
@@ -373,14 +381,16 @@ const entregas = Array.from({ length: 22 }, (_, i) => {
     id_morador: m.id,
     nome: m.nome,
     telefone: m.telefone,
-    ident_interna: `ENC-${String(1200 + i)}`,
-    data_recebimento: dia(-entre(0, 18)),
-    data_entrega: recebida ? dia(-entre(0, 5)) : "",
+    // As colunas de `entregas` no Postgres. As da planilha (data_recebimento,
+    // quantidade...) deixavam a lista do modo demonstração cheia de "—".
+    numero_encomenda: `${String(400 + i).padStart(4, "0")}${"ABCDEFGH"[i % 8]}`,
+    data_entrada: dia(-entre(0, 18)),
+    data_saida: recebida ? dia(-entre(0, 5)) : "",
     status: recebida ? "Entregue" : "Pendente",
     quantidade_encomenda: String(entre(1, 3)),
-    transportadora: escolher(entregadores).nome,
-    codigo: String(entre(100000, 999999)),
-    responsavel: "Jonas Paiva",
+    cod: Math.random().toString(36).slice(2, 7).toUpperCase(),
+    notificado: rnd() > 0.5 ? "SIM" : "NAO",
+    created_by: "Jonas Paiva",
   };
 });
 
@@ -495,6 +505,18 @@ const tarefas = [
   { id: "3", titulo: "Orçamento da limpeza da caixa d'água", situacao: "AGUARDANDO", responsavel_id: "2", prazo: diaDaDemo(6), created_by: "Solange Ribeiro", created_at: new Date().toISOString() },
 ];
 
+/** Duas liberações de temporada em volta de hoje (Brasília), para a demo ter o que mostrar. */
+function temporadasDemo() {
+  const dia = (d) => new Date(Date.now() + d * 86400000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return [
+    { id: 1, id_unidade: unidades[0]?.id, entrada: dia(0), saida: dia(5), hospede: "Ana Lima", cpf: "12345678909", telefone: "11987654321", pessoas: 3,
+      acompanhantes: [{ nome: "Bruno Lima", cpf: "98765432100" }, { nome: "Clara Lima", cpf: null }],
+      veiculos: [{ placa: "ABC1D23", modelo: "VW Gol", cor: "Prata" }], observacao: "Chega à noite.", situacao: "agendada", created_by: "Administração", proprietario: "Marcos Pinto" },
+    { id: 2, id_unidade: unidades[1]?.id, entrada: dia(-2), saida: dia(2), hospede: "Paula Rocha", telefone: "", pessoas: 3,
+      veiculos: [{ placa: "RTX4G55", modelo: "Jeep Renegade", cor: "Branco" }], observacao: null, situacao: "hospedado", chegou_em: new Date(Date.now() - 2 * 86400000).toISOString(), created_by: "Administração" },
+  ];
+}
+
 export const TABELAS = {
   UNIDADES: unidades,
   MORADORES: moradores,
@@ -517,6 +539,8 @@ export const TABELAS = {
   // chave, no modo demonstracao a portaria lia lista vazia e o cadastro de
   // entrada morria em "Aba desconhecida".
   ENTREGADORES_CHEGADAS: chegadas,
+  // Temporada (0091): liberações de exemplo, com as datas de hoje.
+  TEMPORADAS: temporadasDemo(),
   CONFIRMACAO: confirmacao,
   log: log,
   AUDITORIA: log,
@@ -530,6 +554,11 @@ export const TABELAS = {
   ENTREGAS_FOTO: [],
   ENTREGAS_NF: [],
   ENTREGAS_RECEBIMENTO: [],
+  // Vazia de propósito: no modo demonstração ninguém tem infração registrada,
+  // e a tela precisa da chave para o cadastro não morrer em "Aba desconhecida".
+  NOTIFICACOES: [],
+  NOTIFICACOES_ANEXOS: [],
+  NOTIFICACOES_ENVIOS: [],
   TAREFAS: tarefas,
   ASSINATURA: [],
 };
@@ -545,6 +574,14 @@ export const RESPONSAVEIS_DEMO = usuarios
   .filter((u) => ["Sindico", "Auxiliar Administrativo"].includes(u.cargo))
   .map(({ id, nome, cargo }) => ({ id, nome, cargo }))
   .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+/** O último acesso de cada usuário da demo (0078), relativo a agora. Um nunca entrou. */
+export const ULTIMOS_ACESSOS_DEMO = [
+  { id: "1", ultimo_acesso: new Date(Date.now() - 25 * 60000).toISOString() },
+  { id: "2", ultimo_acesso: new Date(Date.now() - 3 * 3600000).toISOString() },
+  { id: "3", ultimo_acesso: new Date(Date.now() - 2 * 86400000).toISOString() },
+  { id: "5", ultimo_acesso: new Date(Date.now() - 2 * 60000).toISOString() },
+];
 
 /** Senha única de todos os perfis da demo. */
 export const SENHA_DEMO = "demo";

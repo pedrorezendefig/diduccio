@@ -8,6 +8,7 @@ import { useTheme } from "../theme/useTheme";
 import { MARCA, CLARO, ESCURO } from "../theme/tokens";
 import { can } from "../auth/permissions";
 import { normalizarTexto, dataBR } from "../lib/format";
+import { rotuloCurtoDaUnidade } from "../lib/unidades";
 import { Button, Badge, PageHeader, Skeleton, EmptyState, useToast } from "../ui";
 import { listar } from "../api/db";
 import { chamarEdgeFunction, mensagemDaEdgeFunction } from "../api/edge";
@@ -483,6 +484,7 @@ export default function Dashboard({ user }) {
           <section className="dash-celula dash-celula--larga">
             <ProximosAgendamentos
               data={upcoming}
+              unidades={unidades}
               loading={loading}
               onViewDetails={handleVerDetalhes}
               onVerTodos={() => navigate("/calendario")}
@@ -1051,7 +1053,7 @@ function AtividadesRecentes({ logs, loading }) {
   );
 }
 
-function ProximosAgendamentos({ data, loading, onViewDetails, onVerTodos }) {
+function ProximosAgendamentos({ data, unidades, loading, onViewDetails, onVerTodos }) {
   return (
     <>
       <div className="dash-celula__topo">
@@ -1077,8 +1079,12 @@ function ProximosAgendamentos({ data, loading, onViewDetails, onVerTodos }) {
       ) : (
         <ul className="dash-reservas">
           {data.map((item, idx) => {
-            const bruto = String(item.unidade_id || item.id_unidade || "");
-            const unidade = bruto.length > 3 ? bruto.slice(-3) : bruto;
+            // O bloco era um "B5" fixo, com os três últimos dígitos do id ao
+            // lado: toda reserva parecia ser do bloco 5. O id é chave do banco,
+            // não "bloco + apartamento" — bloco e unidade vêm do cadastro.
+            const id = String(item.unidade_id || item.id_unidade || "");
+            const u = unidades.find((x) => String(x.id) === id);
+            const unidade = rotuloCurtoDaUnidade(u) || id || "unidade não informada";
             const { dia, mes } = partirData(item.data);
             return (
               <li key={idx} className="dash-reserva">
@@ -1089,7 +1095,7 @@ function ProximosAgendamentos({ data, loading, onViewDetails, onVerTodos }) {
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="dash-reserva__tipo">{item.tipo}</span>
                   <span className="dash-reserva__quem">
-                    B5-{unidade} · {item.morador || "morador não informado"}
+                    {unidade} · {item.morador || "morador não informado"}
                   </span>
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => onViewDetails(item)}>

@@ -42,7 +42,7 @@ function achados() {
 }
 
 // O papel timbrado dos PDFs e do comunicado vem de duas imagens em public/.
-// O fork trouxe as do condomínio de origem (o logo "Novo Recreio"); estes são
+// O fork trouxe as do condomínio de origem (o logo "Diduccio"); estes são
 // os sha256 delas, para elas não voltarem.
 const TIMBRE_HERDADO = {
   'logo.png': '1eab080650efa5a5c09e186076e5879bc69597d7287ade4c5cd058b5e5044305',

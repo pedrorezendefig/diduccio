@@ -26,11 +26,11 @@ export default function SelecaoUsuario({ onSelectUser }) {
         // Nunca persistir a senha: `entrar` já devolve o usuário sem ela.
         sessionStorage.setItem("usuarioLogado", JSON.stringify(resultado.usuario));
         onSelectUser(resultado.usuario);
-        // Sempre para o painel. Quem precisa trocar a senha recebe o modal
+        // Sempre para o Início. Quem precisa trocar a senha recebe o modal
         // por cima, decidido pelo App a partir do banco — e não por este
         // navigate, que só acontecia no login e deixava passar quem
         // recarregava a página com a sessão viva.
-        navigate("/dashboard");
+        navigate("/inicio");
       } else {
         // Mesma mensagem para identificador inexistente e senha errada, de
         // propósito: não virar um verificador de quem tem conta.

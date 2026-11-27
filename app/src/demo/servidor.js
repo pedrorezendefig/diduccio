@@ -110,6 +110,10 @@ function responderPost(corpo) {
       const { token, session, action: _a, sheet: _s, ...linha } = corpo;
       const nova = { ...linha, id: linha.id || proximoId(sheet) };
       if (sheet === "TAREFAS") carimbarTarefaNova(nova);
+      // O banco real carimba `created_at` (default now(), 0030). A contagem da
+      // multa ordena por ela: sem o carimbo, a demo perderia a ordem.
+      if (sheet === "NOTIFICACOES" && !nova.created_at) nova.created_at = new Date().toISOString();
+      // Encomenda nova: o banco real sorteia o nº do pacote e, com telefone, o código de retirada (0020).
       if (sheet === "ENTREGAS") carimbarEncomendaNova(nova);
       estado[sheet].push(nova);
       return ok({ data: nova });

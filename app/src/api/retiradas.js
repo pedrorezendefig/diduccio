@@ -47,6 +47,19 @@ const MINIMO_COM_TRACO = 1000;
  * Não lança: as telas do ViT já tratam `{ success: false }` em toda gravação,
  * e um caminho diferente só criaria mais um jeito de errar.
  */
+/**
+ * `entregas.id_morador` é texto e guarda "" quando o apartamento não tem
+ * morador no cadastro do condomínio (Encomendas grava assim). As funções do
+ * banco recebem bigint: "" chegava como erro 400 ("invalid input syntax for
+ * type bigint") e a portaria não conseguia dar baixa. Vazio ou inválido vira
+ * null, que é "sem morador".
+ */
+function idDoMorador(valor) {
+  if (valor == null || String(valor).trim() === "") return null;
+  const n = Number(valor);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
 export async function registrarRetirada({
   idUnidade,
   nome,
@@ -58,13 +71,20 @@ export async function registrarRetirada({
   itens,
   entreguePor,
   assinatura,
+  // Reconhecido pelo app, com CPF lá (0096): { cod, idApp }. O CPF não passa
+  // pelo navegador; o banco lê o do cadastro e completa o comprovante.
+  pelaApp = null,
 }) {
   // 1. Recusa ANTES de qualquer rede. Barrar depois do upload já teria deixado
   //    o arquivo inútil no bucket, e barrar depois da rpc é tarde demais.
   if (!assinatura) {
     return { success: false, message: "A retirada exige assinatura." };
   }
-  if (assinatura.size < MINIMO_COM_TRACO) {
+  // Traço conferido nos pixels (recorte do campo de assinatura): o tamanho não
+  // importa. Rubrica curta, recortada com margem branca, pesa menos de 1000
+  // bytes e era recusada mesmo com tinta (24/11/2026). O tamanho continua sendo
+  // a guarda quando o navegador não deixou ler os pixels.
+  if (!assinatura.tintaConferida && assinatura.size < MINIMO_COM_TRACO) {
     return {
       success: false,
       message:
@@ -94,11 +114,10 @@ export async function registrarRetirada({
   // 4. Só agora a linha. A função do banco valida o resto (observação
   //    obrigatória quando não há encomenda marcada, encomenda já retirada) e
   //    faz insert + baixa na mesma transação.
-  const { data, error } = await supabase.rpc("registrar_retirada", {
+  const comum = {
     p_id_unidade: idUnidade,
     p_retirado_por_nome: nome,
-    p_retirado_por_cpf: cpf,
-    p_id_morador: idMorador ?? null,
+    p_id_morador: idDoMorador(idMorador),
     p_via: via,
     p_assinatura_caminho: caminho,
     // null e não string vazia: a função distingue "sem observação" de
@@ -114,7 +133,10 @@ export async function registrarRetirada({
     // pronta seria um segundo lugar para a mesma verdade errar.
     p_itens: itens ?? [],
     p_entregue_por: entreguePor,
-  });
+  };
+  const { data, error } = pelaApp
+    ? await supabase.rpc("registrar_retirada_do_app", { ...comum, p_cod: pelaApp.cod, p_id_app: pelaApp.idApp })
+    : await supabase.rpc("registrar_retirada", { ...comum, p_retirado_por_cpf: cpf });
 
   // 5. Erro da função vira mensagem. As exceções dela são texto escrito para o
   //    porteiro ler ("Sem encomenda marcada, a observação é obrigatória."),
@@ -122,4 +144,22 @@ export async function registrarRetirada({
   if (error) return { success: false, message: error.message };
 
   return { success: true, id: data };
+}
+
+/**
+ * Quem do app pode estar retirando a encomenda deste código (0086): o titular
+ * e os dependentes do apartamento, com nome e CPF. O banco só responde com o
+ * código de uma encomenda que está na portaria.
+ *
+ * Falhou (sem rede, 0086 ainda não aplicado): lista vazia, e a portaria segue
+ * digitando o nome e o CPF como sempre.
+ */
+export async function quemRetiraPeloApp(codigo) {
+  try {
+    const { data, error } = await supabase.rpc("quem_retira_pelo_app", { p_cod: codigo });
+    if (error || !Array.isArray(data)) return [];
+    return data;
+  } catch {
+    return [];
+  }
 }

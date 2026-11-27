@@ -23,8 +23,9 @@ describe('Manual: páginas que cada Cargo vê', () => {
 })
 
 describe('Manual: páginas da Administração', () => {
-  it('o Conselheiro vê as páginas da Assembleia e do painel', () => {
-    expect(ids('Conselheiro')).toEqual(expect.arrayContaining(['assembleia', 'painel']))
+  // O painel (Dashboard) saiu: o ViT desligou a tela para todos os Cargos.
+  it('o Conselheiro vê a página da Assembleia', () => {
+    expect(ids('Conselheiro')).toEqual(expect.arrayContaining(['assembleia']))
   })
 
   it('o Síndico não vê a página de Usuários', () => {
@@ -35,7 +36,7 @@ describe('Manual: páginas da Administração', () => {
     expect(ids('Desenvolvedor')).toContain('usuarios')
   })
 
-  const ADMINISTRACAO = ['painel', 'comunicado', 'tarefas', 'assembleia', 'usuarios']
+  const ADMINISTRACAO = ['comunicado', 'tarefas', 'assembleia', 'usuarios']
 
   it.each(ADMINISTRACAO)('a página %s está na área Administração e tem um print em cada passo', (id) => {
     const pagina = PAGINAS.find((p) => p.id === id)

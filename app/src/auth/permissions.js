@@ -18,6 +18,10 @@ export const can = (user, action) => {
     ],
     verDetalhesFesta: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
     verDetalhesChurrasqueira: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
+    // A tela Churrasqueira: o porteiro vê, só leitura (0120, 23/11/2026), pela
+    // `churrasqueira_da_portaria`, sem CPF, RG, telefone, valor e comprovantes.
+    // Criar, editar, apagar, contrato e exportar são da administração.
+    editarChurrasqueira: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
     verDetalhesMudanca: [ROLES.PORTEIRO, ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
 
     // Na portaria, o porteiro registra a visita do entregador e a encerra —
@@ -66,6 +70,11 @@ export const can = (user, action) => {
     excluirEntregador: [ROLES.SINDICO, ROLES.DEV],
     excluirChegada: [ROLES.SINDICO, ROLES.DEV],
 
+    // Temporada (0091): a administração libera o hóspede antes; a portaria só
+    // lê e marca a chegada. Apagar é do síndico, como o DELETE do banco.
+    liberarTemporada: [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
+    excluirTemporada: [ROLES.SINDICO, ROLES.DEV],
+
     // Encomenda: corrigir e apagar o cadastro.
     //
     // Os dois ficam no mesmo grupo porque editar já implica apagar: reduzir a
@@ -93,6 +102,15 @@ export const can = (user, action) => {
     // `entregas`, que o porteiro le — esconder na tela nao e cofre, e o
     // controle real de quem retira e a assinatura.
     verCodigoRetirada: [ROLES.SINDICO, ROLES.DEV],
+
+    // Notificacao e multa por descumprimento de norma.
+    //
+    // Notificar e ato do sindico (art. 1.348 do Codigo Civil), mas quem digita
+    // costuma ser o auxiliar — por isso criar e administrativo. Apagar nao:
+    // apagar uma notificacao apaga a contagem que leva a multa, e isso e
+    // decisao de quem responde pelo condominio.
+    criarNotificacao:   [ROLES.SINDICO, ROLES.AUX, ROLES.DEV],
+    excluirNotificacao: [ROLES.SINDICO, ROLES.DEV],
 
     // O quadro de tarefas da administração. Ver serve também para criar e
     // mover: são os mesmos cargos.

@@ -1,0 +1,301 @@
+/* =========================================================================
+   Encomendas: o que é só desta tela.
+   Era um <style> dentro do Encomendas.jsx, com cor escrita à mão e o objeto
+   `theme` no meio do CSS. Saiu daqui (guia de marca, 2026-11-04): as cores
+   são tokens, e o resto do desenho vem do sistema (Modal, Field, Ficha,
+   ListaQueAbre). As regras de toque no celular continuam as mesmas.
+   ========================================================================= */
+
+/* ---- A faixa do depósito (5 dias ou mais na portaria) ---- */
+.enc-faixa-deposito {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin: 0 0 var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--aviso-400);
+  border-radius: var(--radius-lg);
+  background: var(--aviso-100);
+  color: var(--aviso-700);
+  font-size: var(--text-md);
+}
+.enc-faixa-deposito > button { margin-left: auto; flex-shrink: 0; }
+@media (max-width: 768px) {
+  .enc-faixa-deposito { flex-wrap: wrap; }
+  .enc-faixa-deposito > button { margin-left: 0; width: 100%; }
+}
+
+/* ---- Lista ---- */
+.enc-sub { display: block; color: var(--fg-muted); font-size: var(--text-sm); }
+.enc-nf { font-family: var(--font-mono); font-size: var(--text-sm); }
+.enc-atrasada { color: var(--fg-danger); flex: none; }
+
+/* ---- Recebimento: passos, etiqueta, aviso no app ---- */
+.enc-passos { display: flex; gap: var(--space-4); }
+.enc-passos span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--fg-secondary);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.enc-passos span[aria-current="step"] { color: var(--fg-default); box-shadow: inset 0 0 0 1.5px var(--brand-500); }
+.enc-passos span.feito { color: var(--fg-brand); }
+
+.enc-etiqueta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  background: var(--brand-800);
+  color: var(--fg-on-brand);
+  text-align: center;
+}
+.enc-etiqueta small { color: var(--brand-200); font-size: var(--text-base); font-weight: 600; }
+.enc-etiqueta b { font: 700 56px/1.05 var(--font-mono); letter-spacing: .08em; }
+.enc-etiqueta span { color: var(--brand-200); font-size: var(--text-md); }
+
+.enc-quem-app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-lg);
+  background: var(--bg-active);
+  color: var(--fg-default);
+  font-size: var(--text-base);
+}
+.enc-quem-app--sem { border-color: var(--aviso-400); background: var(--aviso-100); color: var(--aviso-700); }
+.enc-quem-app code { font-family: var(--font-mono); font-weight: 700; }
+
+/* ---- Volumes: um cartão por encomenda, com as transportadoras e a foto ---- */
+.enc-volume { display: grid; gap: var(--space-5); padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.enc-volume__titulo { margin: 0; color: var(--fg-brand); font-size: var(--text-sm); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.enc-chips { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.enc-chips button {
+  padding: var(--space-2) var(--space-5);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--fg-secondary);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.enc-chips button[aria-pressed="true"] { border-color: var(--brand-500); background: var(--bg-active); color: var(--fg-brand); }
+.enc-foto { display: flex; align-items: center; gap: var(--space-4); }
+.enc-foto__miniatura { position: relative; width: 72px; height: 72px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.enc-foto__miniatura img { width: 100%; height: 100%; object-fit: cover; }
+.enc-foto__escolha { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+
+/* A foto da etiqueta: o <input> cobre o próprio controle em vez de
+   `display: none` — clique encaminhado por <label> para campo escondido assim
+   é ignorado por parte dos navegadores de celular. */
+.enc-foto-tile {
+  position: relative; overflow: hidden; flex-shrink: 0;
+  width: 72px; height: 72px; border-radius: var(--radius-md); border: 2px dashed var(--border-strong);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; background: var(--surface-2); color: var(--fg-secondary);
+}
+.enc-foto-tile span { font-size: 10px; }
+.enc-foto-link {
+  position: relative; overflow: hidden; cursor: pointer;
+  font-size: 11px; text-decoration: underline; padding: 4px 2px; color: var(--fg-secondary);
+}
+.enc-foto-input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; font-size: 0;
+}
+/* É o <Input> do sistema: tira a moldura e a altura do campo de texto, que
+   empurrariam o campo invisível para fora do quadrado da câmera. */
+.enc-foto-input.vit-input { min-height: 0; padding: 0; border: 0; box-shadow: none; }
+.enc-redondo { flex-shrink: 0; }
+.enc-foto-x {
+  position: absolute; top: 2px; right: 2px; z-index: 1;
+  width: 22px; height: 22px; padding: 0; border: none; border-radius: 50%;
+  background: var(--btn-danger-bg); color: var(--fg-on-brand); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ---- Detalhe: a foto à esquerda, as fichas à direita ---- */
+.enc-detalhe { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--space-8); }
+@media (max-width: 1024px) { .enc-detalhe { grid-template-columns: minmax(0, 1fr); } }
+.enc-detalhe__fotos { display: grid; gap: var(--space-4); align-content: start; }
+.enc-detalhe__legenda { margin: 0; color: var(--fg-muted); font-size: var(--text-sm); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.enc-detalhe__legenda span { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.enc-detalhe__dados { display: grid; gap: var(--space-6); align-content: start; }
+.enc-photo-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+}
+.enc-photo-img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+.enc-photo-vazio { display: grid; justify-items: center; gap: var(--space-4); font-size: var(--text-base); }
+.enc-seta {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, .8);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.enc-seta:hover { background: rgba(15, 23, 42, .95); }
+.enc-seta--antes { left: var(--space-6); }
+.enc-seta--depois { right: var(--space-6); }
+.enc-pontos { display: flex; justify-content: center; }
+.enc-ponto {
+  width: 32px; height: 32px; padding: 11px; border: none; cursor: pointer;
+  border-radius: 50%; box-sizing: border-box; background-clip: content-box;
+  background-color: var(--border-strong);
+}
+.enc-ponto[aria-current="true"] { background-color: var(--brand-500); }
+.enc-link {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-weight: 700; color: var(--fg-brand);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.enc-item-na-tela { margin: 0; padding: var(--space-4) var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-2); color: var(--fg-secondary); font-size: var(--text-sm); font-weight: 600; }
+.enc-codigo { font-family: var(--font-mono); font-weight: 700; letter-spacing: .08em; }
+/* As fichas do detalhe em linhas: rótulo numa coluna fixa, valor ao lado.
+   Tudo alinha pela mesma borda, em vez de duas colunas soltas. */
+.enc-detalhe__dados .app-ficha { gap: var(--space-3); }
+.enc-detalhe__dados .app-ficha__dados {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.enc-detalhe__dados .app-ficha__dado {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+}
+.enc-detalhe__dados .app-ficha__dado + .app-ficha__dado { border-top: 1px solid var(--border); }
+.enc-detalhe__dados .app-ficha__dado dd { font-size: var(--text-sm); font-weight: 600; color: var(--fg-heading); }
+.enc-nfs { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.enc-nfs li { display: grid; grid-template-columns: 9ch minmax(0, 1fr); gap: var(--space-4); }
+.enc-nfs li b { font-family: var(--font-mono); }
+.enc-nfs li span { color: var(--fg-muted); font-weight: 500; }
+@media (max-width: 560px) {
+  .enc-detalhe__dados .app-ficha__dado { grid-template-columns: 110px minmax(0, 1fr); }
+}
+
+/* ---- Janelas pequenas ---- */
+.enc-numero-grande { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-7); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-2); }
+.enc-numero-grande small { color: var(--fg-muted); font-size: var(--text-sm); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.enc-numero-grande b { font: 800 34px var(--font-mono); letter-spacing: 2px; color: var(--fg-heading); }
+/* A assinatura tem tinta preta em PNG transparente: fundo branco fixo, senão
+   no tema escuro ela some dentro do próprio comprovante. */
+.enc-assinatura { display: block; width: 100%; border: 1px solid var(--border); border-radius: var(--radius-lg); background: #fff; }
+.enc-aviso-erro { margin: 0; color: var(--fg-danger); font-size: var(--text-base); }
+.enc-carregando { display: flex; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-10); color: var(--fg-muted); }
+.enc-gira { animation: encGira .85s linear infinite; }
+@keyframes encGira { to { transform: rotate(360deg); } }
+
+/* ---- O visualizador da foto em tela cheia ---- */
+.enc-luz { position: fixed; inset: 0; z-index: 3100; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .92); }
+.enc-luz__botoes { position: fixed; top: 14px; right: 14px; z-index: 3102; display: flex; gap: 10px; }
+.enc-luz__botao {
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border: none; border-radius: 50%;
+  background: rgba(40, 22, 18, .75); color: #fff; font-size: 22px; cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.enc-luz__botao--fechar { background: rgba(184, 32, 63, .85); }
+.enc-luz__botao--antes, .enc-luz__botao--depois { position: fixed; top: 50%; z-index: 3102; transform: translateY(-50%); }
+.enc-luz__botao--antes { left: 10px; }
+.enc-luz__botao--depois { right: 10px; }
+.enc-luz__contador { position: fixed; bottom: 16px; left: 50%; z-index: 3002; padding: 4px 12px; border-radius: 14px; background: rgba(40, 22, 18, .7); color: #fff; font-size: 13px; transform: translateX(-50%); }
+.enc-luz__palco { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; overflow: hidden; touch-action: none; }
+.enc-luz__palco--ampliada { cursor: grab; }
+.enc-luz__foto { max-width: 92vw; max-height: 86vh; user-select: none; transition: transform .15s ease; }
+.enc-luz__foto--arrastando { transition: none; }
+.enc-luz__aviso { color: #fff; }
+
+/* ---- Celular ---- */
+@media (max-width: 768px) {
+  /* A foto ocupava 260px fixos. Somados rótulo, bolinhas e o recuo da grade,
+     sobrava quase nada de tela para os dados, que é o que a pessoa abriu o
+     detalhe para ler. Aqui ela acompanha a altura do aparelho, com piso e
+     teto — e continua abrindo inteira no visualizador com um toque. */
+  .enc-photo-box { flex: none !important; min-height: 0 !important; height: clamp(150px, 26dvh, 240px) !important; }
+  .enc-photo-img { object-fit: contain !important; }
+
+  /* Alvo de toque em botão de texto — MENOS os redondos. A regra antiga pegava
+     a bolinha de 10px do carrossel e a seta de 40px: com min-height 44 e
+     border-radius 50%, a bolinha virava uma pílula alta e a seta, um oval. Nos
+     redondos a área vem do padding, que aumenta a área sem aumentar o que se vê. */
+  .enc-modal button:not(.enc-redondo):not(.enc-link),
+  .enc-detalhe button:not(.enc-redondo):not(.enc-link) { min-height: 44px; }
+
+  /* Alvo de toque do X sem engordar o desenho: a área cresce pelo padding e a
+     cor fica só no conteúdo. */
+  .enc-foto-x {
+    width: 34px; height: 34px; padding: 6px;
+    background-clip: content-box; box-sizing: border-box;
+  }
+
+  /* 16px impede o iOS Safari de dar zoom automático ao focar. */
+  .enc-modal input, .enc-modal select, .enc-modal textarea { font-size: 16px; }
+}
+
+/* Ações do cartão no celular: ícones (assinatura, ver) e Confirmar entrega
+   numa fila só, à direita, todos com 40px de altura e o mesmo raio. O
+   Confirmar só existe no celular; no computador a entrega sai da encomenda
+   aberta. */
+.enc-entregar-celular { display: none; }
+@media (max-width: 900px) {
+  .conf-lista--modal .conf-linha__acoes .vit-btn.enc-acao-icone {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: var(--fg-secondary);
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .conf-lista--modal .conf-linha__acoes .vit-btn.enc-acao-icone:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+    color: var(--fg-brand);
+  }
+  .conf-lista--modal .conf-linha__acoes .vit-btn.enc-entregar-celular {
+    display: inline-flex;
+    width: auto;
+    gap: var(--space-3);
+    padding: 0 var(--space-5) 0 var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+    transition: transform .12s ease, box-shadow .15s ease;
+  }
+  .conf-lista--modal .conf-linha__acoes .vit-btn.enc-entregar-celular:active {
+    transform: scale(.97);
+    box-shadow: none;
+  }
+}

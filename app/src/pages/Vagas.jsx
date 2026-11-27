@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Car, Bike, Search, Plus, Edit2, Trash2, Eye, Tag as TagIcon,
-  FileText, Download, RotateCcw, ChevronLeft, ChevronRight,
+  Car, Bike, Search, Plus, Pencil, Trash2, Eye, Tag as TagIcon, FileText, Download,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -14,11 +13,13 @@ import {
   TIPOS_SOLICITANTE, descreverVeiculo, escolhaTravada, podeMexerNaTag,
   statusQuePodeEscolher, veiculoDaVaga,
 } from "../lib/tags";
-import { dataBR, formatCurrency } from "../lib/format";
+import { dataBR, formatCurrency, nomeProprio } from "../lib/format";
 import {
-  Button, Badge, Table, Tabs, Modal, Field, Input, Select, Textarea, Checkbox,
+  Button, Badge, Tabs, Modal, Field, Input, Select, Textarea, Checkbox,
   PageHeader, EmptyState, useToast, useConfirm,
 } from "../ui";
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import { Chave, Ficha, Filtros, MaisFiltros, Opcoes, PainelDeFiltros, Placa } from "../components/app/pecas";
 
 // Verde da marca em RGB, para o jsPDF, que não aceita hex.
 const VERDE_PDF = [227, 90, 58];
@@ -73,6 +74,9 @@ const COLUNAS_EXPORT = [
   { id: "obs", label: "Observações" },
 ];
 
+/** Quantas linhas a lista mostra de cada vez; "Mostrar mais" soma outras tantas. */
+const LOTE = 30;
+
 const placaMaiuscula = (v) => String(v ?? "").toUpperCase().slice(0, 8);
 
 export default function Vagas({ user }) {
@@ -106,6 +110,7 @@ export default function Vagas({ user }) {
   const [modalTag, setModalTag] = useState(false);
   const [modalExport, setModalExport] = useState(false);
   const [detalhe, setDetalhe] = useState(null);
+  const [tagVendo, setTagVendo] = useState(null);
   const [modo, setModo] = useState("add");
   const [form, setForm] = useState(FORM_VAGA);
   const [formTag, setFormTag] = useState(FORM_TAG);
@@ -120,8 +125,10 @@ export default function Vagas({ user }) {
   const [buscaTag, setBuscaTag] = useState("");
   const [fStatusTag, setFStatusTag] = useState("Todos");
 
-  const [pagina, setPagina] = useState(1);
-  const [porPagina, setPorPagina] = useState(50);
+  const [maisFiltros, setMaisFiltros] = useState(false);
+  const [limite, setLimite] = useState(LOTE);
+  const [ordemVagas, setOrdemVagas] = useState({ chave: "unidade", direcao: "asc" });
+  const [ordemTags, setOrdemTags] = useState({ chave: "unidade", direcao: "asc" });
 
   const [colunasExport, setColunasExport] = useState(
     COLUNAS_EXPORT.map((c) => ({ ...c, selected: c.id !== "obs" }))
@@ -196,7 +203,27 @@ export default function Vagas({ user }) {
   // além de barrar diz o que fazer — e é a diferença entre a pessoa não achar a
   // unidade e ela saber que precisa cadastrar a vaga primeiro.
 
-  const linhasVagas = useMemo(() => {
+  /** Posição da unidade na ordem do prédio: bloco, depois apartamento. */
+  const ordemDaUnidade = useCallback((id) => {
+    const u = unidadePorId.get(String(id));
+    return u ? (Number(u.bloco) || 0) * 100000 + (Number(u.unidade) || 0) : Number(id) || 0;
+  }, [unidadePorId]);
+
+  const ordenarPor = (lista, ordem, valor) => {
+    const sinal = ordem.direcao === "asc" ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      const va = valor(a), vb = valor(b);
+      return va < vb ? -sinal : va > vb ? sinal : 0;
+    });
+  };
+  const alternarOrdem = (setOrdem) => (chave) =>
+    setOrdem((o) => ({ chave, direcao: o.chave === chave && o.direcao === "asc" ? "desc" : "asc" }));
+  const ordenarVagas = alternarOrdem(setOrdemVagas);
+  const ordenarTags = alternarOrdem(setOrdemTags);
+
+  // As pílulas contam com a busca e o painel aplicados, sem o próprio filtro
+  // de TAG: cada número diz quantas aparecem ao clicar nela.
+  const vagasSemFiltroDeTag = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return vagas.filter((v) => {
       const u = unidadePorId.get(String(v.id_unidade));
@@ -211,40 +238,53 @@ export default function Vagas({ user }) {
 
       const casaBloco = fBloco === "Todos" || String(u?.bloco) === fBloco;
 
-      const statusTag = tagDaUnidade(v.id_unidade)?.status ?? "Sem Tag";
-      const casaTag = fTag === "Todos" || statusTag === fTag;
-
       const casaVeiculo =
         fVeiculo === "Todos" ||
         (fVeiculo === "Carro" && v.possui_carro === "Sim") ||
         (fVeiculo === "Moto" && v.possui_moto === "Sim") ||
         (fVeiculo === "Nenhum" && v.possui_carro !== "Sim" && v.possui_moto !== "Sim");
 
-      return casaBusca && casaBloco && casaTag && casaVeiculo;
+      return casaBusca && casaBloco && casaVeiculo;
     });
-  }, [vagas, busca, fBloco, fTag, fVeiculo, unidadePorId, tagDaUnidade]);
+  }, [vagas, busca, fBloco, fVeiculo, unidadePorId]);
+
+  const statusDaTag = useCallback((v) => tagDaUnidade(v.id_unidade)?.status ?? "Sem Tag", [tagDaUnidade]);
+
+  const contagemTag = useMemo(() => {
+    const c = { Todos: vagasSemFiltroDeTag.length, "Sem Tag": 0 };
+    STATUS_TAG.forEach((s) => { c[s.value] = 0; });
+    vagasSemFiltroDeTag.forEach((v) => { c[statusDaTag(v)] = (c[statusDaTag(v)] ?? 0) + 1; });
+    return c;
+  }, [vagasSemFiltroDeTag, statusDaTag]);
+
+  const linhasVagas = useMemo(() => {
+    const filtradas = vagasSemFiltroDeTag.filter((v) => fTag === "Todos" || statusDaTag(v) === fTag);
+    return ordenarPor(filtradas, ordemVagas, (v) =>
+      ordemVagas.chave === "tag" ? statusDaTag(v) : ordemDaUnidade(v.id_unidade));
+  }, [vagasSemFiltroDeTag, fTag, statusDaTag, ordemVagas, ordemDaUnidade]);
 
   const linhasTags = useMemo(() => {
     const termo = buscaTag.trim().toLowerCase();
-    return tags.filter((t) => {
-      const casaBusca = termo === "" || rotuloUnidade(t.id_unidade).toLowerCase().includes(termo);
+    const filtradas = tags.filter((t) => {
+      const casaBusca = termo === "" ||
+        rotuloUnidade(t.id_unidade).toLowerCase().includes(termo) ||
+        String(t.nome_solicitante || "").toLowerCase().includes(termo);
       const casaStatus = fStatusTag === "Todos" || t.status === fStatusTag;
       return casaBusca && casaStatus;
     });
-  }, [tags, buscaTag, fStatusTag, rotuloUnidade]);
+    return ordenarPor(filtradas, ordemTags, (t) => {
+      if (ordemTags.chave === "unidade") return ordemDaUnidade(t.id_unidade);
+      if (ordemTags.chave === "custo_total") return t.custo_total == null ? -1 : Number(t.custo_total);
+      return String(t[ordemTags.chave] ?? "").toLowerCase();
+    });
+  }, [tags, buscaTag, fStatusTag, rotuloUnidade, ordemTags, ordemDaUnidade]);
 
-  const totalPaginas = porPagina === "Todos" ? 1 : Math.max(1, Math.ceil(linhasVagas.length / porPagina));
-  const paginaSegura = Math.min(pagina, totalPaginas);
-  const vagasExibidas = porPagina === "Todos"
-    ? linhasVagas
-    : linhasVagas.slice((paginaSegura - 1) * porPagina, paginaSegura * porPagina);
-
-  useEffect(() => { setPagina(1); }, [busca, fBloco, fTag, fVeiculo, porPagina]);
-
+  const filtrosDoPainel = (fBloco !== "Todos" ? 1 : 0) + (fVeiculo !== "Todos" ? 1 : 0);
   const temFiltroVaga = busca || fBloco !== "Todos" || fTag !== "Todos" || fVeiculo !== "Todos";
   const temFiltroTag = buscaTag || fStatusTag !== "Todos";
 
-  const limparVagas = () => { setBusca(""); setFBloco("Todos"); setFTag("Todos"); setFVeiculo("Todos"); };
+  const limparPainel = () => { setFBloco("Todos"); setFVeiculo("Todos"); setLimite(LOTE); };
+  const limparVagas = () => { setBusca(""); setFTag("Todos"); limparPainel(); };
   const limparTags = () => { setBuscaTag(""); setFStatusTag("Todos"); };
 
   /* ---------------- vaga ---------------- */
@@ -509,6 +549,7 @@ export default function Vagas({ user }) {
       danger: true,
     });
     if (!ok) return;
+    setTagVendo(null);
     await excluir(t.id, "TAGS", `TAG da unidade ${rotuloUnidade(t.id_unidade)}`);
   };
 
@@ -597,7 +638,7 @@ export default function Vagas({ user }) {
     img.onerror = () => gerar(false);
   };
 
-  /* ---------------- colunas ---------------- */
+  /* ---------------- lista ---------------- */
 
   /** "Proprietario" -> "Proprietário". O banco guarda sem acento, por causa
    *  do `check` do 0041; o acento e assunto de quem le. */
@@ -614,81 +655,12 @@ export default function Vagas({ user }) {
     );
   };
 
-  const colunasVagas = [
-    { key: "id_unidade", label: "Unidade", tipo: "id", width: 108,
-      render: (v) => rotuloUnidade(v.id_unidade) },
-    { key: "veiculos", label: "Veículos",
-      render: (v) => {
-        if (veiculosDe(v).length === 0) return null;
-        return (
-          <span style={{ display: "inline-flex", gap: "var(--space-5)", alignItems: "center" }}>
-            {v.possui_carro === "Sim" && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <Car size={14} aria-hidden="true" /> Carro
-              </span>
-            )}
-            {v.possui_moto === "Sim" && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <Bike size={14} aria-hidden="true" /> Moto
-              </span>
-            )}
-          </span>
-        );
-      } },
-    { key: "placas", label: "Modelo e placa",
-      render: (v) => {
-        const d = placasDe(v);
-        if (d.length === 0) return null;
-        return (
-          <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {d.map((linha) => <span key={linha} className="vag-placa">{linha}</span>)}
-          </span>
-        );
-      } },
-    { key: "tag", label: "TAG",
-      render: (v) => badgeTag(tagDaUnidade(v.id_unidade)?.status) },
-  ];
+  const contarVeiculos = (x) => {
+    const partes = [x.possui_carro === "Sim" ? "1 carro" : null, x.possui_moto === "Sim" ? "1 moto" : null].filter(Boolean);
+    return partes.length ? partes.join(" · ") : "Sem veículo";
+  };
 
-  const colunasTags = [
-    { key: "id_unidade", label: "Unidade", tipo: "id", width: 108,
-      render: (t) => rotuloUnidade(t.id_unidade) },
-    { key: "nome_solicitante", label: "Solicitante",
-      // O tipo embaixo do nome, e nao numa coluna propria: sao a mesma
-      // informacao, e separados ocupam o dobro da largura numa tabela que ja
-      // rola de lado no celular.
-      render: (t) => (
-        <span>
-          <span style={{ display: "block", fontWeight: 600 }}>{t.nome_solicitante || "—"}</span>
-          {t.tipo_solicitante && (
-            <span className="ent-cpf">{rotuloTipoSolicitante(t.tipo_solicitante)}</span>
-          )}
-        </span>
-      ) },
-    { key: "veiculo", label: "Veículo",
-      // Placa, modelo e cor saem da VAGA, e nao de copia guardada na TAG:
-      // corrigir a placa na vaga tem de mudar o que se le aqui.
-      render: (t) => {
-        const dados = veiculoDaVaga(vagas.find((v) => String(v.id) === String(t.id_vagas)), t.veiculo);
-        return (
-          <span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600 }}>
-              {t.veiculo === "Moto" ? <Bike size={14} aria-hidden="true" /> : <Car size={14} aria-hidden="true" />}
-              {t.veiculo}
-            </span>
-            {descreverVeiculo(dados) && (
-              <span className="ent-cpf">{descreverVeiculo(dados)}</span>
-            )}
-          </span>
-        );
-      } },
-    { key: "custo_total", label: "Custo", tipo: "id", width: 110,
-      render: (t) => (t.custo_total == null ? "—" : formatCurrency(t.custo_total)) },
-    { key: "data_entrega", label: "Entrega", tipo: "id", width: 118,
-      render: (t) => dataBR(t.data_entrega) || "—" },
-    { key: "status", label: "Status", render: (t) => badgeTag(t.status) },
-  ];
-
-  /* ---------------- resumo ---------------- */
+  const vagaDaTagNaLista = (t) => vagas.find((v) => String(v.id) === String(t.id_vagas));
 
   const resumo = useMemo(() => ({
     comCarro: vagas.filter((v) => v.possui_carro === "Sim").length,
@@ -704,6 +676,14 @@ export default function Vagas({ user }) {
         `${resumo.comMoto} motos`,
         resumo.solicitadas ? `${resumo.solicitadas} TAGs solicitadas` : null,
       ].filter(Boolean).join(" · ");
+
+  // O que abre no modal de ver. Nomes curtos de propósito: as guardas de
+  // permissão (vagas-permissao.test) procuram `excluirVaga(v)` e `excluirTag(t)`.
+  const v = detalhe;
+  const t = tagVendo;
+  const tagDoDetalhe = v ? tagDaUnidade(v.id_unidade) : null;
+  const vagaDoDetalheDaTag = t ? vagaDaTagNaLista(t) : null;
+  const veiculoDoDetalheDaTag = t ? veiculoDaVaga(vagaDoDetalheDaTag, t.veiculo) : null;
 
   return (
     <div>
@@ -748,116 +728,105 @@ export default function Vagas({ user }) {
       {/* ===================== VAGAS ===================== */}
       {aba === "vagas" && (
         <>
-          <div className="cad-filtros">
-            <div className="cad-filtros__busca">
-              <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-              <Input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por unidade, modelo ou placa"
-                aria-label="Buscar por unidade, modelo ou placa"
-              />
-            </div>
-            <Select value={fBloco} onChange={(e) => setFBloco(e.target.value)} aria-label="Filtrar por bloco">
-              {blocos.map((b) => (
-                <option key={b} value={b}>{b === "Todos" ? "Todos os blocos" : `Bloco ${b}`}</option>
-              ))}
-            </Select>
-            <Select value={fVeiculo} onChange={(e) => setFVeiculo(e.target.value)} aria-label="Filtrar por veículo">
-              <option value="Todos">Qualquer veículo</option>
-              <option value="Carro">Com carro</option>
-              <option value="Moto">Com moto</option>
-              <option value="Nenhum">Sem veículo</option>
-            </Select>
-            <Select value={fTag} onChange={(e) => setFTag(e.target.value)} aria-label="Filtrar por status da TAG">
-              <option value="Todos">Qualquer TAG</option>
-              {STATUS_TAG.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              <option value="Sem Tag">Sem TAG</option>
-            </Select>
-            {temFiltroVaga && (
-              <Button variant="ghost" onClick={limparVagas} iconLeft={<RotateCcw size={14} />}>
-                Limpar
-              </Button>
-            )}
-          </div>
-
-          <Table
-            columns={colunasVagas}
-            rows={vagasExibidas}
-            loading={carregando}
-            getRowKey={(v) => v.id ?? v.id_unidade}
-            rowActions={(v) => (
-              <>
-                <Button size="sm" variant="ghost" aria-label={`Ver vaga da unidade ${rotuloUnidade(v.id_unidade)}`}
-                        onClick={() => setDetalhe(v)} iconLeft={<Eye size={14} />} />
-                {podeCriarTag && (
-                  <Button size="sm" variant="ghost" aria-label={`Registrar TAG para a unidade ${rotuloUnidade(v.id_unidade)}`}
-                          onClick={() => abrirNovaTag(v.id_unidade)} iconLeft={<TagIcon size={14} />} />
-                )}
-                {podeEditarVaga && (
-                  <Button size="sm" variant="ghost" aria-label={`Editar vaga da unidade ${rotuloUnidade(v.id_unidade)}`}
-                          onClick={() => abrirEdicaoVaga(v)} iconLeft={<Edit2 size={14} />} />
-                )}
-                {podeExcluir && (
-                  <Button size="sm" variant="ghost" aria-label={`Excluir vaga da unidade ${rotuloUnidade(v.id_unidade)}`}
-                          onClick={() => excluirVaga(v)} iconLeft={<Trash2 size={14} />} />
-                )}
-              </>
-            )}
-            empty={
-              temFiltroVaga ? (
-                <EmptyState
-                  icon={<Search size={20} />}
-                  title="Nenhuma vaga com esses filtros"
-                  description="Ajuste a busca ou limpe os filtros para ver todos os registros."
-                  action={<Button onClick={limparVagas}>Limpar filtros</Button>}
-                />
-              ) : (
-                <EmptyState
-                  icon={<Car size={20} />}
-                  title="Nenhuma vaga cadastrada"
-                  description="Cadastre o primeiro registro para vincular veículos a uma unidade."
-                  action={podeEditarVaga && (
-                    <Button variant="primary" onClick={abrirNovaVaga} iconLeft={<Plus size={16} />}>
-                      Nova vaga
-                    </Button>
-                  )}
-                />
-              )
+          <Filtros
+            busca={busca}
+            onBusca={(x) => { setBusca(x); setLimite(LOTE); }}
+            placeholder="Unidade, modelo ou placa"
+            rotuloFiltro="TAG"
+            filtro={fTag}
+            onFiltro={(x) => { setFTag(x); setLimite(LOTE); }}
+            filtros={[
+              ["Todos", "Todas", contagemTag.Todos],
+              ["Sem Tag", "Sem TAG", contagemTag["Sem Tag"]],
+              ...STATUS_TAG.map((s) => [s.value, s.label, contagemTag[s.value]]),
+            ]}
+            painel={
+              <PainelDeFiltros aberto={maisFiltros}>
+                <Field label="Bloco">
+                  <Opcoes rotulo="Bloco" valor={fBloco} onMudar={(x) => { setFBloco(x); setLimite(LOTE); }}
+                    opcoes={blocos.map((b) => [b, b === "Todos" ? "Todos" : `Bloco ${b}`])} />
+                </Field>
+                <Field label="Veículo">
+                  <Opcoes rotulo="Veículo" valor={fVeiculo} onMudar={(x) => { setFVeiculo(x); setLimite(LOTE); }}
+                    opcoes={[["Todos", "Todos"], ["Carro", "Com carro"], ["Moto", "Com moto"], ["Nenhum", "Sem veículo"]]} />
+                </Field>
+              </PainelDeFiltros>
             }
-          />
+          >
+            <MaisFiltros aberto={maisFiltros} onAlternar={() => setMaisFiltros((a) => !a)}
+              ativos={filtrosDoPainel} onLimpar={limparPainel} />
+          </Filtros>
 
-          {!carregando && linhasVagas.length > 0 && (
-            <div className="cad-paginacao">
-              <span className="cad-paginacao__info">
-                {porPagina === "Todos"
-                  ? `${linhasVagas.length} registro(s)`
-                  : `${(paginaSegura - 1) * porPagina + 1} a ${Math.min(paginaSegura * porPagina, linhasVagas.length)} de ${linhasVagas.length}`}
-              </span>
-              <div className="cad-paginacao__controles">
-                <Select
-                  value={porPagina}
-                  onChange={(e) => setPorPagina(e.target.value === "Todos" ? "Todos" : Number(e.target.value))}
-                  aria-label="Registros por página"
-                  className="cad-paginacao__tamanho"
-                >
-                  <option value={25}>25 por página</option>
-                  <option value={50}>50 por página</option>
-                  <option value={100}>100 por página</option>
-                  <option value="Todos">Mostrar todos</option>
-                </Select>
-                {totalPaginas > 1 && (
-                  <>
-                    <Button size="sm" aria-label="Página anterior" disabled={paginaSegura <= 1}
-                            onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                            iconLeft={<ChevronLeft size={15} />} />
-                    <span className="cad-paginacao__pagina">{paginaSegura} de {totalPaginas}</span>
-                    <Button size="sm" aria-label="Próxima página" disabled={paginaSegura >= totalPaginas}
-                            onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                            iconLeft={<ChevronRight size={15} />} />
-                  </>
+          {!carregando && linhasVagas.length === 0 ? (
+            temFiltroVaga ? (
+              <EmptyState
+                icon={<Search size={20} />}
+                title="Nenhuma vaga com esses filtros"
+                description="Ajuste a busca ou limpe os filtros para ver todos os registros."
+                action={<Button onClick={limparVagas}>Limpar filtros</Button>}
+              />
+            ) : (
+              <EmptyState
+                icon={<Car size={20} />}
+                title="Nenhuma vaga cadastrada"
+                description="Cadastre o primeiro registro para vincular veículos a uma unidade."
+                action={podeEditarVaga && (
+                  <Button variant="primary" onClick={abrirNovaVaga} iconLeft={<Plus size={16} />}>
+                    Nova vaga
+                  </Button>
                 )}
-              </div>
+              />
+            )
+          ) : (
+            <ListaQueAbre
+              colunas={[
+                { rotulo: "Unidade", largura: "100px", ordem: "unidade" },
+                { rotulo: "Veículos", largura: "minmax(0, 0.9fr)" },
+                { rotulo: "Modelo e placa", largura: "minmax(0, 1.6fr)" },
+                { rotulo: "TAG", largura: "minmax(0, 1fr)", ordem: "tag" },
+              ]}
+              ordenacao={ordemVagas}
+              onOrdenar={ordenarVagas}
+              larguraAcoes="136px"
+              itens={linhasVagas.slice(0, limite)}
+              carregando={carregando}
+              chave={(x) => x.id ?? x.id_unidade}
+              onAbrir={setDetalhe}
+              rotuloDaLinha={(x) => `Abrir a vaga da unidade ${rotuloUnidade(x.id_unidade)}`}
+              celulas={(x) => [
+                <b key="u" className="conf-dado__mono">{rotuloUnidade(x.id_unidade)}</b>,
+                <span key="v" className="vag-veiculos">
+                  {x.possui_carro === "Sim" && <span><Car size={14} aria-hidden="true" /> Carro</span>}
+                  {x.possui_moto === "Sim" && <span><Bike size={14} aria-hidden="true" /> Moto</span>}
+                  {veiculosDe(x).length === 0 && <span className="vag-nada">Nenhum</span>}
+                </span>,
+                <span key="p" className="vag-placas">
+                  {placasDe(x).map((linha) => <span key={linha} className="vag-placa">{linha}</span>)}
+                  {placasDe(x).length === 0 && <span className="vag-nada">—</span>}
+                </span>,
+                <span key="t">{badgeTag(tagDaUnidade(x.id_unidade)?.status)}</span>,
+              ]}
+              acoes={(x) => (
+                <>
+                  <Button size="sm" variant="ghost" aria-label={`Ver vaga da unidade ${rotuloUnidade(x.id_unidade)}`}
+                          onClick={() => setDetalhe(x)}><Eye size={16} /></Button>
+                  {podeCriarTag && (
+                    <Button size="sm" variant="ghost" aria-label={`Registrar TAG para a unidade ${rotuloUnidade(x.id_unidade)}`}
+                            onClick={() => abrirNovaTag(x.id_unidade)}><TagIcon size={16} /></Button>
+                  )}
+                  {podeEditarVaga && (
+                    <Button size="sm" variant="ghost" aria-label={`Editar vaga da unidade ${rotuloUnidade(x.id_unidade)}`}
+                            onClick={() => abrirEdicaoVaga(x)}><Pencil size={16} /></Button>
+                  )}
+                </>
+              )}
+            />
+          )}
+          {linhasVagas.length > limite && (
+            <div className="mud-mais">
+              <Button variant="ghost" onClick={() => setLimite((n) => n + LOTE)}>
+                Mostrar mais ({linhasVagas.length - limite} restantes)
+              </Button>
             </div>
           )}
         </>
@@ -866,168 +835,330 @@ export default function Vagas({ user }) {
       {/* ===================== TAGS ===================== */}
       {aba === "tags" && (
         <>
-          <div className="cad-filtros">
-            <div className="cad-filtros__busca">
-              <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-              <Input
-                value={buscaTag}
-                onChange={(e) => setBuscaTag(e.target.value)}
-                placeholder="Buscar por unidade"
-                aria-label="Buscar TAG por unidade"
+          <Filtros
+            busca={buscaTag}
+            onBusca={setBuscaTag}
+            placeholder="Unidade ou solicitante"
+            filtro={fStatusTag}
+            onFiltro={setFStatusTag}
+            filtros={[
+              ["Todos", "Todas", tags.length],
+              ...STATUS_TAG.map((s) => [s.value, s.label, tags.filter((x) => x.status === s.value).length]),
+            ]}
+          />
+
+          {!carregando && linhasTags.length === 0 ? (
+            temFiltroTag ? (
+              <EmptyState
+                icon={<Search size={20} />}
+                title="Nenhuma TAG com esses filtros"
+                description="Ajuste a busca ou limpe os filtros."
+                action={<Button onClick={limparTags}>Limpar filtros</Button>}
               />
-            </div>
-            <Select value={fStatusTag} onChange={(e) => setFStatusTag(e.target.value)} aria-label="Filtrar por status">
-              <option value="Todos">Qualquer status</option>
-              {STATUS_TAG.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </Select>
-            {temFiltroTag && (
-              <Button variant="ghost" onClick={limparTags} iconLeft={<RotateCcw size={14} />}>
-                Limpar
+            ) : (
+              <EmptyState
+                icon={<TagIcon size={20} />}
+                title="Nenhuma TAG registrada"
+                description="A TAG é sempre vinculada a uma unidade que já tenha registro de vaga."
+                action={podeCriarTag && (
+                  <Button variant="primary" onClick={() => abrirNovaTag()} iconLeft={<Plus size={16} />}>
+                    Nova TAG
+                  </Button>
+                )}
+              />
+            )
+          ) : (
+            <ListaQueAbre
+              colunas={[
+                { rotulo: "Unidade", largura: "100px", ordem: "unidade" },
+                // O tipo embaixo do nome, e nao numa coluna propria: sao a mesma
+                // informacao, e separados ocupam o dobro da largura.
+                { rotulo: "Solicitante", largura: "minmax(0, 1.3fr)", ordem: "nome_solicitante" },
+                { rotulo: "Veículo", largura: "minmax(0, 1.5fr)", ordem: "veiculo" },
+                { rotulo: "Custo", largura: "110px", ordem: "custo_total" },
+                { rotulo: "Entrega", largura: "110px", ordem: "data_entrega" },
+                { rotulo: "Status", largura: "120px", ordem: "status" },
+              ]}
+              ordenacao={ordemTags}
+              onOrdenar={ordenarTags}
+              larguraAcoes="96px"
+              itens={linhasTags}
+              carregando={carregando}
+              chave={(x) => x.id}
+              onAbrir={setTagVendo}
+              rotuloDaLinha={(x) => `Abrir a TAG da unidade ${rotuloUnidade(x.id_unidade)}`}
+              celulas={(x) => {
+                // Placa, modelo e cor saem da VAGA, e nao de copia guardada na
+                // TAG: corrigir a placa na vaga tem de mudar o que se le aqui.
+                const dados = veiculoDaVaga(vagaDaTagNaLista(x), x.veiculo);
+                return [
+                  <b key="u" className="conf-dado__mono">{rotuloUnidade(x.id_unidade)}</b>,
+                  <span key="s" className="mud-quem">
+                    <b>{x.nome_solicitante ? nomeProprio(x.nome_solicitante) : "—"}</b>
+                    {x.tipo_solicitante && <small>{rotuloTipoSolicitante(x.tipo_solicitante)}</small>}
+                  </span>,
+                  <span key="v" className="mud-quem">
+                    <b>{x.veiculo === "Moto" ? <Bike size={14} aria-hidden="true" /> : <Car size={14} aria-hidden="true" />}{x.veiculo}</b>
+                    {descreverVeiculo(dados) && <small>{descreverVeiculo(dados)}</small>}
+                  </span>,
+                  <span key="c" className="conf-dado__mono">{x.custo_total == null ? "—" : formatCurrency(x.custo_total)}</span>,
+                  <span key="d">{dataBR(x.data_entrega) || "—"}</span>,
+                  <span key="st">{badgeTag(x.status)}</span>,
+                ];
+              }}
+              acoes={(x) => (
+                <>
+                  <Button size="sm" variant="ghost" aria-label={`Ver TAG da unidade ${rotuloUnidade(x.id_unidade)}`}
+                          onClick={() => setTagVendo(x)}><Eye size={16} /></Button>
+                  {/* O porteiro só alcança a TAG que está "Disponível": antes disso o
+                      pedido está com a administração, e depois de aplicada acabou.
+                      Sem esta condição o botão aparece em toda linha e o 0039
+                      recusa a gravação depois de ele já ter preenchido. */}
+                  {podeEditarTag && podeMexerNaTag({ livre: podeDefinirStatus, status: x.status }) && (
+                    <Button size="sm" variant="ghost" aria-label={`Editar TAG da unidade ${rotuloUnidade(x.id_unidade)}`}
+                            onClick={() => abrirEdicaoTag(x)}><Pencil size={16} /></Button>
+                  )}
+                </>
+              )}
+            />
+          )}
+        </>
+      )}
+
+      {/* ---- Ver a vaga: o desenho do detalhe de Encomendas ---- */}
+      <Modal
+        open={Boolean(v)}
+        onClose={() => setDetalhe(null)}
+        title="Detalhes da vaga"
+        size="lg"
+        footer={v && (
+          <div className="app-modal__acoes">
+            {podeExcluir ? (
+              <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluirVaga(v)}>Excluir</Button>
+            ) : <span />}
+            {podeCriarTag && !tagDoDetalhe && (
+              <Button variant="secondary" className="res-contrato" iconLeft={<TagIcon size={15} />}
+                      onClick={() => { setDetalhe(null); abrirNovaTag(v.id_unidade); }}>
+                Registrar TAG
+              </Button>
+            )}
+            {/* O porteiro CHEGA aqui: este modal abre pelo olho, que é dele.
+                Sem esta guarda, a única porta para editar vaga que sobrava
+                aberta para ele era esta — e é a menos óbvia de todas. */}
+            {podeEditarVaga && (
+              <Button variant="primary" iconLeft={<Pencil size={15} />}
+                      onClick={() => { setDetalhe(null); abrirEdicaoVaga(v); }}>
+                Editar
               </Button>
             )}
           </div>
+        )}
+      >
+        {v && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <span className="app-veiculo__ic" aria-hidden="true"><Car size={22} /></span>
+              <div className="app-modal__quem">
+                <strong>Unidade {rotuloUnidade(v.id_unidade)}</strong>
+                <small>{contarVeiculos(v)}</small>
+                <span className="app-modal__selos">{badgeTag(tagDoDetalhe?.status, tagDoDetalhe?.veiculo)}</span>
+              </div>
+            </div>
 
-          <Table
-            columns={colunasTags}
-            rows={linhasTags}
-            loading={carregando}
-            getRowKey={(t) => t.id}
-            rowActions={(t) => (
-              <>
-                {/* O porteiro só alcança a TAG que está "Disponível": antes disso o
-                    pedido está com a administração, e depois de aplicada acabou.
-                    Sem esta condição o botão aparece em toda linha e o 0039
-                    recusa a gravação depois de ele já ter preenchido. */}
-                {podeEditarTag && podeMexerNaTag({ livre: podeDefinirStatus, status: t.status }) && (
-                  <Button size="sm" variant="ghost" aria-label={`Editar TAG da unidade ${rotuloUnidade(t.id_unidade)}`}
-                          onClick={() => abrirEdicaoTag(t)} iconLeft={<Edit2 size={14} />} />
+            <div className="app-detalhe">
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Veículos da unidade</p>
+                {veiculosDe(v).length === 0 ? (
+                  <p className="app-modal__aviso">Nenhum carro ou moto cadastrado nesta unidade.</p>
+                ) : (
+                  <div className="vag-cartoes">
+                    {v.possui_carro === "Sim" && (
+                      <CartaoDoVeiculo tipo="Carro" placa={v.placa_carro} modelo={v.modelo_carro} cor={v.cor_carro} situacao={v.status_carro} />
+                    )}
+                    {v.possui_moto === "Sim" && (
+                      <CartaoDoVeiculo tipo="Moto" placa={v.placa_moto} modelo={v.modelo_moto} cor={v.cor_moto} situacao={v.status_moto} />
+                    )}
+                  </div>
                 )}
-                {podeExcluir && (
-                  <Button size="sm" variant="ghost" aria-label={`Excluir TAG da unidade ${rotuloUnidade(t.id_unidade)}`}
-                          onClick={() => excluirTag(t)} iconLeft={<Trash2 size={14} />} />
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="TAG" itens={tagDoDetalhe ? [
+                  ["Status", badgeTag(tagDoDetalhe.status)],
+                  ["Veículo", tagDoDetalhe.veiculo || "—"],
+                  ["Solicitante", tagDoDetalhe.nome_solicitante ? nomeProprio(tagDoDetalhe.nome_solicitante) : "Não informado"],
+                  ["Entrega", dataBR(tagDoDetalhe.data_entrega) || "Não informada"],
+                ] : [["Status", badgeTag(null)]]} />
+                {v.observacoes?.trim() && (
+                  <section className="app-ficha">
+                    <h3 className="app-ficha__titulo">Observações</h3>
+                    <p className="mud-obs">{v.observacoes}</p>
+                  </section>
                 )}
-              </>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ---- Ver a TAG: o desenho do detalhe de Encomendas ---- */}
+      <Modal
+        open={Boolean(t)}
+        onClose={() => setTagVendo(null)}
+        title="Detalhes da TAG"
+        size="lg"
+        footer={t && (
+          <div className="app-modal__acoes">
+            {podeExcluir ? (
+              <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluirTag(t)}>Excluir</Button>
+            ) : <span />}
+            {podeEditarTag && podeMexerNaTag({ livre: podeDefinirStatus, status: t.status }) && (
+              <Button variant="primary" iconLeft={<Pencil size={15} />}
+                      onClick={() => { setTagVendo(null); abrirEdicaoTag(t); }}>
+                Editar
+              </Button>
             )}
-            empty={
-              temFiltroTag ? (
-                <EmptyState
-                  icon={<Search size={20} />}
-                  title="Nenhuma TAG com esses filtros"
-                  description="Ajuste a busca ou limpe os filtros."
-                  action={<Button onClick={limparTags}>Limpar filtros</Button>}
-                />
-              ) : (
-                <EmptyState
-                  icon={<TagIcon size={20} />}
-                  title="Nenhuma TAG registrada"
-                  description="A TAG é sempre vinculada a uma unidade que já tenha registro de vaga."
-                  action={podeCriarTag && (
-                    <Button variant="primary" onClick={() => abrirNovaTag()} iconLeft={<Plus size={16} />}>
-                      Nova TAG
-                    </Button>
-                  )}
-                />
-              )
-            }
-          />
-        </>
-      )}
+          </div>
+        )}
+      >
+        {t && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <span className="app-veiculo__ic" aria-hidden="true"><TagIcon size={22} /></span>
+              <div className="app-modal__quem">
+                <strong>TAG da unidade {rotuloUnidade(t.id_unidade)}</strong>
+                <small>{t.veiculo || "Veículo"}{t.nome_solicitante ? ` · pedida por ${nomeProprio(t.nome_solicitante)}` : ""}</small>
+                <span className="app-modal__selos">{badgeTag(t.status)}</span>
+              </div>
+            </div>
+
+            <div className="app-detalhe">
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Veículo da TAG</p>
+                {veiculoDoDetalheDaTag ? (
+                  <CartaoDoVeiculo tipo={t.veiculo} placa={veiculoDoDetalheDaTag.placa}
+                    modelo={veiculoDoDetalheDaTag.modelo} cor={veiculoDoDetalheDaTag.cor} />
+                ) : (
+                  <p className="app-modal__aviso">O {String(t.veiculo || "veículo").toLowerCase()} desta TAG não está mais cadastrado na vaga.</p>
+                )}
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Pedido" itens={[
+                  ["Solicitante", t.nome_solicitante ? nomeProprio(t.nome_solicitante) : "Não informado"],
+                  ["Tipo", t.tipo_solicitante ? rotuloTipoSolicitante(t.tipo_solicitante) : "Não informado"],
+                  ["Custo", t.custo_total == null ? "Não informado" : formatCurrency(t.custo_total), true],
+                  ["Entrega", dataBR(t.data_entrega) || "Não informada"],
+                ]} />
+                {t.observacoes?.trim() && (
+                  <section className="app-ficha">
+                    <h3 className="app-ficha__titulo">Observações</h3>
+                    <p className="mud-obs">{t.observacoes}</p>
+                  </section>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* ---- Cadastro e edição de vaga ---- */}
       <Modal
         open={modalVaga}
         onClose={() => setModalVaga(false)}
         title={modo === "add" ? "Nova vaga" : `Editar vaga ${rotuloUnidade(form.id_unidade)}`}
+        size="md"
         footer={
-          <>
+          <div className="app-modal__acoes">
+            <span />
             <Button variant="ghost" onClick={() => setModalVaga(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={salvarVaga} loading={salvando}>
+            <Button variant="primary" type="submit" form="form-vaga" loading={salvando}>
               {modo === "add" ? "Cadastrar" : "Salvar"}
             </Button>
-          </>
+          </div>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+        <form id="form-vaga" className="mud-form" noValidate onSubmit={(e) => { e.preventDefault(); salvarVaga(); }}>
           <Field label="Unidade" required error={erroForm.id_unidade}>
-            <Select
-              value={form.id_unidade}
+            <BuscaUnidade
+              unidades={unidadesOrdenadas}
+              valor={unidadePorId.get(String(form.id_unidade)) ?? null}
               disabled={modo === "edit"}
-              onChange={(e) => setForm({ ...form, id_unidade: e.target.value })}
-            >
-              <option value="">Selecione a unidade</option>
-              {unidadesOrdenadas.map((u) => (
-                <option key={u.id} value={u.id}>Bloco {u.bloco} · Unidade {u.unidade}</option>
-              ))}
-            </Select>
+              onEscolher={(u) => setForm({ ...form, id_unidade: u?.id ?? "" })}
+            />
           </Field>
 
           <fieldset className="vag-bloco">
             <legend className="vag-bloco__titulo"><Car size={15} aria-hidden="true" /> Carro</legend>
-            <div className="cad-form">
-              <Field label="Possui carro">
-                <Select value={form.possui_carro} onChange={(e) => setForm({ ...form, possui_carro: e.target.value })}>
-                  <option value="Não">Não</option>
-                  <option value="Sim">Sim</option>
-                </Select>
-              </Field>
-              <Field label="Status">
-                <Select value={form.status_carro} disabled={form.possui_carro !== "Sim"}
-                        onChange={(e) => setForm({ ...form, status_carro: e.target.value })}>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Inativo">Inativo</option>
-                </Select>
-              </Field>
-              <Field label="Modelo">
-                <Input value={form.modelo_carro} disabled={form.possui_carro !== "Sim"}
-                       onChange={(e) => setForm({ ...form, modelo_carro: e.target.value })} />
-              </Field>
-              <Field label="Cor">
-                {/* Entrou no 0041, junto com a ficha da TAG: a TAG mostra placa,
-                    modelo E cor, e a cor nao existia em lugar nenhum. Fica aqui,
-                    e nao na TAG, porque e do veiculo -- guardada nos dois lugares,
-                    a que ninguem atualiza e a que a portaria le no portao. */}
-                <Input value={form.cor_carro} disabled={form.possui_carro !== "Sim"} placeholder="Prata"
-                       onChange={(e) => setForm({ ...form, cor_carro: e.target.value })} />
-              </Field>
-              <Field label="Placa" error={erroForm.placa_carro}>
-                <Input value={form.placa_carro} disabled={form.possui_carro !== "Sim"} placeholder="ABC1D23"
-                       onChange={(e) => setForm({ ...form, placa_carro: placaMaiuscula(e.target.value) })} />
-              </Field>
+            <div className="mud-form">
+              <Chave
+                ligada={form.possui_carro === "Sim"}
+                onChange={(liga) => setForm({ ...form, possui_carro: liga ? "Sim" : "Não" })}
+                titulo="Possui carro"
+                sub="Ligue para cadastrar placa, modelo e cor"
+              />
+              {form.possui_carro === "Sim" && (
+                <>
+                  <div className="mud-form__par">
+                    <Field label="Placa" required error={erroForm.placa_carro}>
+                      <Input value={form.placa_carro} placeholder="ABC1D23"
+                             onChange={(e) => setForm({ ...form, placa_carro: placaMaiuscula(e.target.value) })} />
+                    </Field>
+                    <Field label="Modelo">
+                      <Input value={form.modelo_carro}
+                             onChange={(e) => setForm({ ...form, modelo_carro: e.target.value })} />
+                    </Field>
+                  </div>
+                  <div className="mud-form__par">
+                    <Field label="Cor">
+                      {/* Entrou no 0041, junto com a ficha da TAG: a TAG mostra placa,
+                          modelo E cor. Fica aqui, e nao na TAG, porque e do veiculo. */}
+                      <Input value={form.cor_carro} placeholder="Prata"
+                             onChange={(e) => setForm({ ...form, cor_carro: e.target.value })} />
+                    </Field>
+                    <Field label="Situação">
+                      <Opcoes rotulo="Situação do carro" valor={form.status_carro || "Ativo"}
+                              onMudar={(s) => setForm({ ...form, status_carro: s })} opcoes={["Ativo", "Inativo"]} />
+                    </Field>
+                  </div>
+                </>
+              )}
             </div>
           </fieldset>
 
           <fieldset className="vag-bloco">
             <legend className="vag-bloco__titulo"><Bike size={15} aria-hidden="true" /> Moto</legend>
-            <div className="cad-form">
-              <Field label="Possui moto">
-                <Select value={form.possui_moto} onChange={(e) => setForm({ ...form, possui_moto: e.target.value })}>
-                  <option value="Não">Não</option>
-                  <option value="Sim">Sim</option>
-                </Select>
-              </Field>
-              <Field label="Status">
-                <Select value={form.status_moto} disabled={form.possui_moto !== "Sim"}
-                        onChange={(e) => setForm({ ...form, status_moto: e.target.value })}>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Inativo">Inativo</option>
-                </Select>
-              </Field>
-              <Field label="Modelo">
-                <Input value={form.modelo_moto} disabled={form.possui_moto !== "Sim"}
-                       onChange={(e) => setForm({ ...form, modelo_moto: e.target.value })} />
-              </Field>
-              <Field label="Cor">
-                {/* Entrou no 0041, junto com a ficha da TAG: a TAG mostra placa,
-                    modelo E cor, e a cor nao existia em lugar nenhum. Fica aqui,
-                    e nao na TAG, porque e do veiculo -- guardada nos dois lugares,
-                    a que ninguem atualiza e a que a portaria le no portao. */}
-                <Input value={form.cor_moto} disabled={form.possui_moto !== "Sim"} placeholder="Prata"
-                       onChange={(e) => setForm({ ...form, cor_moto: e.target.value })} />
-              </Field>
-              <Field label="Placa" error={erroForm.placa_moto}>
-                <Input value={form.placa_moto} disabled={form.possui_moto !== "Sim"} placeholder="ABC1D23"
-                       onChange={(e) => setForm({ ...form, placa_moto: placaMaiuscula(e.target.value) })} />
-              </Field>
+            <div className="mud-form">
+              <Chave
+                ligada={form.possui_moto === "Sim"}
+                onChange={(liga) => setForm({ ...form, possui_moto: liga ? "Sim" : "Não" })}
+                titulo="Possui moto"
+                sub="Ligue para cadastrar placa, modelo e cor"
+              />
+              {form.possui_moto === "Sim" && (
+                <>
+                  <div className="mud-form__par">
+                    <Field label="Placa" required error={erroForm.placa_moto}>
+                      <Input value={form.placa_moto} placeholder="ABC1D23"
+                             onChange={(e) => setForm({ ...form, placa_moto: placaMaiuscula(e.target.value) })} />
+                    </Field>
+                    <Field label="Modelo">
+                      <Input value={form.modelo_moto}
+                             onChange={(e) => setForm({ ...form, modelo_moto: e.target.value })} />
+                    </Field>
+                  </div>
+                  <div className="mud-form__par">
+                    <Field label="Cor">
+                      <Input value={form.cor_moto} placeholder="Prata"
+                             onChange={(e) => setForm({ ...form, cor_moto: e.target.value })} />
+                    </Field>
+                    <Field label="Situação">
+                      <Opcoes rotulo="Situação da moto" valor={form.status_moto || "Ativo"}
+                              onMudar={(s) => setForm({ ...form, status_moto: s })} opcoes={["Ativo", "Inativo"]} />
+                    </Field>
+                  </div>
+                </>
+              )}
             </div>
           </fieldset>
 
@@ -1035,7 +1166,7 @@ export default function Vagas({ user }) {
             <Textarea value={form.observacoes}
                       onChange={(e) => setForm({ ...form, observacoes: e.target.value })} />
           </Field>
-        </div>
+        </form>
       </Modal>
 
       {/* ---- TAG ---- */}
@@ -1043,28 +1174,22 @@ export default function Vagas({ user }) {
         open={modalTag}
         onClose={() => setModalTag(false)}
         title={formTag.id ? "Editar TAG" : "Nova TAG"}
-        size="sm"
+        size="md"
         footer={
-          <>
+          <div className="app-modal__acoes">
+            <span />
             <Button variant="ghost" onClick={() => setModalTag(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={salvarTag} loading={salvando}>
+            <Button variant="primary" type="submit" form="form-tag" loading={salvando}>
               {formTag.id ? "Salvar" : "Registrar"}
             </Button>
-          </>
+          </div>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
-          {/* Digitação em vez de <select>, como nas outras telas: quem usa o
-              sistema decorou a forma concatenada ("5206" e bloco 5, apto 206) e
-              digita assim. Rolar 128 opcoes era o caminho longo para a mesma
-              coisa.
-
-              A busca varre TODAS as unidades, e nao so as que ja tem vaga. O
-              <select> escondia as sem vaga, e esconder produz o pior tipo de
-              falha aqui: a pessoa digita 5206, nao aparece nada, e conclui que
-              a unidade nao existe. Aparecendo, a validacao do salvar diz a
-              verdade -- "cadastre a vaga primeiro" -- que e o que ela precisa
-              fazer. */}
+        <form id="form-tag" className="mud-form" noValidate onSubmit={(e) => { e.preventDefault(); salvarTag(); }}>
+          {/* A busca varre TODAS as unidades, e nao so as que ja tem vaga:
+              esconder produz o pior tipo de falha aqui — a pessoa digita 5206,
+              nao aparece nada, e conclui que a unidade nao existe. Aparecendo,
+              a validacao do salvar diz a verdade: "cadastre a vaga primeiro". */}
           <Field
             label="Unidade"
             required
@@ -1084,19 +1209,17 @@ export default function Vagas({ user }) {
               value={formTag.nome_solicitante}
               placeholder="Quem está pedindo a TAG"
               onChange={(e) => setFormTag({ ...formTag, nome_solicitante: e.target.value })}
+              onBlur={(e) => setFormTag({ ...formTag, nome_solicitante: nomeProprio(e.target.value) })}
             />
           </Field>
 
           <Field label="Tipo de solicitante" required error={erroTag.tipo_solicitante}>
-            <Select
-              value={formTag.tipo_solicitante}
-              onChange={(e) => setFormTag({ ...formTag, tipo_solicitante: e.target.value })}
-            >
-              <option value="">Selecione</option>
-              {TIPOS_SOLICITANTE.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </Select>
+            <Opcoes
+              rotulo="Tipo de solicitante"
+              valor={formTag.tipo_solicitante}
+              onMudar={(x) => setFormTag({ ...formTag, tipo_solicitante: x })}
+              opcoes={TIPOS_SOLICITANTE.map((x) => [x.value, x.label])}
+            />
           </Field>
 
           <Field
@@ -1105,17 +1228,17 @@ export default function Vagas({ user }) {
             error={erroTag.veiculo}
             help="Placa, modelo e cor vêm do cadastro da vaga."
           >
-            <Select value={formTag.veiculo} onChange={(e) => setFormTag({ ...formTag, veiculo: e.target.value })}>
-              <option value="Carro">Carro</option>
-              <option value="Moto">Moto</option>
-            </Select>
+            <Opcoes
+              rotulo="Veículo"
+              valor={formTag.veiculo}
+              onMudar={(x) => setFormTag({ ...formTag, veiculo: x })}
+              opcoes={["Carro", "Moto"]}
+            />
           </Field>
 
-          {/* O veículo, tirado da vaga e só de leitura. Não é campo: é o que a
-              unidade já tem cadastrado, mostrado aqui para quem pede a TAG
-              conferir antes de mandar. Corrigir se faz na vaga — guardada uma
-              cópia aqui, a que ninguém atualiza é a que a portaria lê no
-              portão. */}
+          {/* O veículo, tirado da vaga e só de leitura. Corrigir se faz na vaga
+              — guardada uma cópia aqui, a que ninguém atualiza é a que a
+              portaria lê no portão. */}
           {formTag.id_unidade && (
             <div className="tag-veiculo" data-vazio={veiculoDaTag ? undefined : "sim"}>
               {veiculoDaTag ? (
@@ -1138,11 +1261,9 @@ export default function Vagas({ user }) {
 
           {/* Custo e data de entrega são da administração — e não só aqui: o
               0041 recusa no banco o insert do porteiro que traga qualquer um
-              dos dois, e o gatilho recusa a alteração deles. Para ele os campos
-              nem aparecem, em vez de aparecerem travados: ele não tem nada a
-              fazer com eles nem depois. */}
+              dos dois. Para ele os campos nem aparecem. */}
           {podeDefinirStatus && (
-            <>
+            <div className="mud-form__par">
               <Field label="Custo total" error={erroTag.custo_total}>
                 <Input
                   type="number" min="0" step="0.01" placeholder="0,00"
@@ -1158,16 +1279,8 @@ export default function Vagas({ user }) {
                   onChange={(e) => setFormTag({ ...formTag, data_entrega: e.target.value })}
                 />
               </Field>
-            </>
+            </div>
           )}
-
-          <Field label="Observações">
-            <Textarea
-              rows={3}
-              value={formTag.observacoes}
-              onChange={(e) => setFormTag({ ...formTag, observacoes: e.target.value })}
-            />
-          </Field>
 
           <Field label="Status" help={ajudaDoStatus}>
             <Select
@@ -1178,70 +1291,15 @@ export default function Vagas({ user }) {
               {statusAberto.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </Select>
           </Field>
-        </div>
-      </Modal>
 
-      {/* ---- Detalhe da vaga ---- */}
-      <Modal
-        open={Boolean(detalhe)}
-        onClose={() => setDetalhe(null)}
-        title={detalhe ? `Unidade ${rotuloUnidade(detalhe.id_unidade)}` : ""}
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setDetalhe(null)}>Fechar</Button>
-            {/* O porteiro CHEGA aqui: este modal abre pelo olho, que é dele.
-                Sem esta guarda, a única porta para editar vaga que sobrava
-                aberta para ele era esta — e é a menos óbvia de todas. */}
-            {podeEditarVaga && (
-              <Button variant="primary" iconLeft={<Edit2 size={15} />}
-                      onClick={() => { const v = detalhe; setDetalhe(null); abrirEdicaoVaga(v); }}>
-                Editar
-              </Button>
-            )}
-          </>
-        }
-      >
-        {detalhe && (
-          <dl className="cad-detalhe">
-            <LinhaDet
-              rotulo="Carro"
-              mono
-              valor={detalhe.possui_carro === "Sim"
-                ? `${detalhe.modelo_carro || "Sem modelo"} · ${detalhe.placa_carro || "sem placa"}`
-                : null}
+          <Field label="Observações">
+            <Textarea
+              rows={3}
+              value={formTag.observacoes}
+              onChange={(e) => setFormTag({ ...formTag, observacoes: e.target.value })}
             />
-            {detalhe.possui_carro === "Sim" && (
-              <LinhaDet rotulo="Status do carro" valor={
-                <Badge tone={detalhe.status_carro === "Ativo" ? "positive" : "neutral"}>
-                  {detalhe.status_carro}
-                </Badge>
-              } />
-            )}
-            <LinhaDet
-              rotulo="Moto"
-              mono
-              valor={detalhe.possui_moto === "Sim"
-                ? `${detalhe.modelo_moto || "Sem modelo"} · ${detalhe.placa_moto || "sem placa"}`
-                : null}
-            />
-            {detalhe.possui_moto === "Sim" && (
-              <LinhaDet rotulo="Status da moto" valor={
-                <Badge tone={detalhe.status_moto === "Ativo" ? "positive" : "neutral"}>
-                  {detalhe.status_moto}
-                </Badge>
-              } />
-            )}
-            <LinhaDet
-              rotulo="TAG"
-              valor={badgeTag(
-                tagDaUnidade(detalhe.id_unidade)?.status,
-                tagDaUnidade(detalhe.id_unidade)?.veiculo
-              )}
-            />
-            <LinhaDet rotulo="Observações" valor={detalhe.observacoes} />
-          </dl>
-        )}
+          </Field>
+        </form>
       </Modal>
 
       {/* ---- Exportação ---- */}
@@ -1258,13 +1316,13 @@ export default function Vagas({ user }) {
           </>
         }
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-6)" }}>
+        <p className="vit-modal__desc app-export__texto">
           {linhasVagas.length === vagas.length
             ? `Serão exportados os ${linhasVagas.length} registros.`
             : `Serão exportados os ${linhasVagas.length} registros que passam nos filtros atuais, de ${vagas.length} no total.`}
         </p>
-        <p className="vit-field__label" style={{ marginBottom: "var(--space-4)" }}>Colunas do PDF</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <p className="vit-field__label app-export__titulo">Colunas do PDF</p>
+        <div className="app-export__colunas">
           {colunasExport.map((c) => (
             <Checkbox key={c.id} label={c.label} checked={c.selected}
                       onChange={() => alternarColuna(c.id)} />
@@ -1275,13 +1333,24 @@ export default function Vagas({ user }) {
   );
 }
 
-function LinhaDet({ rotulo, valor, mono }) {
+/**
+ * Um veículo da unidade: ícone, modelo e cor, a situação e a placa grande à
+ * direita. O mesmo desenho do cadastro de veículos nas Confirmações.
+ */
+function CartaoDoVeiculo({ tipo, placa, modelo, cor, situacao }) {
   return (
-    <div className="cad-detalhe__linha">
-      <dt className="cad-detalhe__rotulo">{rotulo}</dt>
-      <dd className={`cad-detalhe__valor${mono ? " cad-detalhe__valor--mono" : ""}`}>
-        {valor || <span className="vit-table__vazio">-</span>}
-      </dd>
+    <div className="app-veiculo">
+      <span className="app-veiculo__ic" aria-hidden="true">{tipo === "Moto" ? <Bike size={22} /> : <Car size={22} />}</span>
+      <div className="app-modal__quem">
+        <strong>{modelo || tipo}</strong>
+        <small>{tipo}{cor ? ` · ${cor}` : ""}</small>
+        {situacao && (
+          <span className="app-modal__selos">
+            <Badge tone={situacao === "Ativo" ? "positive" : "neutral"}>{situacao}</Badge>
+          </span>
+        )}
+      </div>
+      <Placa placa={placa || "-------"} />
     </div>
   );
 }

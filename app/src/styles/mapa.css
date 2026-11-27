@@ -313,8 +313,8 @@
   50%      { box-shadow: 0 0 0 8px rgba(176, 123, 6, 0); border-color: var(--aviso-400); }
 }
 @keyframes mapa-pisca-estourado {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 71, 42, .6); border-color: var(--alert-600); }
-  50%      { box-shadow: 0 0 0 9px rgba(180, 71, 42, 0); border-color: var(--alert-400); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(184, 32, 63, .6); border-color: var(--alert-600); }
+  50%      { box-shadow: 0 0 0 9px rgba(184, 32, 63, 0); border-color: var(--alert-400); }
 }
 
 /* Quem pediu menos movimento não perde a informação: a cor e o contorno

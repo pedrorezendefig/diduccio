@@ -39,14 +39,18 @@ export const maskPhone = (v) => {
 
 /**
  * CPF parcialmente oculto para exibição em lista.
- * Mantém os 3 primeiros e os 2 do dígito: 123.***.***-01
+ * Mostra só os 6 do meio: ***.456.789-**, o mesmo padrão do banco
+ * (`cpf_mascarado`, 0065), do app do morador e de Entregas. Antes esta
+ * mostrava os 3 primeiros e os 2 do dígito verificador: junto com a do banco, em outra
+ * tela, as duas completavam o CPF inteiro (teste e2e 12/11). Toda máscara de
+ * CPF tem que esconder as MESMAS posições.
  * Devolve o valor original quando não tem 11 dígitos.
  */
 export const maskCPFPrivacy = (cpf) => {
   if (!cpf) return "";
   const d = soDigitos(cpf);
   if (d.length !== 11) return cpf;
-  return `${d.substring(0, 3)}.***.***-${d.substring(9)}`;
+  return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
 };
 
 /** RG parcialmente oculto: 12.***.***-4 */
@@ -99,6 +103,41 @@ export const dataHoraBR = (valor, { comSegundos = true } = {}) => {
       ...(comSegundos ? { second: "2-digit" } : {}),
     })
     .replace(",", ""); // pt-BR separa data e hora por vírgula; aqui não queremos
+};
+
+/**
+ * `timestamptz` do Postgres -> "2027-04-01T08:00", o valor de um
+ * `<input type="datetime-local">`, no horário de São Paulo.
+ *
+ * Recortar a string não serve aqui: a API devolve o instante em UTC
+ * ("2027-04-01T11:00:00+00:00"), e o recorte poria 11:00 no input. Quem salva
+ * acrescenta "-03:00" ao que está no input, então cada edição empurrava a
+ * mudança três horas para frente. Para só a data, `.slice(0, 10)`.
+ *
+ * Aceita também "DD/MM/AAAA HH:mm" da planilha e valor sem fuso, que já é hora
+ * local e passa como está.
+ */
+export const dataHoraInput = (valor) => {
+  if (!valor) return "";
+  const s = String(valor).trim();
+
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (br) {
+    return `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}T${(br[4] ?? "00").padStart(2, "0")}:${br[5] ?? "00"}`;
+  }
+
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s)) return s.replace(" ", "T").slice(0, 16);
+
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(d).map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 };
 
 /**
@@ -162,3 +201,33 @@ export const normalizarTexto = (texto) =>
     .replace(/[̀-ͯ]/g, "")
     .trim()
     .toLowerCase();
+
+/**
+ * Nome de gente como se escreve: "lucas sampaio" -> "Lucas Sampaio",
+ * "JOÃO DA SILVA" -> "João da Silva".
+ *
+ * As partículas (de, da, do, das, dos, e) ficam minúsculas, menos quando
+ * abrem o nome. Hífen e apóstrofo começam palavra nova ("Ana-Maria",
+ * "D'Ávila"), e algarismo romano fica em caixa alta ("Pedro II"). Espaço
+ * sobrando some.
+ *
+ * A portaria NÃO usa isto: lá o nome é todo em maiúsculas de propósito
+ * (padronizarNome, em lib/portaria).
+ */
+const PARTICULAS = new Set(["de", "da", "do", "das", "dos", "e", "di", "du"]);
+// Só os que aparecem em nome de gente. "Vi", "Li", "Di" são nomes, não números:
+// I, V, X, VI soltos ficavam em caixa alta ("Ana VI Souza").
+const ROMANO = /^(ii|iii|iv|vii|viii|ix)$/i;
+// "McArthur", "DiCaprio": começa maiúscula e tem outra maiúscula depois, sem
+// estar todo em maiúsculas. Quem digitou assim sabia o que fazia: fica.
+const MISTO_DE_PROPOSITO = /^\p{Lu}(?=.*\p{Ll})(?=.*\p{Ll}\p{Lu}).*$/u;
+export function nomeProprio(valor) {
+  const originais = String(valor ?? "").trim().split(/\s+/).filter(Boolean);
+  return originais.map((original, i) => {
+    const p = original.toLocaleLowerCase("pt-BR");
+    if (i > 0 && PARTICULAS.has(p)) return p;
+    if (i > 0 && ROMANO.test(p)) return p.toLocaleUpperCase("pt-BR");
+    if (MISTO_DE_PROPOSITO.test(original)) return original;
+    return p.replace(/(^|[-'’])(\p{L})/gu, (_, sep, letra) => sep + letra.toLocaleUpperCase("pt-BR"));
+  }).join(" ");
+}

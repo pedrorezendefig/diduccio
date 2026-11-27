@@ -1,0 +1,95 @@
+/* ======================= PISCINA (pis-) =======================
+   Lista, modal de ver (carteirinha + cadastro) e o formulário. A carteirinha
+   em si mora em carteirinha.css, com as cores fixas de papel. */
+
+/* A foto pequena na linha e no topo do modal, do tamanho das iniciais. */
+.pis-quem { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.pis-foto {
+  flex: none;
+  display: block;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pis-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.app-modal__topo .pis-foto { width: 64px; height: 64px; }
+.mud-quem small.pis-vencido { color: var(--fg-danger); font-weight: 600; }
+
+/* ---- Ver: a carteirinha à esquerda (app-detalhe), os botões dela embaixo ---- */
+.pis-recortar.vit-btn, .pis-atestado.vit-btn { justify-self: start; }
+
+/* ---- Formulário: foto e atestado ---- */
+.pis-arquivos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
+.pis-arquivo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.pis-arquivo__previa {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+.pis-arquivo__previa img { width: 100%; height: 100%; object-fit: cover; }
+.pis-arquivo__previa--doc { border-radius: var(--radius-md); color: var(--fg-brand); }
+.pis-arquivo__texto { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.pis-arquivo__texto strong { font-size: var(--text-sm); color: var(--fg-default); }
+.pis-arquivo__texto small { font-size: var(--text-xs); color: var(--fg-muted); }
+.pis-arquivo__campo.vit-input { position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; pointer-events: none; }
+
+@media (max-width: 560px) {
+  .pis-arquivos { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ======================= RECORTAR A FOTO (rec-) =======================
+   A foto inteira, e por cima um círculo que se arrasta e muda de tamanho. O
+   escurecido em volta mostra o que fica de fora. */
+.rec { display: grid; gap: var(--space-5); }
+.rec__dica { margin: 0; color: var(--fg-muted); font-size: var(--text-sm); }
+.rec__palco {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+}
+.rec__foto { position: relative; overflow: hidden; touch-action: none; user-select: none; }
+.rec__foto img { display: block; width: 100%; height: 100%; pointer-events: none; }
+.rec__circulo {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--fg-on-brand);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 9999px rgba(20, 11, 10, .55);
+  cursor: move;
+}
+.rec__circulo:focus-visible { outline: none; box-shadow: 0 0 0 9999px rgba(20, 11, 10, .55), var(--focus-ring); }
+.rec__alca {
+  position: absolute;
+  right: 6%;
+  bottom: 6%;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--brand-700);
+  border-radius: var(--radius-full);
+  background: var(--fg-on-brand);
+  cursor: nwse-resize;
+}
+.rec__controles { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
+.rec__rotulo { font-size: var(--text-sm); color: var(--fg-secondary); }
+.rec__acoes { justify-content: flex-end; }

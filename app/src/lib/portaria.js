@@ -60,6 +60,16 @@ export function veiculosDoTipo(id) {
   return id === "SERVICO" ? ["Moto", "Carro", CAMINHAO, A_PE] : VEICULOS;
 }
 
+/**
+ * O veículo que já vem marcado em cada tipo.
+ *
+ * Entregador chega de moto quase sempre; motorista de aplicativo, visita e
+ * hóspede de temporada, de carro. Começar no mais comum poupa um toque por
+ * entrada, e o porteiro troca quando não for.
+ */
+const DE_CARRO = new Set(["MOTORISTA_APP", "VISITANTE", "AIRBNB"]);
+export const veiculoPadrao = (id) => (DE_CARRO.has(String(id)) ? "Carro" : "Moto");
+
 /** Este veículo tem placa para anotar? */
 export const pedePlaca = (veiculo) => Boolean(veiculo) && veiculo !== A_PE;
 

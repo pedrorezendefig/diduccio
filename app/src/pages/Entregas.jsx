@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  Search, LogOut, Trash2, UserPlus, Users, Pencil, Check, X,
+  Search, LogOut, Trash2, UserPlus, Users, Pencil, Check, X, Eye,
   DoorOpen, PackageCheck, Minus, Plus, Timer, CarFront, AlertTriangle,
+  Tag, IdCard, Building2, Wrench, CalendarCheck,
 } from "lucide-react";
 import { listar, listarTudo, listarChegadas, buscarUm, criar, editar, remover } from "../api/db";
 import { can } from "../auth/permissions";
@@ -11,14 +12,24 @@ import {
   padronizarNome,
   hojeEmBrasilia, inicioDoDia, minutosIniciais, minutosRestantes, pedeEmpresa,
   pedePlaca, podeSerIlimitado, problemasDaEntrada, rotuloDoTipo, semRelogio,
-  semVeiculo, temPrazo,
+  semVeiculo, temPrazo, veiculoPadrao,
   temVeiculoGuardado, unirChegadas, veiculosDoTipo,
 } from "../lib/portaria";
 import MapaDaPortaria from "../components/MapaDaPortaria";
+import JanelaDaTemporada from "../components/temporada/JanelaDaTemporada";
+import AvisoDaTemporada from "../components/temporada/AvisoDaTemporada";
+import { descreverCarro, esperadasHoje, veiculosDa } from "../lib/temporada";
 import {
-  Button, Card, Badge, Table, Tabs, Modal, Field, Input, Select, Checkbox, Stat,
+  Chave, Ficha, Filtros, Iniciais, MaisFiltros, Opcoes, PainelDeFiltros, Placa,
+} from "../components/app/pecas";
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import {
+  Button, Badge, Tabs, Modal, Field, Input, Select, Checkbox, Stat,
   PageHeader, EmptyState, useToast, useConfirm,
 } from "../ui";
+
+/** Quantas linhas a lista mostra de cada vez; "Mostrar mais" soma outras tantas. */
+const LOTE = 30;
 
 /**
  * Teto de linhas do histórico numa busca.
@@ -93,6 +104,82 @@ function mascararCpf(dig) {
   return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
 }
 
+/** Como cada pendência do `problemasDaEntrada` aparece no crachá. */
+const FALTA = {
+  tipo: "tipo", cpf: "CPF", nome: "nome", unidade: "unidade", liberadoPor: "quem liberou",
+  veiculo: "veículo", placa: "placa", empresa: "empresa", minutos: "tempo",
+};
+
+/** Uma linha da ficha: o nome do grupo à esquerda, os campos à direita. */
+function SecaoDaFicha({ Icone, titulo, nota, children }) {
+  return (
+    <div className="ent-ficha__secao">
+      <header className="ent-ficha__rotulo">
+        <b><Icone size={16} aria-hidden="true" />{titulo}</b>
+        {nota ? <small>{nota}</small> : null}
+      </header>
+      <div className="ent-ficha__corpo">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * O crachá da entrada, montado enquanto o porteiro preenche.
+ *
+ * É a conferência antes de gravar: nome, apartamento em letra grande, placa e
+ * tempo num olhar. O botão mora aqui, e embaixo dele a lista do que falta.
+ */
+function Cracha({
+  hora, nome, tipo, empresa, destino, liberadoPor, veiculo, placa, modelo, tempo,
+  faltam, erro, salvando, onRegistrar, onLimpar, soLeitura = false,
+}) {
+  const comoChegou = [veiculo, modelo].filter(Boolean).join(" · ");
+  return (
+    <aside className="ent-cracha" aria-label="Crachá da entrada">
+      <div className="ent-cracha__faixa"><span>ENTRADA</span><span>{hora}</span></div>
+      <div className="ent-cracha__corpo">
+        <div>
+          <p className={`ent-cracha__nome${nome ? "" : " ent-cracha__nome--vazio"}`}>
+            {nome || "Nome de quem entra"}
+          </p>
+          <p className="ent-cracha__tipo">{[tipo, empresa].filter(Boolean).join(" · ")}</p>
+        </div>
+
+        <div className="ent-cracha__destino">
+          <span>
+            <small>Vai para</small>
+            <b>{destino || "—"}</b>
+          </span>
+          <Building2 size={20} aria-hidden="true" />
+        </div>
+        {liberadoPor ? <p className="ent-cracha__linha">Liberado por <b>{liberadoPor}</b></p> : null}
+
+        {placa ? (
+          <span className="ent-cracha__placa" aria-label={`Placa ${placa}`}>
+            <i>BRASIL</i><b>{placa}</b>
+          </span>
+        ) : null}
+        {comoChegou ? <p className="ent-cracha__linha"><CarFront size={14} aria-hidden="true" />{comoChegou}</p> : null}
+
+        <p className="ent-cracha__tempo"><Timer size={15} aria-hidden="true" />{tempo}</p>
+
+        {!soLeitura && (
+          <>
+            {erro ? <p className="vit-field__error">{erro}</p> : null}
+            <Button variant="primary" onClick={onRegistrar} loading={salvando} iconLeft={<UserPlus size={16} />}>
+              Registrar chegada
+            </Button>
+            <p className={`ent-cracha__falta${faltam.length ? "" : " ent-cracha__falta--ok"}`}>
+              {faltam.length ? `Falta: ${faltam.join(", ")}` : "Tudo pronto para registrar"}
+            </p>
+            <Button variant="ghost" size="sm" onClick={onLimpar}>Limpar</Button>
+          </>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 export default function Entregas({ user }) {
   const toast = useToast();
   const confirmar = useConfirm();
@@ -117,7 +204,7 @@ export default function Entregas({ user }) {
   const [cpf, setCpf] = useState("");
   const [nome, setNome] = useState("");
   const [jaCadastrado, setJaCadastrado] = useState(false);
-  const [veiculo, setVeiculo] = useState("Moto");
+  const [veiculo, setVeiculo] = useState(() => veiculoPadrao(TIPOS[0].id));
   const [placa, setPlaca] = useState("");
   // Como o veiculo e, em texto livre ("Honda CG vermelha, bau do iFood"). Nao
   // e obrigatorio: e o que ajuda a reconhecer o carro parado la dentro.
@@ -155,12 +242,21 @@ export default function Entregas({ user }) {
     entradaAte: diaDeHoje(0),
     saidaDe: "", saidaAte: "", busca: "", situacao: "", tipo: "", unidade: "",
   }));
+  const [maisFiltros, setMaisFiltros] = useState(false);
+  const [vendo, setVendo] = useState(null);
+  const [limite, setLimite] = useState(LOTE);
   const mostraHistorico = can(user, "verHistoricoPortaria");
   // O porteiro ve o historico com o CPF coberto: para o turno dele basta o
   // nome; o numero inteiro de meses de visitantes fica com a administracao.
   const cpfMascarado = !can(user, "verCpfNoHistorico");
 
   const [modalCadastro, setModalCadastro] = useState(false);
+  // Temporada (0091): as liberações que a administração faz antes, e a que o
+  // porteiro usou para preencher o crachá desta entrada.
+  const [temporadas, setTemporadas] = useState([]);
+  const [carregandoTemporadas, setCarregandoTemporadas] = useState(true);
+  const [janelaTemporada, setJanelaTemporada] = useState(false);
+  const [temporadaUsada, setTemporadaUsada] = useState(null);
   const [filtroCadastro, setFiltroCadastro] = useState("");
   const [editCpf, setEditCpf] = useState(null);
   const [editNome, setEditNome] = useState("");
@@ -214,8 +310,22 @@ export default function Entregas({ user }) {
     }
   };
 
+  // As liberações de temporada. Sem a tabela (0091 ainda não aplicada) a lista
+  // fica vazia e o resto da portaria segue: não é motivo de derrubar a tela.
+  const carregarTemporadas = async () => {
+    try {
+      const t = await listar("TEMPORADAS");
+      setTemporadas(Array.isArray(t) ? t : []);
+    } catch {
+      setTemporadas([]);
+    } finally {
+      setCarregandoTemporadas(false);
+    }
+  };
+
   // Cadastro e unidades quase não mudam: carregados uma vez e mantidos em cache.
   useEffect(() => {
+    carregarTemporadas();
     (async () => {
       setCarregando(true);
       try {
@@ -392,7 +502,7 @@ export default function Entregas({ user }) {
   const limparFormulario = () => {
     setCpf(""); setNome(""); setJaCadastrado(false);
     cpfDigitadoRef.current = "";
-    setVeiculo("Moto"); setPlaca(""); setModelo("");
+    setVeiculo(veiculoPadrao(tipo)); setPlaca(""); setModelo("");
     setBuscaUnidade(""); setUnidadeSel(null);
     setLiberadoPor(""); setErro({});
     setEmpresa(""); setConferirVeiculo(null);
@@ -401,12 +511,50 @@ export default function Entregas({ user }) {
     // seguidos nao quer reescolher "Entregador" a cada um.
     setMinutos(minutosIniciais(tipo) ?? MINUTOS_PADRAO);
     setIlimitado(false);
+    setTemporadaUsada(null);
+  };
+
+  /**
+   * O porteiro usou uma liberação de temporada: unidade, quem liberou e o
+   * carro vão para o crachá. O nome só entra se ninguém digitou nem o CPF
+   * trouxe: quem chega pode ser outro hóspede, e o CPF manda.
+   */
+  const usarTemporada = (t, v, pessoa) => {
+    // Quem chega é quem casou com o CPF digitado (responsável ou acompanhante);
+    // sem CPF digitado, o do responsável entra — é ele que reconhece quem já
+    // veio e preenche o nome do cadastro.
+    if (!cpf && t.cpf) aoDigitarCpf(String(t.cpf));
+    const u = unidades.find((x) => String(x.id) === String(t.id_unidade));
+    if (u) selecionarUnidade(u);
+    if (!jaCadastrado && !nome.trim()) setNome(emMaiusculo((pessoa?.nome ?? t.hospede) || ""));
+    // "Liberado por" é o dono do apartamento, gravado na liberação (0094).
+    // Liberação antiga, sem ele: o campo fica vazio para o porteiro escrever.
+    if (t.proprietario) setLiberadoPor(padronizarNome(t.proprietario));
+    // O carro: o que casou com a placa; achada pelo CPF, o da liberação (o
+    // primeiro, se houver mais de um — o porteiro troca se for outro).
+    const carro = v ?? veiculosDa(t)[0];
+    if (carro) {
+      setVeiculo("Carro");
+      setPlaca(String(carro.placa).toUpperCase());
+      setModelo(descreverCarro(carro));
+    }
+    setErro((e) => ({ ...e, unidade: undefined, liberadoPor: undefined }));
+    setTemporadaUsada(t.id);
+  };
+
+  /** Na primeira entrada a liberação vira "hospedado". Falhar aqui não desfaz a entrada. */
+  const marcarChegadaDaTemporada = async (id) => {
+    const t = temporadas.find((x) => x.id === id);
+    if (!t || t.situacao !== "agendada") return;
+    const r = await editar("TEMPORADAS", id, { situacao: "hospedado", chegou_em: new Date().toISOString() }).catch(() => null);
+    if (r?.success) carregarTemporadas();
   };
 
   /** Trocar de tipo redefine o prazo: e o tipo que decide se ha prazo. */
   const escolherTipo = (novo) => {
     setTipo(novo);
     setMinutos(minutosIniciais(novo) ?? MINUTOS_PADRAO);
+    if (novo !== "AIRBNB") setTemporadaUsada(null);
     // Sair do visitante com a marca ligada deixaria o entregador seguinte sem
     // contagem — e sem nada na tela dizendo isso, porque a caixa nem aparece
     // nos outros tipos.
@@ -418,7 +566,12 @@ export default function Entregas({ user }) {
     // Caminhao so existe em servico. Saindo de la com ele escolhido, o <select>
     // ficaria com um valor que nao esta mais na lista: a tela mostraria "Moto"
     // e a gravacao mandaria "Caminhao".
-    if (!veiculosDoTipo(novo).includes(veiculo)) setVeiculo(veiculosDoTipo(novo)[0]);
+    //
+    // Sem cadastro, o veículo acompanha o tipo (motorista, visita e temporada
+    // chegam de carro). Com cadastro, fica o que o CPF trouxe: é o veículo que
+    // a pessoa usou da última vez, e a conferência já perguntou por ele.
+    if (!jaCadastrado) setVeiculo(veiculoPadrao(novo));
+    else if (!veiculosDoTipo(novo).includes(veiculo)) setVeiculo(veiculosDoTipo(novo)[0]);
     setErro((e) => ({ ...e, tipo: undefined, empresa: undefined, minutos: undefined }));
   };
 
@@ -576,7 +729,9 @@ export default function Entregas({ user }) {
         ));
       }
 
+      const temporadaDestaEntrada = temporadaUsada;
       limparFormulario();
+      if (temporadaDestaEntrada) marcarChegadaDaTemporada(temporadaDestaEntrada);
       toast.success(
         (unidadeAtual
           ? `${nomeAtual} liberado para o bloco ${unidadeAtual.bloco}, apto ${unidadeAtual.unidade}`
@@ -687,6 +842,13 @@ export default function Entregas({ user }) {
   // prazo — duas nocoes de "esta dentro" acabariam discordando.
   const dentro = useMemo(() => chegadas.filter(estaDentro), [chegadas]);
   const dentroAgora = dentro.length;
+
+  // O que ainda falta para registrar, na mesma regra do envio: o crachá diz
+  // isso antes do clique, em vez de o porteiro descobrir pelo erro vermelho.
+  const faltam = Object.keys(problemasDaEntrada({
+    tipo, cpf, nome, unidade: unidadeSel, liberadoPor, veiculo, placa, empresa,
+    ilimitado, minutos, doCondominio,
+  })).map((k) => FALTA[k] ?? k);
   // A meia-noite a lista vira, mas quem esta no predio nao sai dela: o hospede
   // que chegou sexta continua sendo trabalho da portaria no domingo.
   const deHoje = useMemo(() => daJanelaDeHoje(chegadas, agora), [chegadas, agora]);
@@ -714,6 +876,8 @@ export default function Entregas({ user }) {
    */
   const apontarNaLista = (chegada) => {
     setDestacada(chegada.id);
+    // A linha pode estar depois do "Mostrar mais": abre a lista até ela.
+    setLimite((n) => Math.max(n, linhas.length));
     requestAnimationFrame(() => {
       const alvo = document.getElementById(`chegada-${chegada.id}`);
       if (!alvo) return;
@@ -726,6 +890,7 @@ export default function Entregas({ user }) {
   const trocarAba = (nova) => {
     setAba(nova);
     setDestacada(null);
+    setLimite(LOTE);
   };
 
   /**
@@ -749,91 +914,71 @@ export default function Entregas({ user }) {
     return () => document.removeEventListener("pointerdown", fora);
   }, [destacada]);
 
-  /* ---------------- tabela de chegadas ---------------- */
+  /* ---------------- lista de chegadas ---------------- */
 
-  const colunas = [
-    // Cada horario carrega o porteiro que o produziu. Duas colunas a mais
-    // ("Registrado por", "Saida por") empurrariam a tabela para a rolagem
-    // horizontal; e o nome so faz sentido colado no horario a que ele pertence.
-    //
-    // A entrada leva o dia em toda aba, e nao so no historico: "Dentro agora"
-    // tambem mostra o hospede de temporada que entrou anteontem, e "17:23"
-    // sozinho o faria parecer de hoje. Com o dia aqui, a coluna "Dia" que o
-    // historico tinha seria a mesma informacao duas vezes, e saiu.
-    { key: "horario_entrada", label: "Entrada", tipo: "num", width: 128,
-      render: (c) => (
-        <span>
-          <span style={{ display: "block" }}>
-            {`${soDia(c.horario_entrada)} ${soHora(c.horario_entrada)}`.trim()}
-          </span>
-          {c.created_by ? <span className="ent-porteiro">{c.created_by}</span> : null}
+  /** "restam 5 min", "10 min a mais", "Sem limite" ou "—". */
+  const textoDoPrazo = (c) => {
+    const restam = minutosRestantes(c, agora);
+    if (restam === null) {
+      // Sem prazo, ou ja saiu. Traco, e nao "0 min": sao coisas diferentes.
+      return estaDentro(c) && !c.minutos_permitidos ? "Sem Limite" : "—";
+    }
+    return restam < 0 ? `${formatarDuracao(-restam)} a mais` : `restam ${formatarDuracao(restam)}`;
+  };
+
+  // Cada horario carrega o porteiro que o produziu, colado nele: duas colunas a
+  // mais ("Registrado por", "Saida por") empurrariam a lista para a rolagem.
+  // A entrada leva o dia em toda aba: "Dentro agora" tambem mostra o hospede
+  // que entrou anteontem, e "17:23" sozinho o faria parecer de hoje.
+  const celulasDaChegada = (c) => {
+    const restam = minutosRestantes(c, agora);
+    return [
+      <span key="e" className="mud-quem">
+        <b className="conf-dado__mono">{`${soDia(c.horario_entrada)} ${soHora(c.horario_entrada)}`.trim()}</b>
+        {c.created_by ? <small>{c.created_by}</small> : null}
+      </span>,
+      <span key="t" className="ent-tipo-selo" data-tipo={c.tipo || "ENTREGADOR"}>
+        {rotuloDoTipo(c.tipo || "ENTREGADOR")}
+      </span>,
+      <span key="q" className="mud-quem">
+        <b>{c.nome}</b>
+        <small>{aba === "historico" && cpfMascarado ? mascararCpf(c.cpf) : formatarCpf(c.cpf)}</small>
+      </span>,
+      // Sem bloco e servico do proprio condominio — nao e campo esquecido.
+      <b key="d" className="conf-dado__mono">{c.bloco ? `B${c.bloco}-${c.apartamento}` : "condomínio"}</b>,
+      <span key="v" className="mud-quem">
+        <b>{c.veiculo}{c.placa ? <span className="ent-placa"> {c.placa}</span> : null}</b>
+        {c.modelo || c.empresa ? <small>{[c.modelo, c.empresa].filter(Boolean).join(" · ")}</small> : null}
+      </span>,
+      <span key="p" className={restam !== null && restam < 0 ? "ent-prazo-estourado" : undefined}>
+        {textoDoPrazo(c)}
+      </span>,
+      // No historico a saida leva o dia junto: o hospede de temporada sai dias
+      // depois. Nas outras abas toda saida mostrada e de hoje.
+      soHora(c.horario_saida) ? (
+        <span key="s" className="mud-quem">
+          <b className="conf-dado__mono">
+            {aba === "historico" ? `${soDia(c.horario_saida)} ${soHora(c.horario_saida)}` : soHora(c.horario_saida)}
+          </b>
+          {c.saida_por ? <small>{c.saida_por}</small> : null}
         </span>
-      ) },
-    { key: "tipo", label: "Tipo", width: 118,
-      render: (c) => (
-        <span className="ent-tipo-selo" data-tipo={c.tipo || "ENTREGADOR"}>
-          {rotuloDoTipo(c.tipo || "ENTREGADOR")}
-        </span>
-      ) },
-    { key: "nome", label: "Quem entrou",
-      render: (c) => (
-        <span>
-          <span className="ent-nome">{c.nome}</span>
-          <span className="ent-cpf">
-            {aba === "historico" && cpfMascarado ? mascararCpf(c.cpf) : formatarCpf(c.cpf)}
-          </span>
-        </span>
-      ) },
-    { key: "unidade", label: "Destino", tipo: "id", width: 116,
-      // Sem bloco e servico do proprio condominio — nao e campo esquecido, e
-      // a tabela nao pode deixar isso parecendo buraco.
-      render: (c) => (c.bloco ? `B${c.bloco}-${c.apartamento}` : "condomínio") },
-    { key: "veiculo", label: "Veículo",
-      render: (c) => (
-        <span>
-          {c.veiculo}
-          {c.placa ? <span className="ent-placa"> {c.placa}</span> : null}
-          {c.modelo ? <span className="ent-modelo">{c.modelo}</span> : null}
-        </span>
-      ) },
-    { key: "liberado_por", label: "Liberado por",
-      render: (c) => (
-        <span>
-          {c.liberado_por}
-          {c.empresa ? <span className="ent-empresa">{c.empresa}</span> : null}
-        </span>
-      ) },
-    { key: "prazo", label: "Prazo", width: 104,
-      render: (c) => {
-        const restam = minutosRestantes(c, agora);
-        if (restam === null) {
-          // Sem prazo, ou ja saiu. Traco, e nao "0 min": sao coisas diferentes.
-          return estaDentro(c) && !c.minutos_permitidos ? "Sem Limite" : "—";
-        }
-        return (
-          <span className={restam < 0 ? "ent-prazo-estourado" : undefined}>
-            {restam < 0 ? `${formatarDuracao(-restam)} a mais` : `restam ${formatarDuracao(restam)}`}
-          </span>
-        );
-      } },
-    // No historico a saida leva o dia junto: o hospede de temporada sai dias
-    // depois, e "18:30" ao lado do dia da entrada faria a saida parecer do
-    // mesmo dia. Nas outras abas toda saida mostrada e de hoje.
-    { key: "horario_saida", label: "Saída", tipo: "num", width: aba === "historico" ? 140 : 122,
-      render: (c) => {
-        if (!soHora(c.horario_saida)) return <Badge tone="brand">dentro</Badge>;
-        return (
-          <span>
-            <span style={{ display: "block" }}>
-              {aba === "historico"
-                ? `${soDia(c.horario_saida)} ${soHora(c.horario_saida)}`
-                : soHora(c.horario_saida)}
-            </span>
-            {c.saida_por ? <span className="ent-porteiro">{c.saida_por}</span> : null}
-          </span>
-        );
-      } },
-  ];
+      ) : <Badge key="s" tone="brand">dentro</Badge>,
+    ];
+  };
+
+  // As pílulas do histórico contam com tudo aplicado menos a própria situação.
+  const contagemHistorico = useMemo(() => {
+    const base = filtrarHistorico(historico, { ...filtros, situacao: "" });
+    const saiu = base.filter((c) => soHora(c.horario_saida)).length;
+    return { todas: base.length, saiu, dentro: base.length - saiu };
+  }, [historico, filtros]);
+
+  const filtrosDoPainel = [
+    filtros.unidade,
+    filtros.tipo,
+    filtros.saidaDe || filtros.saidaAte,
+    filtros.entradaDe !== diaDeHoje(-29) || filtros.entradaAte !== diaDeHoje(0),
+  ].filter(Boolean).length;
 
   return (
     <div>
@@ -845,9 +990,20 @@ export default function Entregas({ user }) {
             : `${dentroAgora} dentro agora · ${deHoje.length} chegadas hoje · ${entregadores.length} cadastrados`
         }
         actions={
-          <Button onClick={() => setModalCadastro(true)} iconLeft={<Users size={15} />}>
-            Cadastrados
-          </Button>
+          <>
+            {/* As liberações de temporada da administração (0091). O número
+                é quantas chegam hoje: é o que o porteiro precisa saber ao
+                abrir o turno. */}
+            <Button onClick={() => setJanelaTemporada(true)} iconLeft={<CalendarCheck size={15} />}>
+              Temporada
+              {esperadasHoje(temporadas, hojeEmBrasilia(agora)).length > 0 && (
+                <span className="tem-botao__conta">{esperadasHoje(temporadas, hojeEmBrasilia(agora)).length}</span>
+              )}
+            </Button>
+            <Button onClick={() => setModalCadastro(true)} iconLeft={<Users size={15} />}>
+              Cadastrados
+            </Button>
+          </>
         }
       />
 
@@ -878,266 +1034,314 @@ export default function Entregas({ user }) {
         <Stat label="Chegadas hoje" value={carregando ? "…" : deHoje.length} tone="neutral" />
       </div>
 
-      {/* ---- Registro de chegada ---- */}
-      <Card as="section" className="ent-form">
-        <h2 className="ent-form__titulo">
-          <DoorOpen size={17} aria-hidden="true" /> Registrar chegada
-        </h2>
+      {/* ---- Registro de chegada ----
+          Uma ficha em seções, na ordem da conversa no portão: o tipo (que
+          decide o resto), a pessoa, para onde vai, como chegou e por quanto
+          tempo. Ao lado, o crachá se monta com o que já foi preenchido, e o
+          botão de registrar fica nele, dizendo o que falta. */}
+      <div className="ent-registro">
+        <section className="ent-ficha" aria-labelledby="ent-ficha-titulo">
+          <h2 className="ent-form__titulo" id="ent-ficha-titulo">
+            <DoorOpen size={17} aria-hidden="true" /> Registrar chegada
+          </h2>
 
-        {/* O TIPO VEM PRIMEIRO porque decide o resto do formulario: se pede
-            empresa, se tem prazo, e o que o botao vai cobrar. Escolher depois
-            de preencher faria campos aparecerem e sumirem embaixo do dedo. */}
-        <div className="ent-tipos" role="radiogroup" aria-label="Tipo de entrada">
-          {TIPOS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={tipo === t.id}
-              className={`ent-tipo${tipo === t.id ? " ent-tipo--ativo" : ""}`}
-              onClick={() => escolherTipo(t.id)}
-            >
-              <strong>{t.rotulo}</strong>
-              <span>{t.nota}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Fica FORA da grade e logo abaixo das fichas porque muda o formulario
-            inteiro: some a unidade de destino e o "liberado por" se preenche
-            sozinho. Escondida numa coluna do meio, a caixa seria marcada depois
-            de o porteiro ja ter procurado um apartamento. */}
-        {pedeEmpresa(tipo) && (
-          <div className="ent-interno">
-            <Checkbox
-              label="É serviço do próprio condomínio"
-              checked={doCondominio}
-              onChange={(e) => marcarInterno(e.target.checked)}
-            />
-            <span className="ent-interno__nota">
-              Manutenção, jardinagem, obra da administração. Não tem apartamento
-              de destino, e quem libera é você.
-            </span>
-          </div>
-        )}
-
-        <div className="ent-form__grade">
-          <Field
-            label="CPF"
-            required
-            error={erro.cpf}
-            help={jaCadastrado ? "Já cadastrado — nome e veículo preenchidos." : "Só números"}
-          >
-            <Input
-              value={formatarCpf(cpf)}
-              inputMode="numeric"
-              autoFocus
-              placeholder="000.000.000-00"
-              onChange={(e) => aoDigitarCpf(e.target.value)}
-            />
-          </Field>
-
-          {/* Nao "nome do entregador": a mesma tela recebe motorista de app,
-              visitante de morador, hospede de temporada e prestador. O rotulo
-              antigo era do tempo em que so entrava entregador, e quem le hoje
-              hesita antes de digitar. */}
-          <Field
-            label="Nome e sobrenome"
-            required
-            error={erro.nome}
-            help="De quem está pedindo para entrar"
-          >
-            <Input
-              value={nome}
-              readOnly={jaCadastrado}
-              disabled={jaCadastrado}
-              onChange={(e) => setNome(emMaiusculo(e.target.value))}
-            />
-          </Field>
-
-          {/* Sem destino no servico interno: o eletricista do elevador nao vai a
-              apartamento nenhum, e obrigar a escolher um encheria o registro de
-              destinos inventados. */}
-          {!interno && (
-          <Field label="Unidade de destino" required error={erro.unidade} className="ent-form__unidade">
-            <span className="ent-combo" ref={campoUnidadeRef}>
-              <Input
-                value={buscaUnidade}
-                placeholder="Digite 5205 ou bloco 5 apto 205"
-                autoComplete="off"
-                onFocus={() => setFocoUnidade(true)}
-                onChange={(e) => {
-                  setBuscaUnidade(e.target.value);
-                  setUnidadeSel(null);
-                  setFocoUnidade(true);
-                }}
-              />
-              {unidadeSel && (
+          <SecaoDaFicha Icone={Tag} titulo="Tipo" nota="Decide prazo, empresa e veículos">
+            {/* O TIPO VEM PRIMEIRO porque decide o resto do formulario: se pede
+                empresa, se tem prazo, e o que o botao vai cobrar. Escolher depois
+                de preencher faria campos aparecerem e sumirem embaixo do dedo. */}
+            <div className="ent-tipos" role="radiogroup" aria-label="Tipo de entrada">
+              {TIPOS.map((t) => (
                 <button
+                  key={t.id}
                   type="button"
-                  className="ent-combo__limpar"
-                  aria-label="Limpar unidade"
-                  onClick={() => { setUnidadeSel(null); setBuscaUnidade(""); }}
+                  role="radio"
+                  aria-checked={tipo === t.id}
+                  className={`ent-tipo${tipo === t.id ? " ent-tipo--ativo" : ""}`}
+                  onClick={() => escolherTipo(t.id)}
                 >
-                  <X size={15} />
+                  <strong>{t.rotulo}</strong>
+                  <span>{t.nota}</span>
                 </button>
+              ))}
+            </div>
+          </SecaoDaFicha>
+
+          <SecaoDaFicha Icone={IdCard} titulo="Pessoa" nota="O CPF reconhece quem já veio">
+            <div className="ent-ficha__campos">
+              <Field
+                label="CPF"
+                required
+                error={erro.cpf}
+                help={jaCadastrado ? "Já cadastrado — nome e veículo preenchidos." : "Só números"}
+              >
+                <Input
+                  value={formatarCpf(cpf)}
+                  inputMode="numeric"
+                  autoFocus
+                  placeholder="000.000.000-00"
+                  onChange={(e) => aoDigitarCpf(e.target.value)}
+                />
+              </Field>
+
+              {/* Nao "nome do entregador": a mesma tela recebe motorista de app,
+                  visitante de morador, hospede de temporada e prestador. O rotulo
+                  antigo era do tempo em que so entrava entregador, e quem le hoje
+                  hesita antes de digitar. */}
+              <Field
+                label="Nome e sobrenome"
+                required
+                error={erro.nome}
+                help="De quem está pedindo para entrar"
+              >
+                <Input
+                  value={nome}
+                  readOnly={jaCadastrado}
+                  disabled={jaCadastrado}
+                  onChange={(e) => setNome(emMaiusculo(e.target.value))}
+                />
+              </Field>
+
+              {/* So o prestador de servico. E o nome da empresa que identifica quem
+                  entrou — sem ele, o registro diz que "alguem de alguma empresa"
+                  passou pelo portao. */}
+              {pedeEmpresa(tipo) && (
+                <Field label="Empresa" required error={erro.empresa} help="Quem o prestador representa">
+                  <Input
+                    value={empresa}
+                    placeholder="Ex: Elevadores XPTO"
+                    onChange={(e) => { setEmpresa(e.target.value); setErro((x) => ({ ...x, empresa: undefined })); }}
+                  />
+                </Field>
               )}
-              {focoUnidade && sugestoes.length > 0 && (
-                <ul className="ent-combo__lista" role="listbox">
-                  {sugestoes.map((u) => (
-                    <li key={u.id}>
-                      <button type="button" className="ent-combo__item" onClick={() => selecionarUnidade(u)}>
-                        <span className="ent-combo__unidade">B{u.bloco}-{u.unidade}</span>
-                        <span className="ent-combo__desc">Bloco {u.bloco} · Apto {u.unidade}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </span>
-          </Field>
-          )}
+            </div>
+            {/* Fica FORA da grade e logo abaixo das fichas porque muda o formulario
+                inteiro: some a unidade de destino e o "liberado por" se preenche
+                sozinho. Escondida numa coluna do meio, a caixa seria marcada depois
+                de o porteiro ja ter procurado um apartamento. */}
+            {pedeEmpresa(tipo) && (
+              <div className="ent-interno">
+                <Chave
+                  ligada={doCondominio}
+                  onChange={marcarInterno}
+                  icone={<Wrench size={18} />}
+                  titulo="É serviço do próprio condomínio"
+                  sub="Manutenção, jardinagem, obra da administração. Não tem apartamento de destino, e quem libera é você."
+                />
+              </div>
+            )}
+          </SecaoDaFicha>
 
-          <Field label="Veículo" required error={erro.veiculo}>
-            <Select
-              value={veiculo}
-              onChange={(e) => { setVeiculo(e.target.value); setErro((x) => ({ ...x, veiculo: undefined })); }}
-            >
-              {/* A opcao vazia so existe enquanto ninguem escolheu. Sem ela, um
-                  `value=""` deixa o <select> MOSTRANDO a primeira opcao com o
-                  estado vazio por tras: a tela diz "Moto" e a gravacao manda
-                  nada. */}
-              {faltaVeiculo && <option value="">Escolha o veículo</option>}
-              {veiculosDoTipo(tipo).map((v) => <option key={v} value={v}>{v}</option>)}
-            </Select>
-          </Field>
-
-          <Field label="Placa" required={exigePlaca} error={erro.placa}>
-            <Input
-              value={placa}
-              disabled={!exigePlaca}
-              placeholder={
-                faltaVeiculo ? "escolha o veículo primeiro"
-                  : exigePlaca ? "ABC1D23"
-                  : "não se aplica"
-              }
-              onChange={(e) => setPlaca(e.target.value.toUpperCase().slice(0, 8))}
-            />
-          </Field>
-
-          {/* Opcional, e aberto em todo tipo e todo veiculo: ate "bicicleta
-              azul" ajuda a achar quem esta la dentro. O limite e o do 0063. */}
-          <Field label="Modelo do veículo" help="Opcional. Modelo, cor, algo que o identifique">
-            <Input
-              value={modelo}
-              maxLength={120}
-              placeholder="Ex.: Honda CG 160 vermelha, baú do iFood"
-              onChange={(e) => setModelo(e.target.value)}
-            />
-          </Field>
-
-          {/* No servico interno quem autoriza e o porteiro de plantao, e o nome
-              dele entra sozinho. O campo so trava quando ha nome a colocar:
-              travar vazio deixaria a entrada impossivel de registrar, sem
-              nenhuma saida na tela. */}
-          <Field
-            label="Liberado por"
-            required
-            error={erro.liberadoPor}
-            help={interno ? "Você, como porteiro de plantão" : "Quem no apartamento autorizou"}
-          >
-            <Input
-              value={liberadoPor}
-              disabled={interno && Boolean(nomeDoPorteiro)}
-              onChange={(e) => setLiberadoPor(e.target.value)}
-            />
-          </Field>
-
-          {/* So o prestador de servico. E o nome da empresa que identifica quem
-              entrou — sem ele, o registro diz que "alguem de alguma empresa"
-              passou pelo portao. */}
-          {pedeEmpresa(tipo) && (
-            <Field label="Empresa" required error={erro.empresa} help="Quem o prestador representa">
-              <Input
-                value={empresa}
-                placeholder="Ex: Elevadores XPTO"
-                onChange={(e) => { setEmpresa(e.target.value); setErro((x) => ({ ...x, empresa: undefined })); }}
-              />
-            </Field>
-          )}
-
-          {/* Prazo so para quem entra e sai. Hospede de temporada e prestador
-              ficam sem: pedir minutos a quem passa o fim de semana produz um
-              numero que ninguem olha. */}
-          {temPrazo(tipo) && (
-            <Field
-              label="Tempo permitido"
-              error={erro.minutos}
-              help={ilimitado
-                ? "Sem contagem: fica o tempo que precisar"
-                : "Comeca em 15 e anda de 5 em 5"}
-            >
-              <div className="ent-prazo-linha">
-                {/* O mais e o menos ficam DESABILITADOS, e nao escondidos.
-                    Sumindo, a linha encolhe e a caixa pula de lugar debaixo do
-                    dedo de quem acabou de marca-la; e ao desmarcar o porteiro
-                    perde de vista o numero que estava ali. Apagado, o 15 min
-                    continua visivel esperando. */}
-                <div className="ent-prazo" data-desligado={ilimitado ? "sim" : undefined}>
-                  <button
-                    type="button"
-                    className="ent-prazo__botao"
-                    disabled={ilimitado}
-                    aria-label={`Diminuir ${PASSO_MINUTOS} minutos`}
-                    onClick={() => setMinutos((m) => ajustarMinutos(m, -PASSO_MINUTOS))}
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <output className="ent-prazo__valor">
-                    <Timer size={15} aria-hidden="true" />
-                    {ilimitado ? "Sem Limite" : formatarDuracao(minutos)}
-                  </output>
-                  <button
-                    type="button"
-                    className="ent-prazo__botao"
-                    disabled={ilimitado}
-                    aria-label={`Aumentar ${PASSO_MINUTOS} minutos`}
-                    onClick={() => setMinutos((m) => ajustarMinutos(m, +PASSO_MINUTOS))}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-
-                {/* So o visitante. Visita de morador nao tem hora para ir
-                    embora, e cobrar prazo dela so enchia o mapa de alarme
-                    vermelho a tarde inteira. */}
-                {podeSerIlimitado(tipo) && (
-                  <Checkbox
-                    className="ent-ilimitado"
-                    label="Ilimitado"
-                    checked={ilimitado}
+          <SecaoDaFicha Icone={Building2} titulo="Destino" nota={interno ? "Serviço do condomínio" : "Apartamento e quem autorizou"}>
+            <div className="ent-ficha__campos">
+              {/* Sem destino no servico interno: o eletricista do elevador nao vai a
+                  apartamento nenhum, e obrigar a escolher um encheria o registro de
+                  destinos inventados. */}
+              {!interno && (
+              <Field label="Unidade de destino" required error={erro.unidade} className="ent-form__unidade">
+                <span className="ent-combo" ref={campoUnidadeRef}>
+                  <Input
+                    value={buscaUnidade}
+                    placeholder="Digite 5205 ou bloco 5 apto 205"
+                    autoComplete="off"
+                    onFocus={() => setFocoUnidade(true)}
                     onChange={(e) => {
-                      setIlimitado(e.target.checked);
-                      setErro((x) => ({ ...x, minutos: undefined }));
+                      setBuscaUnidade(e.target.value);
+                      setUnidadeSel(null);
+                      setFocoUnidade(true);
                     }}
                   />
+                  {unidadeSel && (
+                    <button
+                      type="button"
+                      className="ent-combo__limpar"
+                      aria-label="Limpar unidade"
+                      onClick={() => { setUnidadeSel(null); setBuscaUnidade(""); }}
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                  {focoUnidade && sugestoes.length > 0 && (
+                    <ul className="ent-combo__lista" role="listbox">
+                      {sugestoes.map((u) => (
+                        <li key={u.id}>
+                          <button type="button" className="ent-combo__item" onClick={() => selecionarUnidade(u)}>
+                            <span className="ent-combo__unidade">B{u.bloco}-{u.unidade}</span>
+                            <span className="ent-combo__desc">Bloco {u.bloco} · Apto {u.unidade}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </span>
+              </Field>
+              )}
+
+              {/* No servico interno quem autoriza e o porteiro de plantao, e o nome
+                  dele entra sozinho. O campo so trava quando ha nome a colocar:
+                  travar vazio deixaria a entrada impossivel de registrar, sem
+                  nenhuma saida na tela. */}
+              <Field
+                label="Liberado por"
+                required
+                error={erro.liberadoPor}
+                help={interno ? "Você, como porteiro de plantão" : "Quem no apartamento autorizou"}
+              >
+                <Input
+                  value={liberadoPor}
+                  disabled={interno && Boolean(nomeDoPorteiro)}
+                  onChange={(e) => setLiberadoPor(e.target.value)}
+                />
+              </Field>
+            </div>
+          </SecaoDaFicha>
+
+          <SecaoDaFicha Icone={CarFront} titulo="Veículo" nota="A pé não pede placa">
+            <div className="ent-ficha__campos ent-ficha__campos--3">
+              <Field label="Veículo" required error={erro.veiculo}>
+                <Select
+                  value={veiculo}
+                  onChange={(e) => { setVeiculo(e.target.value); setErro((x) => ({ ...x, veiculo: undefined })); }}
+                >
+                  {/* A opcao vazia so existe enquanto ninguem escolheu. Sem ela, um
+                      `value=""` deixa o <select> MOSTRANDO a primeira opcao com o
+                      estado vazio por tras: a tela diz "Moto" e a gravacao manda
+                      nada. */}
+                  {faltaVeiculo && <option value="">Escolha o veículo</option>}
+                  {veiculosDoTipo(tipo).map((v) => <option key={v} value={v}>{v}</option>)}
+                </Select>
+              </Field>
+
+              <Field label="Placa" required={exigePlaca} error={erro.placa}>
+                <Input
+                  value={placa}
+                  disabled={!exigePlaca}
+                  placeholder={
+                    faltaVeiculo ? "escolha o veículo primeiro"
+                      : exigePlaca ? "ABC1D23"
+                      : "não se aplica"
+                  }
+                  onChange={(e) => setPlaca(e.target.value.toUpperCase().slice(0, 8))}
+                />
+              </Field>
+
+              {/* Opcional, e aberto em todo tipo e todo veiculo: ate "bicicleta
+                  azul" ajuda a achar quem esta la dentro. O limite e o do 0063. */}
+              <Field label="Modelo do veículo" help="Opcional. Modelo, cor, algo que o identifique">
+                <Input
+                  value={modelo}
+                  maxLength={120}
+                  placeholder="Ex.: Honda CG 160 vermelha, baú do iFood"
+                  onChange={(e) => setModelo(e.target.value)}
+                />
+              </Field>
+            </div>
+          </SecaoDaFicha>
+
+          {tipo === "AIRBNB" && (
+            <SecaoDaFicha Icone={CalendarCheck} titulo="Temporada" nota="Liberações da administração">
+              <AvisoDaTemporada
+                temporadas={temporadas}
+                placa={placa}
+                cpf={cpf}
+                rotuloUnidade={(id) => {
+                  const u = unidades.find((x) => String(x.id) === String(id));
+                  return u ? `B${u.bloco}-${u.unidade}` : String(id ?? "—");
+                }}
+                usada={temporadaUsada}
+                onUsar={usarTemporada}
+              />
+            </SecaoDaFicha>
+          )}
+
+          <SecaoDaFicha Icone={Timer} titulo="Tempo" nota={temPrazo(tipo) ? "Anda de 5 em 5" : "Este tipo não tem prazo"}>
+            {temPrazo(tipo) ? (
+              <div className="ent-ficha__campos ent-ficha__campos--1">
+                {/* Prazo so para quem entra e sai. Hospede de temporada e prestador
+                    ficam sem: pedir minutos a quem passa o fim de semana produz um
+                    numero que ninguem olha. */}
+                {temPrazo(tipo) && (
+                  <Field
+                    label="Tempo permitido"
+                    error={erro.minutos}
+                    help={ilimitado
+                      ? "Sem contagem: fica o tempo que precisar"
+                      : "Comeca em 15 e anda de 5 em 5"}
+                  >
+                    <div className="ent-prazo-linha">
+                      {/* O mais e o menos ficam DESABILITADOS, e nao escondidos.
+                          Sumindo, a linha encolhe e a caixa pula de lugar debaixo do
+                          dedo de quem acabou de marca-la; e ao desmarcar o porteiro
+                          perde de vista o numero que estava ali. Apagado, o 15 min
+                          continua visivel esperando. */}
+                      <div className="ent-prazo" data-desligado={ilimitado ? "sim" : undefined}>
+                        <button
+                          type="button"
+                          className="ent-prazo__botao"
+                          disabled={ilimitado}
+                          aria-label={`Diminuir ${PASSO_MINUTOS} minutos`}
+                          onClick={() => setMinutos((m) => ajustarMinutos(m, -PASSO_MINUTOS))}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <output className="ent-prazo__valor">
+                          <Timer size={15} aria-hidden="true" />
+                          {ilimitado ? "Sem Limite" : formatarDuracao(minutos)}
+                        </output>
+                        <button
+                          type="button"
+                          className="ent-prazo__botao"
+                          disabled={ilimitado}
+                          aria-label={`Aumentar ${PASSO_MINUTOS} minutos`}
+                          onClick={() => setMinutos((m) => ajustarMinutos(m, +PASSO_MINUTOS))}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+
+                      {/* So o visitante. Visita de morador nao tem hora para ir
+                          embora, e cobrar prazo dela so enchia o mapa de alarme
+                          vermelho a tarde inteira. */}
+                      {podeSerIlimitado(tipo) && (
+                        <Checkbox
+                          className="ent-ilimitado"
+                          label="Ilimitado"
+                          checked={ilimitado}
+                          onChange={(e) => {
+                            setIlimitado(e.target.checked);
+                            setErro((x) => ({ ...x, minutos: undefined }));
+                          }}
+                        />
+                      )}
+                    </div>
+                  </Field>
                 )}
               </div>
-            </Field>
-          )}
-        </div>
+            ) : (
+              <p className="ent-ficha__sem">
+                {rotuloDoTipo(tipo)} fica sem contagem: sai quando terminar.
+              </p>
+            )}
+          </SecaoDaFicha>
+        </section>
 
-        {erro.geral && (
-          <p className="vit-field__error" style={{ marginTop: "var(--space-5)" }}>{erro.geral}</p>
-        )}
-
-        <div className="ent-form__acoes">
-          <Button variant="ghost" onClick={limparFormulario}>Limpar</Button>
-          <Button variant="primary" onClick={registrar} loading={salvando} iconLeft={<UserPlus size={16} />}>
-            Registrar chegada
-          </Button>
-        </div>
-      </Card>
+        <Cracha
+          hora={soHora(agora)}
+          nome={nome}
+          tipo={rotuloDoTipo(tipo)}
+          empresa={pedeEmpresa(tipo) ? empresa : ""}
+          destino={interno ? "Condomínio" : unidadeSel ? `B${unidadeSel.bloco}-${unidadeSel.unidade}` : ""}
+          liberadoPor={liberadoPor}
+          veiculo={veiculo}
+          placa={exigePlaca ? placa : ""}
+          modelo={modelo}
+          tempo={!temPrazo(tipo) ? "Sem prazo" : ilimitado ? "Sem limite" : formatarDuracao(minutos)}
+          faltam={faltam}
+          erro={erro.geral}
+          salvando={salvando}
+          onRegistrar={registrar}
+          onLimpar={limparFormulario}
+        />
+      </div>
 
       {/* ---- O veiculo continua o mesmo? ----
           Preencher a placa antiga em silencio seria pior que campo vazio: o
@@ -1204,61 +1408,55 @@ export default function Entregas({ user }) {
       </div>
 
       {aba === "historico" && (
-        <Card as="section" className="ent-filtros">
-          <div className="ent-filtros__grade">
-            <Field label="Buscar" help="Nome, CPF, empresa, placa, modelo ou quem liberou">
-              <Input
-                value={filtros.busca}
-                placeholder="Ex: Ana, 111, Elevadores"
-                onChange={(e) => mudarFiltro("busca", e.target.value)}
-              />
-            </Field>
-
-            {/* Separado da busca de texto de propósito: "5206" na busca acharia
-                também qualquer CPF com 5206 dentro, e a lista viria maior do que
-                a pergunta. A regra de casar é a da lib/unidades. */}
-            <Field label="Unidade" help="Bloco e apartamento, como 5206 ou B5-206">
-              <Input
-                value={filtros.unidade}
-                placeholder="Ex: 5206, 5 206 ou bloco 5"
-                onChange={(e) => mudarFiltro("unidade", e.target.value)}
-              />
-            </Field>
-
-            <Field label="Entrada — de" help="Este recorte é buscado no banco">
-              <Input type="date" value={filtros.entradaDe}
-                     onChange={(e) => mudarFiltro("entradaDe", e.target.value)} />
-            </Field>
-            <Field label="Entrada — até">
-              <Input type="date" value={filtros.entradaAte}
-                     onChange={(e) => mudarFiltro("entradaAte", e.target.value)} />
-            </Field>
-
-            <Field label="Saída — de" help="Quem não saiu não entra neste recorte">
-              <Input type="date" value={filtros.saidaDe}
-                     onChange={(e) => mudarFiltro("saidaDe", e.target.value)} />
-            </Field>
-            <Field label="Saída — até">
-              <Input type="date" value={filtros.saidaAte}
-                     onChange={(e) => mudarFiltro("saidaAte", e.target.value)} />
-            </Field>
-
-            <Field label="Situação">
-              <Select value={filtros.situacao}
-                      onChange={(e) => mudarFiltro("situacao", e.target.value)}>
-                <option value="">Todas</option>
-                <option value="dentro">Ainda dentro</option>
-                <option value="saiu">Já saiu</option>
-              </Select>
-            </Field>
-
-            <Field label="Tipo">
-              <Select value={filtros.tipo} onChange={(e) => mudarFiltro("tipo", e.target.value)}>
-                <option value="">Todos</option>
-                {TIPOS.map((t) => <option key={t.id} value={t.id}>{t.rotulo}</option>)}
-              </Select>
-            </Field>
-          </div>
+        <>
+          <Filtros
+            busca={filtros.busca}
+            onBusca={(x) => mudarFiltro("busca", x)}
+            placeholder="Nome, CPF, empresa, placa ou quem liberou"
+            filtro={filtros.situacao}
+            onFiltro={(x) => mudarFiltro("situacao", x)}
+            filtros={[
+              ["", "Todas", contagemHistorico.todas],
+              ["dentro", "Ainda dentro", contagemHistorico.dentro],
+              ["saiu", "Já saiu", contagemHistorico.saiu],
+            ]}
+            painel={
+              <PainelDeFiltros aberto={maisFiltros}>
+                {/* Separado da busca de texto de propósito: "5206" na busca acharia
+                    também qualquer CPF com 5206 dentro. A regra é a da lib/unidades. */}
+                <Field label="Unidade" help="Como 5206 ou B5-206">
+                  <Input
+                    value={filtros.unidade}
+                    placeholder="Ex: 5206"
+                    onChange={(e) => mudarFiltro("unidade", e.target.value)}
+                  />
+                </Field>
+                <Field label="Entrada — de" help="Este recorte é buscado no banco">
+                  <Input type="date" value={filtros.entradaDe}
+                         onChange={(e) => mudarFiltro("entradaDe", e.target.value)} />
+                </Field>
+                <Field label="Entrada — até">
+                  <Input type="date" value={filtros.entradaAte}
+                         onChange={(e) => mudarFiltro("entradaAte", e.target.value)} />
+                </Field>
+                <Field label="Saída — de" help="Quem não saiu não entra neste recorte">
+                  <Input type="date" value={filtros.saidaDe}
+                         onChange={(e) => mudarFiltro("saidaDe", e.target.value)} />
+                </Field>
+                <Field label="Saída — até">
+                  <Input type="date" value={filtros.saidaAte}
+                         onChange={(e) => mudarFiltro("saidaAte", e.target.value)} />
+                </Field>
+                <Field label="Tipo">
+                  <Opcoes rotulo="Tipo" valor={filtros.tipo} onMudar={(x) => mudarFiltro("tipo", x)}
+                    opcoes={[["", "Todos"], ...TIPOS.map((t) => [t.id, t.rotulo])]} />
+                </Field>
+              </PainelDeFiltros>
+            }
+          >
+            <MaisFiltros aberto={maisFiltros} onAlternar={() => setMaisFiltros((a) => !a)}
+              ativos={filtrosDoPainel} onLimpar={limparFiltros} />
+          </Filtros>
 
           <div className="ent-filtros__rodape">
             <span className="ent-filtros__conta">
@@ -1278,9 +1476,8 @@ export default function Entregas({ user }) {
                 recentes dele. Diminua o intervalo de entrada para ver o resto.
               </span>
             )}
-            <Button variant="ghost" onClick={limparFiltros}>Limpar filtros</Button>
           </div>
-        </Card>
+        </>
       )}
 
       {aba === "dentro" && !carregando && (
@@ -1292,50 +1489,167 @@ export default function Entregas({ user }) {
         />
       )}
 
-      <Table
-        columns={colunas}
-        rows={linhas}
-        loading={aba === "historico" ? carregandoHistorico : carregando}
-        getRowKey={(c) => c.id}
-        // O `id` é como o clique no mapa encontra esta linha para rolar até ela.
-        rowProps={(c) => ({
-          id: `chegada-${c.id}`,
-          "data-destacada": String(c.id) === String(destacada) ? "sim" : undefined,
-        })}
-        rowActions={(c) => (
-          <>
-            {!soHora(c.horario_saida) && (
-              <Button size="sm" variant="ghost" aria-label={`Registrar saída de ${c.nome}`}
-                      loading={saindoId === c.id}
-                      onClick={() => registrarSaida(c)} iconLeft={<LogOut size={14} />} />
-            )}
+      {!(aba === "historico" ? carregandoHistorico : carregando) && linhas.length === 0 ? (
+        aba === "historico" ? (
+          <EmptyState
+            icon={<Search size={20} />}
+            title="Nada neste recorte"
+            description="Nenhuma entrada bate com os filtros. Alargue o período ou limpe os filtros."
+            action={<Button onClick={limparFiltros}>Limpar filtros</Button>}
+          />
+        ) : aba === "dentro" ? (
+          <EmptyState
+            icon={<DoorOpen size={20} />}
+            title="Ninguém dentro agora"
+            description="Todo mundo que chegou hoje já registrou saída."
+          />
+        ) : (
+          <EmptyState
+            icon={<PackageCheck size={20} />}
+            title="Nenhuma chegada registrada hoje"
+            description="Assim que alguém for liberado, aparece aqui com horário de entrada e destino."
+          />
+        )
+      ) : (
+        <ListaQueAbre
+          colunas={[
+            { rotulo: "Entrada", largura: "120px" },
+            { rotulo: "Tipo", largura: "118px" },
+            { rotulo: "Quem entrou", largura: "minmax(0, 1.6fr)" },
+            { rotulo: "Destino", largura: "100px" },
+            { rotulo: "Veículo", largura: "minmax(0, 1.2fr)" },
+            { rotulo: "Prazo", largura: "110px" },
+            { rotulo: "Saída", largura: aba === "historico" ? "130px" : "110px" },
+          ]}
+          larguraAcoes="96px"
+          itens={linhas.slice(0, limite)}
+          carregando={aba === "historico" ? carregandoHistorico : carregando}
+          chave={(c) => c.id}
+          // O `id` é como o clique no mapa encontra esta linha para rolar até ela.
+          propsDaLinha={(c) => ({
+            id: `chegada-${c.id}`,
+            "data-destacada": String(c.id) === String(destacada) ? "sim" : undefined,
+          })}
+          onAbrir={setVendo}
+          rotuloDaLinha={(c) => `Abrir a entrada de ${c.nome}`}
+          celulas={(c) => celulasDaChegada(c)}
+          acoes={(c) => (
+            <>
+              <Button size="sm" variant="ghost" aria-label={`Ver a entrada de ${c.nome}`}
+                      onClick={() => setVendo(c)}><Eye size={16} /></Button>
+              {!soHora(c.horario_saida) && (
+                <Button size="sm" variant="ghost" aria-label={`Registrar saída de ${c.nome}`}
+                        loading={saindoId === c.id}
+                        onClick={() => registrarSaida(c)}><LogOut size={16} /></Button>
+              )}
+            </>
+          )}
+        />
+      )}
+      {linhas.length > limite && (
+        <div className="mud-mais">
+          <Button variant="ghost" onClick={() => setLimite((n) => n + LOTE)}>
+            Mostrar mais ({linhas.length - limite} restantes)
+          </Button>
+        </div>
+      )}
+
+      {/* ---- Ver a entrada: modal centrado, só leitura ---- */}
+      <Modal
+        open={Boolean(vendo)}
+        onClose={() => setVendo(null)}
+        title="Detalhes da entrada"
+        size="lg"
+        footer={vendo && (
+          <div className="app-modal__acoes">
             {can(user, "excluirChegada") && (
-              <Button size="sm" variant="ghost" aria-label={`Excluir chegada de ${c.nome}`}
-                      onClick={() => excluirChegada(c)} iconLeft={<Trash2 size={14} />} />
+              <Button variant="ghost" iconLeft={<Trash2 size={15} />}
+                      onClick={() => { const c = vendo; setVendo(null); excluirChegada(c); }}>
+                Excluir
+              </Button>
             )}
-          </>
+            <Button variant="primary" iconLeft={<LogOut size={15} />} loading={saindoId === vendo.id}
+                    disabled={Boolean(soHora(vendo.horario_saida))}
+                    onClick={async () => { await registrarSaida(vendo); setVendo(null); }}>
+              {soHora(vendo.horario_saida) ? "Já saiu" : "Registrar saída"}
+            </Button>
+          </div>
         )}
-        empty={
-          aba === "historico" ? (
-            <EmptyState
-              icon={<Search size={20} />}
-              title="Nada neste recorte"
-              description="Nenhuma entrada bate com os filtros. Alargue o período ou limpe os filtros."
-            />
-          ) : aba === "dentro" ? (
-            <EmptyState
-              icon={<DoorOpen size={20} />}
-              title="Ninguém dentro agora"
-              description="Todo mundo que chegou hoje já registrou saída."
-            />
-          ) : (
-            <EmptyState
-              icon={<PackageCheck size={20} />}
-              title="Nenhuma chegada registrada hoje"
-              description="Assim que alguém for liberado, aparece aqui com horário de entrada e destino."
-            />
-          )
-        }
+      >
+        {vendo && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <Iniciais nome={vendo.nome} grande apagado={Boolean(soHora(vendo.horario_saida))} />
+              <div className="app-modal__quem">
+                <strong>{vendo.nome}</strong>
+                <small>
+                  {vendo.bloco ? `B${vendo.bloco}-${vendo.apartamento}` : "Condomínio"}
+                  {" · "}
+                  {rotuloDoTipo(vendo.tipo || "ENTREGADOR")}
+                </small>
+                <span className="app-modal__selos">
+                  {soHora(vendo.horario_saida)
+                    ? <Badge tone="muted">Já saiu</Badge>
+                    : <Badge tone="brand">Dentro</Badge>}
+                  {(minutosRestantes(vendo, agora) ?? 0) < 0 && <Badge tone="danger">Passou do tempo</Badge>}
+                </span>
+              </div>
+            </div>
+
+            {/* O mesmo desenho do detalhe de Encomendas: à esquerda o que se
+                confere de olho (lá a foto, aqui o crachá da entrada); à direita
+                os dados em fichas empilhadas. */}
+            <div className="app-detalhe">
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Crachá da entrada</p>
+                <Cracha
+                  soLeitura
+                  hora={soHora(vendo.horario_entrada)}
+                  nome={vendo.nome}
+                  tipo={rotuloDoTipo(vendo.tipo || "ENTREGADOR")}
+                  empresa={vendo.empresa || ""}
+                  destino={vendo.bloco ? `B${vendo.bloco}-${vendo.apartamento}` : "Condomínio"}
+                  liberadoPor={vendo.liberado_por}
+                  veiculo={vendo.veiculo}
+                  placa={vendo.placa ? String(vendo.placa).toUpperCase() : ""}
+                  modelo={vendo.modelo}
+                  tempo={vendo.minutos_permitidos ? formatarDuracao(vendo.minutos_permitidos) : "Sem limite"}
+                  faltam={[]}
+                />
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Pessoa" itens={[
+                  ["CPF", mascararCpf(vendo.cpf) || "Não informado", true],
+                  ["Liberado por", vendo.liberado_por || "—"],
+                  vendo.empresa ? ["Empresa", vendo.empresa] : null,
+                ]} />
+                <Ficha titulo="Entrada" itens={[
+                  ["Data", `${soDia(vendo.horario_entrada)} ${soHora(vendo.horario_entrada)}`.trim() || "—"],
+                  ["Registrada por", vendo.created_by || "—"],
+                  ["Tempo combinado", vendo.minutos_permitidos ? formatarDuracao(vendo.minutos_permitidos) : "Sem limite"],
+                ]} />
+                <Ficha titulo="Saída" itens={soHora(vendo.horario_saida) ? [
+                  ["Data", `${soDia(vendo.horario_saida)} ${soHora(vendo.horario_saida)}`],
+                  ["Saída por", vendo.saida_por || "—"],
+                ] : [
+                  ["Situação", "Ainda dentro"],
+                  ["Prazo", textoDoPrazo(vendo)],
+                ]} />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <JanelaDaTemporada
+        aberta={janelaTemporada}
+        onFechar={() => setJanelaTemporada(false)}
+        temporadas={temporadas}
+        unidades={unidades}
+        user={user}
+        carregando={carregandoTemporadas}
+        onMudou={carregarTemporadas}
       />
 
       {/* ---- Cadastro de entregadores ---- */}
@@ -1345,7 +1659,7 @@ export default function Entregas({ user }) {
         title="Pessoas cadastradas"
         footer={<Button variant="ghost" onClick={() => setModalCadastro(false)}>Fechar</Button>}
       >
-        <div className="cad-filtros__busca" style={{ marginBottom: "var(--space-6)" }}>
+        <div className="cad-filtros__busca ent-cadastro__busca">
           <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
           <Input
             value={filtroCadastro}
@@ -1388,7 +1702,7 @@ export default function Entregas({ user }) {
                     </>
                   ) : (
                     <>
-                      <span style={{ flex: 1, minWidth: 0 }}>
+                      <span className="ent-cadastro__quem">
                         <span className="ent-nome">{e.nome}</span>
                         <span className="ent-cpf">{formatarCpf(e.cpf)}</span>
                       </span>

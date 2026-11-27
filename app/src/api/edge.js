@@ -5,6 +5,15 @@
 // lugares para esquecer o `Authorization` — e sem ele a função responde 401,
 // que na tela vira "não autorizado" para quem tem toda a autorização do mundo.
 import { supabase } from "./supabase";
+import { MODO_DEMO } from "./config";
+import { RECEITA_DEMO } from "../demo/supabaseDemo";
+
+/** O que cada Edge Function responde no modo demonstração. */
+function respostaDemo(nomeFuncao) {
+  if (nomeFuncao === "receita") return { success: true, dados: RECEITA_DEMO() };
+  if (nomeFuncao === "ia") return { success: false, message: "A IA não responde no modo demonstração." };
+  return { success: true };
+}
 
 /**
  * Os cabeçalhos que toda chamada leva — e a lista que cada Edge Function
@@ -27,7 +36,14 @@ export const CABECALHOS_ENVIADOS = ["authorization", "content-type", "apikey"];
  *   { falhaConexao: true }             — a requisição não chegou
  *   { status, ok, corpo }              — a função respondeu; `ok` já considera o `success` do corpo
  */
-export async function chamarEdgeFunction(nomeFuncao, corpo, { exigeSessao = true } = {}) {
+// `limiteMs`: teto de espera, opcional. Passado, a chamada volta como
+// `{ falhaConexao: true }`, igual a queda de rede, para quem chama seguir em
+// frente em vez de esperar uma resposta que pode nunca vir.
+export async function chamarEdgeFunction(nomeFuncao, corpo, { exigeSessao = true, limiteMs } = {}) {
+  if (MODO_DEMO) {
+    const resposta = respostaDemo(nomeFuncao);
+    return { status: 200, ok: Boolean(resposta.success), corpo: resposta };
+  }
   const { data: sessao } = await supabase.auth.getSession();
   const token = sessao?.session?.access_token;
   // `exigeSessao: false` existe para o login, que é a única chamada feita por
@@ -45,6 +61,7 @@ export async function chamarEdgeFunction(nomeFuncao, corpo, { exigeSessao = true
         apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
       },
       body: JSON.stringify(corpo),
+      ...(limiteMs ? { signal: AbortSignal.timeout(limiteMs) } : {}),
     });
     const resposta = await res.json().catch(() => ({}));
     return { status: res.status, ok: res.ok && Boolean(resposta.success), corpo: resposta };

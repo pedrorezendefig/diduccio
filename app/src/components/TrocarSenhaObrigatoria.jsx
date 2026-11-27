@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { KeyRound } from "lucide-react";
-import { supabase } from "../api/supabase";
+import { chamarEdgeFunction, mensagemDaEdgeFunction } from "../api/edge";
 import { Button, CampoSenha, Field, Modal, useToast } from "../ui";
 import { MINIMO, problemaDaSenha, regrasDaSenha, senhaValida, traduzirErroDeSenha } from "../lib/senha";
+import { MSG_SENHA_VAZADA, senhaVazada } from "../lib/senhaVazada";
 
 /**
  * Troca de senha obrigatória, sobre o sistema.
@@ -15,16 +16,15 @@ import { MINIMO, problemaDaSenha, regrasDaSenha, senhaValida, traduzirErroDeSenh
  * `title` do Modal não é usado: ele renderiza um X junto, e um X que não fecha
  * nada é pior que nenhum. O cabeçalho vem no corpo.
  *
- * Pede a senha atual mesmo já havendo sessão. O Supabase não exigiria — a
- * sessão bastaria para `updateUser` — mas quem senta numa máquina destravada
- * trocaria a senha de outra pessoa sem nunca ter sabido a dela.
+ * Pede a senha atual mesmo já havendo sessão: quem senta numa máquina
+ * destravada trocaria a senha de outra pessoa sem nunca ter sabido a dela. A
+ * conferência é feita no servidor, pela função `trocar-senha`.
  */
 
 /**
- * @param email     de quem está logado; usado para conferir a senha atual.
  * @param onTrocada avisa o App que a exigência foi cumprida.
  */
-export default function TrocarSenhaObrigatoria({ email, onTrocada }) {
+export default function TrocarSenhaObrigatoria({ onTrocada }) {
   const toast = useToast();
 
   const [atual, setAtual] = useState("");
@@ -52,40 +52,31 @@ export default function TrocarSenhaObrigatoria({ email, onTrocada }) {
     setSalvando(true);
     setErro("");
 
-    // 1. Confere a senha atual. O Supabase não tem "verificar senha", então
-    //    reautenticamos: se entrar, era ela mesma. A sessão que volta é da
-    //    mesma pessoa, então nada se perde.
-    const { error: erroAtual } = await supabase.auth.signInWithPassword({
-      email, password: atual,
-    });
-    if (erroAtual) {
-      setErro("A senha atual está incorreta.");
+    // 0. Senha que já apareceu em vazamento nem chega a ser gravada. "Não sei"
+    //    (sem internet, base fora do ar) segue; ver lib/senhaVazada.js.
+    if ((await senhaVazada(nova)) === true) {
+      setErro(MSG_SENHA_VAZADA);
       setSalvando(false);
       return;
     }
 
-    // 2. Troca de verdade. Falhando aqui, nada mudou e o modal continua aberto.
-    const { error } = await supabase.auth.updateUser({ password: nova });
-    if (error) {
-      setErro(traduzirErroDeSenha(error.message));
+    // 1. Confere a atual, troca e marca: tudo no servidor (função
+    //    `trocar-senha`). Antes a tela trocava e depois chamava
+    //    `marcar_senha_trocada()`, que marcava sem conferir nada: qualquer
+    //    funcionário logado podia chamá-la pelo console e seguir com a senha
+    //    provisória. Agora, sem trocar a senha, não há marca.
+    const r = await chamarEdgeFunction("trocar-senha", { atual, nova });
+    if (!r.ok) {
+      const msg = r.corpo?.message;
+      setErro(msg ? traduzirErroDeSenha(msg) : mensagemDaEdgeFunction(r, "Não foi possível trocar a senha. Tente novamente."));
       setSalvando(false);
       return;
     }
 
-    // 3. Só DEPOIS marca como trocada. Marcar antes e falhar o passo 2 deixaria
-    //    o registro dizendo "trocou" com a provisória ainda valendo — o oposto
-    //    do que a marca deveria garantir.
-    const { error: erroMarca } = await supabase.rpc("marcar_senha_trocada");
-    if (erroMarca) {
-      // A senha JÁ mudou: prender a pessoa aqui por causa de um erro de
-      // registro seria pior do que deixá-la seguir. Ela pode ser solicitada
-      // de novo no próximo carregamento, e agora sabe a senha.
-      toast.error(
-        "Sua senha foi alterada, mas não conseguimos registrar a confirmação. Você pode ser solicitado a trocá-la de novo."
-      );
-    } else {
-      toast.success("Senha alterada.");
-    }
+    // A senha JÁ mudou. Se só a marca falhou, a pessoa segue (prendê-la aqui
+    // seria pior) e pode ser solicitada de novo no próximo carregamento.
+    if (r.corpo?.aviso) toast.error(r.corpo.aviso);
+    else toast.success("Senha alterada.");
 
     onTrocada?.();
   };

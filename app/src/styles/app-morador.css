@@ -1,0 +1,691 @@
+/* Tela APP: listas como as de Confirmações, e cada linha abre um modal. */
+
+/* ---- Busca e filtros ---- */
+.app-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-bottom: var(--space-7);
+}
+/* A linha de cima: busca, pílulas e botões. No computador não quebra (ver o
+   bloco "numa linha só" mais abaixo); no celular empilha. */
+.app-filtros__linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+.app-filtros__busca { flex: 1 1 280px; max-width: 420px; }
+.app-pilulas { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--radius-lg); background: var(--surface-3); }
+.app-pilulas button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-secondary);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-pilulas button[aria-pressed="true"] { background: var(--bg-surface); color: var(--fg-default); box-shadow: var(--shadow-sm); }
+.app-pilulas__n {
+  min-width: 20px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---- Iniciais ---- */
+.app-iniciais {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  color: var(--fg-brand);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.app-iniciais--grande { width: 64px; height: 64px; font-size: var(--text-xl); }
+.app-iniciais--apagado { background: var(--surface-3); color: var(--fg-muted); }
+
+/* ---- A placa (desenho do Mercosul) ---- */
+.app-placa {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 128px;
+  border: 2px solid #2A211F;
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: #111;
+  overflow: hidden;
+  line-height: 1;
+}
+.app-placa__faixa {
+  padding: 2px 0;
+  background: #1F4BA5;
+  color: #FFFFFF;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  text-align: center;
+}
+.app-placa__num {
+  padding: 5px var(--space-4) 6px;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-align: center;
+  white-space: nowrap;
+}
+.app-placa--pequena { min-width: 104px; }
+.app-placa--pequena .app-placa__num { font-size: 16px; padding: 4px var(--space-3) 5px; }
+
+/* ---- O modal ---- */
+.app-modal { display: flex; flex-direction: column; gap: var(--space-7); }
+.app-modal__topo { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }
+.app-modal__quem { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.app-modal__quem strong { font-size: var(--text-xl); font-weight: 600; }
+.app-modal__quem small { color: var(--fg-muted); font-size: var(--text-md); }
+.app-modal__selos { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.app-modal__colunas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-7) var(--space-8); }
+.app-modal__aviso { margin: 0; color: var(--fg-muted); font-size: var(--text-base); }
+.app-modal__aviso--erro { color: var(--fg-danger); }
+/* Rodapé: a ação destrutiva à esquerda, o resto à direita. */
+.app-modal__acoes { display: flex; flex-wrap: wrap; gap: var(--space-4); width: 100%; }
+.app-modal__acoes > :first-child { margin-right: auto; }
+
+.app-ficha { display: flex; flex-direction: column; gap: var(--space-4); }
+.app-ficha__titulo {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.app-ficha__dados { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5) var(--space-7); }
+.app-ficha__dado dt { font-size: var(--text-sm); color: var(--fg-muted); }
+.app-ficha__dado dd { margin: 0; font-size: var(--text-md); overflow-wrap: anywhere; }
+
+.app-pessoas { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.app-pessoas li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-base);
+}
+.app-pessoas small { color: var(--fg-muted); font-size: var(--text-sm); }
+
+@media (max-width: 700px) {
+  .app-modal__colunas, .app-ficha__dados { grid-template-columns: minmax(0, 1fr); }
+  .app-filtros__busca { max-width: none; }
+  .app-pilulas { width: 100%; }
+  .app-pilulas button { flex: 1; justify-content: center; }
+  .app-modal__acoes > :first-child { margin-right: 0; }
+}
+
+/* Registrar saída: o que acontece sozinho e o que fica com a administração. */
+.saida__passos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-4); font-size: var(--text-base); }
+.saida__passos li { display: flex; gap: var(--space-4); align-items: flex-start; }
+.saida__passos svg { flex: none; margin-top: 2px; color: var(--fg-brand); }
+.saida__passos--fazer li { padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: var(--alert-50); color: var(--fg-danger); }
+.saida__passos--fazer svg { color: inherit; }
+
+/* A chave liga/desliga em cartão (o mesmo desenho da publicação de notícias). */
+.app-chave {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-5) var(--space-6);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.app-chave:hover:not(:disabled) { border-color: var(--border-strong); }
+.app-chave:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.app-chave:disabled { opacity: .6; cursor: not-allowed; }
+.app-chave--on { border-color: var(--brand-500); background: var(--bg-active); }
+.app-chave__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--fg-secondary);
+}
+.app-chave--on .app-chave__ic { background: var(--brand-700); color: var(--fg-on-brand); }
+.app-chave__tx { flex: 1; min-width: 0; }
+.app-chave__tx strong { display: block; font-size: var(--text-md); line-height: 1.25; }
+.app-chave__tx small { display: block; margin-top: 2px; font-size: var(--text-sm); color: var(--fg-muted); }
+.app-chave__trilho {
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.app-chave__trilho span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  transition: transform .18s var(--ease);
+}
+.app-chave--on .app-chave__trilho { background: var(--brand-600); }
+.app-chave--on .app-chave__trilho span { transform: translateX(18px); }
+@media (prefers-reduced-motion: reduce) {
+  .app-chave, .app-chave__trilho, .app-chave__trilho span { transition: none; }
+}
+
+/* O topo dos modais de veículo: ícone, resumo e a placa grande à direita. */
+.app-veiculo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.app-veiculo .app-modal__quem { flex: 1 1 180px; }
+.app-veiculo .app-placa { margin-left: auto; }
+.app-veiculo__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
+  color: var(--fg-brand);
+}
+.app-ficha__dados--3 { grid-template-columns: 1fr 1.4fr 1fr; }
+
+/* A etapa da TAG em botões lado a lado (escolha única). */
+.app-etapas { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: var(--radius-lg); background: var(--surface-3); }
+.app-etapas__op {
+  padding: var(--space-4) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-secondary);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.app-etapas__op:hover { color: var(--fg-default); }
+.app-etapas__op:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.app-etapas__op--on { background: var(--bg-surface); color: var(--fg-brand); box-shadow: var(--shadow-sm); }
+@media (max-width: 700px) {
+  .app-ficha__dados--3 { grid-template-columns: minmax(0, 1fr); }
+  .app-etapas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-veiculo .app-placa { margin-left: 0; }
+}
+
+/* Detalhe de Moradores em modal: os grupos lado a lado.
+   Na gaveta eles empilham com margem; na grade, o espaço vem do gap. */
+/* Modal de exportar: texto, título das colunas e a lista de caixas. */
+.app-export__texto { margin-bottom: var(--space-6); }
+.app-export__titulo { margin-bottom: var(--space-4); }
+.app-export__colunas { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* ---- Mais filtros: o botão na barra e o painel que abre embaixo ---- */
+.app-mais {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 36px;
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.app-mais:hover { border-color: var(--border-strong); color: var(--fg-default); }
+.app-mais:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.app-mais[aria-expanded="true"], .app-mais--ativo { border-color: var(--brand-500); color: var(--fg-brand); background: var(--bg-active); }
+.app-mais--limpar { border-color: transparent; background: transparent; }
+.app-mais__painel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-6) var(--space-8);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+/* ---- Mudanças ---- */
+.mud-quem { display: flex; flex-direction: column; min-width: 0; }
+.mud-quem b { display: inline-flex; align-items: center; gap: var(--space-3); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.mud-quem b svg { color: var(--fg-brand); flex: none; }
+.mud-quem small { color: var(--fg-muted); font-size: var(--text-sm); }
+.mud-mais { display: flex; justify-content: center; margin-top: var(--space-6); }
+.mud-obs { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg-secondary); }
+.mud-exporta { margin-bottom: var(--space-5); }
+.mud-form { display: grid; gap: var(--space-6); }
+.mud-form__par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6); }
+@media (max-width: 560px) { .mud-form__par { grid-template-columns: minmax(0, 1fr); } }
+.mud-monitor { font-weight: 500; }
+.mud-monitor--vazio { color: var(--fg-muted); font-weight: 400; }
+
+/* ---- Barra de filtro numa linha só (2026-11-04) ----
+   Busca, pílulas e "Mais filtros" lado a lado. Quem encolhe é a busca; se as
+   pílulas ainda não couberem, elas rolam de lado em vez de quebrar a linha.
+   Só o painel do "Mais filtros" (largura 100%) desce para a linha de baixo. */
+@media (min-width: 701px) {
+  .app-filtros__linha { flex-wrap: nowrap; gap: var(--space-4); }
+  .app-filtros__busca { flex: 1 1 180px; min-width: 160px; max-width: 320px; }
+  .app-pilulas { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .app-pilulas::-webkit-scrollbar { display: none; }
+  .app-pilulas button { flex: none; white-space: nowrap; padding: var(--space-3) var(--space-5); font-size: var(--text-base); }
+  .app-mais { flex: none; white-space: nowrap; }
+}
+/* No painel, as opções têm a mesma cara e a mesma medida das pílulas da
+   barra: cada grupo do tamanho do seu conteúdo, numa linha só, todos os
+   botões da mesma altura. Nada de grade esticada com botão espremido. */
+.app-mais__painel > .vit-field { flex: none; margin: 0; }
+.app-mais__painel .app-etapas { display: inline-flex; width: auto; gap: 2px; }
+.app-mais__painel .app-etapas__op {
+  flex: none;
+  white-space: nowrap;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-base);
+}
+.app-mais__painel .vit-input { width: 150px; }
+
+/* ---- Celular: as pílulas rolam de lado em vez de se espremer ----
+   Cinco situações com contagem não cabem em 360px divididas em partes
+   iguais: o texto quebrava dentro do botão. Cada pílula fica do tamanho do
+   seu texto, a faixa ocupa a largura toda e rola com o dedo. A busca e o
+   "Mais filtros" ficam em linhas próprias, inteiros. */
+@media (max-width: 700px) {
+  .app-filtros__busca { flex: 1 1 100%; }
+  .app-pilulas {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app-pilulas::-webkit-scrollbar { display: none; }
+  .app-pilulas button { flex: none; white-space: nowrap; padding: var(--space-3) var(--space-5); }
+  .app-mais { white-space: nowrap; }
+  .app-mais__painel { gap: var(--space-5); }
+  .app-mais__painel .app-etapas { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+}
+
+
+/* ---- Reservas (Festas e Churrasqueira: TelaDeReservas) ---- */
+.mud-quem b svg.res-alerta { color: var(--fg-danger); }
+
+/* O contrato sem comprovante: o botão continua clicável (para explicar o
+   porquê num aviso), mas com cara de travado e a dica do que falta. */
+.res-contrato--travado.vit-btn { opacity: .65; cursor: not-allowed; }
+.res-contrato__dica { font-weight: 400; color: var(--fg-muted); }
+
+/* Comprovantes: miniaturas quadradas, o mesmo tamanho no ver e no editar. */
+.res-anexos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--space-4); }
+.res-anexo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.res-anexo:hover { border-color: var(--border-strong); }
+.res-anexo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.res-anexo__fundo { display: grid; justify-items: center; gap: var(--space-2); font-size: var(--text-xs); font-weight: 600; }
+.res-anexo--salvo, .res-anexo--novo { cursor: default; }
+.res-anexo--novo { border: 2px solid var(--brand-500); }
+.res-anexo__selo {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 2px 0;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 10px;
+  text-align: center;
+}
+.res-anexo__tirar {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--btn-danger-bg);
+  color: var(--fg-on-brand);
+  cursor: pointer;
+}
+.res-anexo--novo-botao { border-style: dashed; gap: var(--space-2); font-size: var(--text-sm); font-weight: 600; }
+.res-anexo--novo-botao:hover { color: var(--fg-brand); border-color: var(--brand-500); }
+.res-anexo__entrada { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* ---- Filtro de situação: pílulas no computador, folha no celular ----
+   No celular (decisão de 2026-11-04) a faixa de pílulas some e entra o campo
+   "SITUAÇÃO · Todas 16 ▾", na linha do "Mais filtros"; ele abre uma folha que
+   sobe de baixo com as opções (EscolhaDeFiltro). */
+.app-filtros__escolha { display: none; }
+@media (max-width: 700px) {
+  .app-filtros__linha .app-pilulas { display: none; }
+  .app-filtros__escolha {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1 1 0;
+    min-width: 0;
+    height: 40px;
+    padding: 0 var(--space-4) 0 var(--space-5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .app-filtros__escolha[aria-expanded="true"], .app-filtros__escolha:focus-visible { outline: none; border-color: var(--brand-500); box-shadow: var(--focus-ring); }
+  .app-filtros__escolha-rotulo {
+    flex: none;
+    color: var(--fg-muted);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .app-filtros__escolha b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .app-filtros__escolha-seta { margin-left: auto; flex: none; color: var(--fg-muted); }
+  .app-filtros__linha .app-mais { height: 40px; flex: none; }
+  .app-filtros__linha .app-mais--limpar { flex-basis: 100%; justify-content: center; order: 5; }
+}
+
+/* A folha que sobe de baixo: alça, título, e as opções em linhas grandes. */
+.app-folha__veu {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(18, 18, 18, .55);
+  animation: vitFade var(--dur-base) var(--ease) both;
+}
+.app-folha {
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-6) calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
+  border-radius: 20px 20px 0 0;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+  outline: none;
+  animation: appFolhaSobe .28s cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes appFolhaSobe { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .app-folha, .app-folha__veu { animation: none; } }
+.app-folha__alca { display: block; width: 40px; height: 4px; margin: 0 auto var(--space-5); border-radius: var(--radius-full); background: var(--border-strong); }
+.app-folha__topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+.app-folha__topo h2 { margin: 0; font: 700 var(--text-lg) var(--font-display); color: var(--fg-heading); }
+.app-folha__fechar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+.app-folha__opcoes { display: grid; gap: var(--space-2); }
+.app-folha__opcao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: 52px;
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+.app-folha__opcao:hover { background: var(--bg-hover); }
+.app-folha__opcao:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.app-folha__opcao--on { border-color: var(--brand-500); background: var(--bg-active); color: var(--fg-brand); font-weight: 600; }
+.app-folha__marca { display: grid; place-items: center; width: 20px; flex: none; color: var(--fg-brand); }
+.app-folha__nome { flex: 1; min-width: 0; }
+
+/* ---- Agendamento: a agenda do dia ----
+   Calendário e "Próximos" à esquerda, o dia à direita; no celular, um embaixo
+   do outro. A borda de cada agendamento tem o tom da situação (o do selo). */
+.agd-grade { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--space-7); align-items: start; }
+@media (max-width: 900px) { .agd-grade { grid-template-columns: minmax(0, 1fr); } }
+.agd-lado { display: grid; gap: var(--space-6); }
+.agd-cartao { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); box-shadow: var(--shadow-sm); }
+
+.agd-mes { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+.agd-mes b { font-family: var(--font-display); color: var(--fg-heading); }
+.agd-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.agd-cal__semana { padding: var(--space-2) 0; color: var(--fg-muted); font-size: var(--text-xs); font-weight: 600; }
+.agd-cal__dia {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.agd-cal__dia:hover { background: var(--bg-hover); }
+.agd-cal__dia:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.agd-cal__dia--hoje { border-color: var(--brand-500); font-weight: 700; color: var(--fg-brand); }
+.agd-cal__dia--sel { background: var(--bg-active); color: var(--fg-brand); font-weight: 700; }
+.agd-cal__dia i { position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--brand-500); }
+.agd-hoje { width: 100%; justify-content: center; margin-top: var(--space-4); }
+
+.agd-proximos { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-3); }
+.agd-proximo {
+  width: 100%;
+  display: grid;
+  gap: 1px;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--agd-tom, var(--border-strong));
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--fg-default);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.agd-proximo:hover { border-color: var(--border-strong); }
+.agd-proximo small { color: var(--fg-muted); font-size: var(--text-xs); }
+
+.agd-dia__topo { margin-bottom: var(--space-6); }
+.agd-dia__topo h2 { margin: 0; font: 700 var(--text-xl) var(--font-display); color: var(--fg-heading); }
+.agd-dia__topo h2::first-letter { text-transform: uppercase; }
+.agd-dia__topo p { margin: var(--space-2) 0 0; color: var(--fg-secondary); font-size: var(--text-sm); }
+.agd-linhas { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.agd-linha { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--space-5); align-items: center; }
+.agd-hora { color: var(--fg-muted); font: 600 var(--text-sm) var(--font-mono); text-align: right; }
+.agd-ag {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: 52px;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--agd-tom, var(--border-strong));
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.agd-ag:hover { background: var(--bg-hover); }
+.agd-ag:focus-visible, .agd-livre:focus-visible, .agd-proximo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.agd-ag__texto { display: grid; gap: 2px; min-width: 0; }
+.agd-ag__texto small { color: var(--fg-secondary); font-size: var(--text-sm); }
+.agd-ag__horario { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--fg-muted) !important; }
+.agd-livre {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.agd-livre:hover { border-color: var(--brand-500); color: var(--fg-brand); background: var(--bg-active); }
+.agd-tom--neutral { --agd-tom: var(--border-strong); }
+.agd-tom--brand { --agd-tom: var(--brand-500); }
+.agd-tom--positive { --agd-tom: var(--fg-brand); }
+.agd-tom--danger { --agd-tom: var(--fg-danger); }
+/* Celular: calendário, depois o dia escolhido, e "Próximos" por último. */
+@media (max-width: 900px) {
+  .agd-lado { display: contents; }
+  .agd-grade > .agd-dia { order: 2; }
+  .agd-cartao--proximos { order: 3; }
+}
+
+/* ---- Rodapé dos modais no celular ----
+   Sempre a mesma ordem, e nada solto: a ação principal (Editar, Salvar,
+   Confirmar entrega) em cima, na largura toda; a ação própria da tela (Gerar
+   contrato) embaixo dela, também inteira; e as secundárias (Excluir, Fechar,
+   Cancelar, Reenviar…) lado a lado, em metades iguais (sozinha, ocupa a linha). */
+@media (max-width: 560px) {
+  .app-modal__acoes { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+  .app-modal__acoes > span:empty { display: none; }
+  .app-modal__acoes > .vit-btn { flex: 1 1 40%; justify-content: center; margin: 0; }
+  .app-modal__acoes > .vit-btn--primary { flex-basis: 100%; order: -2; }
+  .app-modal__acoes > .res-contrato { flex-basis: 100%; order: -1; }
+}
+
+/* ======================= DETALHE (modal de ver) =======================
+   O desenho do detalhe de Encomendas, para todo modal de ver: à esquerda o
+   que se confere de olho (foto, crachá, carteirinha, carta, cartão do
+   veículo); à direita os dados em fichas empilhadas, cada uma numa caixa com
+   o rótulo à esquerda e o valor em negrito. No celular vira uma coluna. */
+.app-detalhe { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--space-8); }
+.app-detalhe--largo { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+@media (max-width: 1024px) { .app-detalhe, .app-detalhe--largo { grid-template-columns: minmax(0, 1fr); } }
+.app-detalhe__visual { display: grid; gap: var(--space-4); align-content: start; min-width: 0; }
+.app-detalhe__legenda { margin: 0; color: var(--fg-muted); font-size: var(--text-sm); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.app-detalhe__dados { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-content: start; min-width: 0; }
+/* Sem a faixa minmax(0, 1fr), a coluna crescia até a linha mais longa
+   (nome de anexo, e-mail) e o texto passava da borda do modal. */
+.app-detalhe__dados > * { min-width: 0; }
+.app-detalhe__dados .app-ficha { gap: var(--space-3); }
+.app-detalhe__dados .app-ficha__dados {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.app-detalhe__dados .app-ficha__dado {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+}
+.app-detalhe__dados .app-ficha__dado + .app-ficha__dado { border-top: 1px solid var(--border); }
+.app-detalhe__dados .app-ficha__dado dd { font-size: var(--text-sm); font-weight: 600; color: var(--fg-heading); }
+.app-detalhe__dados .mud-obs {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+@media (max-width: 560px) {
+  .app-detalhe__dados .app-ficha__dado { grid-template-columns: 110px minmax(0, 1fr); }
+}
+
+/* Um cartão grande para o visual quando a tela não tem foto: o número da
+   unidade, o contato do morador, a data da mudança. */
+.app-cartao {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-2);
+}
+.app-cartao__rotulo { margin: 0; color: var(--fg-muted); font-size: var(--text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.app-cartao__grande { margin: 0; font: 700 var(--text-3xl) var(--font-mono); letter-spacing: .02em; color: var(--fg-heading); overflow-wrap: anywhere; }
+.app-cartao__sub { margin: 0; color: var(--fg-secondary); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.app-cartao__acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.app-cartao__acoes .vit-btn { justify-content: center; }
+.app-cartao__selos { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
+/* Comprovantes da reserva no lado esquerdo do detalhe: pastilhas maiores. */
+.res-anexos--grande { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }

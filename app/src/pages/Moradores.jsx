@@ -1,18 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Search, Plus, Edit2, Trash2, Eye, FileText, Download, Users, RotateCcw,
-  ChevronLeft, ChevronRight, Car, Phone, MessageCircle,
+  Search, Plus, Pencil, Trash2, Eye, FileText, Download, Users, Phone, MessageCircle,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { sanitizarCelula } from "../lib/drive";
-import { dataBR } from "../lib/format";
+import { dataBR, maskCPFPrivacy, maskPhone, maskRGPrivacy, nomeProprio } from "../lib/format";
 import { listar, criar, editar, remover } from "../api/db";
 import {
-  Button, Badge, Table, Modal, Gaveta, Field, Input, Select, Checkbox,
+  Button, Badge, Modal, Field, Input, Checkbox,
   PageHeader, EmptyState, useToast, useConfirm,
 } from "../ui";
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import BuscaUnidade from "../components/BuscaUnidade";
+import { Ficha, Filtros, Iniciais, MaisFiltros, Opcoes, PainelDeFiltros } from "../components/app/pecas";
+
+/** Quantas linhas a lista mostra de cada vez; "Mostrar mais" soma outras tantas. */
+const LOTE = 30;
 
 // Verde da marca em RGB, para o jsPDF, que não aceita hex.
 const VERDE_PDF = [227, 90, 58];
@@ -67,14 +72,6 @@ const mascaraTelefone = (v) => {
 // "AAAA-MM-DD" — exatamente o formato que um <input type="date"> espera. Não há
 // mais nada a converter: o serial do Excel foi resolvido na carga, e a exibição
 // em dd/mm/aaaa vive em lib/format.
-
-/** Iniciais para o avatar: primeiro e último nome. */
-function iniciaisDe(nome) {
-  const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
-  if (partes.length === 0) return "?";
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
 
 /**
  * Link do WhatsApp. Número brasileiro sem o 55 não abre a conversa, e a
@@ -136,9 +133,9 @@ export default function Moradores({ user }) {
   const [fStatus, setFStatus] = useState("Todos");
   const [fBloco, setFBloco] = useState("Todos");
   const [fTipo, setFTipo] = useState("Todos");
-  const [sort, setSort] = useState({ key: "nome", dir: "asc" });
-  const [pagina, setPagina] = useState(1);
-  const [porPagina, setPorPagina] = useState(50);
+  const [ordem, setOrdem] = useState({ chave: "nome", direcao: "asc" });
+  const [limite, setLimite] = useState(LOTE);
+  const [maisFiltros, setMaisFiltros] = useState(false);
 
   const [colunasExport, setColunasExport] = useState(
     COLUNAS_EXPORT.map((c) => ({ ...c, selected: true }))
@@ -250,48 +247,62 @@ export default function Moradores({ user }) {
     [unidades]
   );
 
-  const linhas = useMemo(() => {
+  // Busca e painel, sem a situação: as pílulas contam em cima disto, e cada
+  // número diz quantos aparecem ao clicar nela.
+  const semFiltroDeSituacao = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const termoNum = soDigitos(termo);
 
-    const filtrados = moradores.filter((m) => {
+    return moradores.filter((m) => {
       const casaNome = String(m.nome || "").toLowerCase().includes(termo);
       const casaCPF = termoNum !== "" && soDigitos(m.cpf).includes(termoNum);
-      const casaBusca = termo === "" || casaNome || casaCPF;
+      const casaUnidade = rotuloUnidade(m.id_unidade).toLowerCase().includes(termo) ||
+        (termoNum !== "" && String(m.id_unidade ?? "").includes(termoNum));
+      const casaBusca = termo === "" || casaNome || casaCPF || casaUnidade;
 
       const casaVinculo = fVinculo === "Todos" || m.tipo_vinculo === fVinculo;
-      const casaStatus = fStatus === "Todos" || m.status === fStatus;
       const casaTipo = fTipo === "Todos" || (m.tipo_morador || "Titular") === fTipo;
 
       const u = unidadePorId.get(String(m.id_unidade));
       const casaBloco = fBloco === "Todos" || String(u?.bloco) === fBloco;
 
-      return casaBusca && casaVinculo && casaStatus && casaTipo && casaBloco;
+      return casaBusca && casaVinculo && casaTipo && casaBloco;
     });
+  }, [moradores, busca, fVinculo, fTipo, fBloco, unidadePorId, rotuloUnidade]);
 
+  const contagemStatus = useMemo(() => ({
+    Todos: semFiltroDeSituacao.length,
+    Ativo: semFiltroDeSituacao.filter((m) => m.status === "Ativo").length,
+    Inativo: semFiltroDeSituacao.filter((m) => m.status !== "Ativo").length,
+  }), [semFiltroDeSituacao]);
+
+  /** Posição da unidade na ordem do prédio: bloco, depois apartamento. */
+  const ordemDaUnidade = useCallback((id) => {
+    const u = unidadePorId.get(String(id));
+    if (!u) return String(id ?? "");
+    return `${String(u.bloco).padStart(4, "0")}-${String(u.unidade).padStart(6, "0")}`;
+  }, [unidadePorId]);
+
+  const linhas = useMemo(() => {
+    const filtrados = semFiltroDeSituacao.filter((m) =>
+      fStatus === "Todos" || (fStatus === "Ativo" ? m.status === "Ativo" : m.status !== "Ativo"));
+    const valor = (m) => ordem.chave === "id_unidade" ? ordemDaUnidade(m.id_unidade) : String(m[ordem.chave] ?? "");
     return filtrados.sort((a, b) => {
-      const x = String(a[sort.key] ?? "");
-      const y = String(b[sort.key] ?? "");
-      const cmp = x.localeCompare(y, "pt-BR", { numeric: true, sensitivity: "base" });
-      return sort.dir === "asc" ? cmp : -cmp;
+      const cmp = valor(a).localeCompare(valor(b), "pt-BR", { numeric: true, sensitivity: "base" });
+      return ordem.direcao === "asc" ? cmp : -cmp;
     });
-  }, [moradores, busca, fVinculo, fStatus, fTipo, fBloco, sort, unidadePorId]);
+  }, [semFiltroDeSituacao, fStatus, ordem, ordemDaUnidade]);
 
-  const totalPaginas = porPagina === "Todos" ? 1 : Math.max(1, Math.ceil(linhas.length / porPagina));
-  const paginaSegura = Math.min(pagina, totalPaginas);
-  const exibidos = porPagina === "Todos"
-    ? linhas
-    : linhas.slice((paginaSegura - 1) * porPagina, paginaSegura * porPagina);
+  const ordenar = (chave) =>
+    setOrdem((o) => ({ chave, direcao: o.chave === chave && o.direcao === "asc" ? "desc" : "asc" }));
 
-  useEffect(() => { setPagina(1); }, [busca, fVinculo, fStatus, fBloco, fTipo, porPagina]);
+  const filtrosDoPainel = [fBloco, fVinculo, fTipo].filter((f) => f !== "Todos").length;
+  const temFiltro = busca || fStatus !== "Todos" || filtrosDoPainel > 0;
 
-  const temFiltro =
-    busca || fVinculo !== "Todos" || fStatus !== "Todos" || fBloco !== "Todos" || fTipo !== "Todos";
-
-  const limparFiltros = () => {
-    setBusca(""); setFVinculo("Todos"); setFStatus("Todos");
-    setFBloco("Todos"); setFTipo("Todos");
+  const limparPainel = () => {
+    setFVinculo("Todos"); setFBloco("Todos"); setFTipo("Todos"); setLimite(LOTE);
   };
+  const limparFiltros = () => { setBusca(""); setFStatus("Todos"); limparPainel(); };
 
   /* ---------------- formulário ---------------- */
 
@@ -357,7 +368,7 @@ export default function Moradores({ user }) {
     //   `id: ""` (o que o FORM_VAZIO usa) quebraria o insert. Na edição o id
     //   vai à parte, como segundo argumento de `editar`, não dentro dos campos.
     const dados = {
-      nome: form.nome.trim(),
+      nome: nomeProprio(form.nome.trim()),
       id_unidade: Number(form.id_unidade),
       cpf: form.cpf || null,
       rg: form.rg || null,
@@ -419,7 +430,8 @@ export default function Moradores({ user }) {
       }
       await buscarDados();
       setDetalhe(null);
-      toast.success(`${m.nome} foi removido`);
+      setModalAberto(false);
+      toast.success(`${nomeProprio(m.nome)} foi removido`);
     } finally {
       setSalvando(false);
     }
@@ -503,27 +515,7 @@ export default function Moradores({ user }) {
     img.onerror = () => gerar(false);
   };
 
-  /* ---------------- tabela ---------------- */
-
-  const colunas = [
-    { key: "id_unidade", label: "Unidade", tipo: "id", sortable: true, width: 108,
-      render: (m) => rotuloUnidade(m.id_unidade) },
-    { key: "nome", label: "Nome", sortable: true,
-      render: (m) => <span style={{ fontWeight: 600 }}>{m.nome}</span> },
-    { key: "cpf", label: "CPF", render: (m) => mascaraCPF(m.cpf) },
-    { key: "tipo_vinculo", label: "Vínculo", sortable: true },
-    { key: "tipo_morador", label: "Morador",
-      render: (m) => (
-        <Badge tone={(m.tipo_morador || "Titular") === "Titular" ? "brand" : "neutral"}>
-          {m.tipo_morador || "Titular"}
-        </Badge>
-      ) },
-    { key: "telefone", label: "Telefone", render: (m) => mascaraTelefone(m.telefone) },
-    { key: "status", label: "Status", sortable: true,
-      render: (m) => (
-        <Badge tone={m.status === "Ativo" ? "positive" : "danger"}>{m.status}</Badge>
-      ) },
-  ];
+  /* ---------------- lista ---------------- */
 
   const resumo = useMemo(() => {
     const ativos = moradores.filter((m) => m.status === "Ativo").length;
@@ -543,9 +535,9 @@ export default function Moradores({ user }) {
   // unidade, e rotulá-la de "cadastrado em" dizia uma coisa mostrando outra.
   // Fica vazio nas 317 linhas vindas da planilha, que não trazem o carimbo —
   // não mostrar nada é melhor que mostrar a data errada.
-  const metaCadastro = detalhe?.created_at
-    ? `Cadastrado em ${dataBR(detalhe.created_at)}`
-    : undefined;
+  const m = detalhe;
+  const veiculosDoDetalhe = m ? veiculosDaUnidade(m.id_unidade) : [];
+  const vizinhosDoDetalhe = m ? vizinhosDaUnidade(m.id_unidade, m.cpf) : [];
 
   return (
     <div>
@@ -564,303 +556,280 @@ export default function Moradores({ user }) {
         }
       />
 
-      {/* ---- Filtros ---- */}
-      <div className="cad-filtros">
-        <div className="cad-filtros__busca">
-          <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome ou CPF"
-            aria-label="Buscar por nome ou CPF"
-          />
-        </div>
-        <Select value={fBloco} onChange={(e) => setFBloco(e.target.value)} aria-label="Filtrar por bloco">
-          {blocos.map((b) => (
-            <option key={b} value={b}>{b === "Todos" ? "Todos os blocos" : `Bloco ${b}`}</option>
-          ))}
-        </Select>
-        <Select value={fVinculo} onChange={(e) => setFVinculo(e.target.value)} aria-label="Filtrar por vínculo">
-          <option value="Todos">Qualquer vínculo</option>
-          {VINCULOS.map((v) => <option key={v} value={v}>{v}</option>)}
-        </Select>
-        <Select value={fTipo} onChange={(e) => setFTipo(e.target.value)} aria-label="Filtrar por tipo de morador">
-          <option value="Todos">Titular e dependente</option>
-          {TIPOS_MORADOR.map((t) => <option key={t} value={t}>{t}</option>)}
-        </Select>
-        <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filtrar por status">
-          <option value="Todos">Ativo e inativo</option>
-          <option value="Ativo">Só ativos</option>
-          <option value="Inativo">Só inativos</option>
-        </Select>
-        {temFiltro && (
-          <Button variant="ghost" onClick={limparFiltros} iconLeft={<RotateCcw size={14} />}>
-            Limpar
-          </Button>
-        )}
-      </div>
-
-      <Table
-        columns={colunas}
-        rows={exibidos}
-        loading={carregando}
-        sort={sort}
-        onSort={setSort}
-        getRowKey={(m) => m.id}
-        rowActions={(m) => (
-          <>
-            <Button size="sm" variant="ghost" aria-label={`Ver ${m.nome}`}
-                    onClick={() => setDetalhe(m)} iconLeft={<Eye size={14} />} />
-            <Button size="sm" variant="ghost" aria-label={`Editar ${m.nome}`}
-                    onClick={() => abrirEdicao(m)} iconLeft={<Edit2 size={14} />} />
-            <Button size="sm" variant="ghost" aria-label={`Excluir ${m.nome}`}
-                    onClick={() => excluir(m)} iconLeft={<Trash2 size={14} />} />
-          </>
-        )}
-        empty={
-          temFiltro ? (
-            <EmptyState
-              icon={<Search size={20} />}
-              title="Nenhum morador com esses filtros"
-              description="Ajuste a busca ou limpe os filtros para ver todos os moradores."
-              action={<Button onClick={limparFiltros}>Limpar filtros</Button>}
-            />
-          ) : (
-            <EmptyState
-              icon={<Users size={20} />}
-              title="Nenhum morador cadastrado"
-              description="Cadastre o primeiro morador para vinculá-lo a uma unidade."
-              action={
-                <Button variant="primary" onClick={abrirNovo} iconLeft={<Plus size={16} />}>
-                  Novo morador
-                </Button>
-              }
-            />
-          )
+      <Filtros
+        busca={busca}
+        onBusca={(x) => { setBusca(x); setLimite(LOTE); }}
+        placeholder="Nome, CPF ou unidade"
+        filtro={fStatus}
+        onFiltro={(x) => { setFStatus(x); setLimite(LOTE); }}
+        filtros={[
+          ["Todos", "Todos", contagemStatus.Todos],
+          ["Ativo", "Ativos", contagemStatus.Ativo],
+          ["Inativo", "Inativos", contagemStatus.Inativo],
+        ]}
+        painel={
+          <PainelDeFiltros aberto={maisFiltros}>
+            <Field label="Bloco">
+              <Opcoes rotulo="Bloco" valor={fBloco} onMudar={(x) => { setFBloco(x); setLimite(LOTE); }}
+                opcoes={blocos.map((b) => [b, b === "Todos" ? "Todos" : `Bloco ${b}`])} />
+            </Field>
+            <Field label="Vínculo">
+              <Opcoes rotulo="Vínculo" valor={fVinculo} onMudar={(x) => { setFVinculo(x); setLimite(LOTE); }}
+                opcoes={["Todos", ...VINCULOS]} />
+            </Field>
+            <Field label="Tipo de morador">
+              <Opcoes rotulo="Tipo de morador" valor={fTipo} onMudar={(x) => { setFTipo(x); setLimite(LOTE); }}
+                opcoes={["Todos", ...TIPOS_MORADOR]} />
+            </Field>
+          </PainelDeFiltros>
         }
-      />
+      >
+        <MaisFiltros aberto={maisFiltros} onAlternar={() => setMaisFiltros((a) => !a)}
+          ativos={filtrosDoPainel} onLimpar={limparPainel} />
+      </Filtros>
 
-      {/* ---- Paginação ---- */}
-      {!carregando && linhas.length > 0 && (
-        <div className="cad-paginacao">
-          <span className="cad-paginacao__info">
-            {porPagina === "Todos"
-              ? `${linhas.length} morador(es)`
-              : `${(paginaSegura - 1) * porPagina + 1} a ${Math.min(paginaSegura * porPagina, linhas.length)} de ${linhas.length}`}
-          </span>
-          <div className="cad-paginacao__controles">
-            <Select
-              value={porPagina}
-              onChange={(e) => setPorPagina(e.target.value === "Todos" ? "Todos" : Number(e.target.value))}
-              aria-label="Moradores por página"
-              className="cad-paginacao__tamanho"
-            >
-              <option value={25}>25 por página</option>
-              <option value={50}>50 por página</option>
-              <option value={100}>100 por página</option>
-              <option value="Todos">Mostrar todos</option>
-            </Select>
-            {totalPaginas > 1 && (
-              <>
-                <Button size="sm" aria-label="Página anterior" disabled={paginaSegura <= 1}
-                        onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                        iconLeft={<ChevronLeft size={15} />} />
-                <span className="cad-paginacao__pagina">{paginaSegura} de {totalPaginas}</span>
-                <Button size="sm" aria-label="Próxima página" disabled={paginaSegura >= totalPaginas}
-                        onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                        iconLeft={<ChevronRight size={15} />} />
-              </>
-            )}
-          </div>
+      {!carregando && linhas.length === 0 ? (
+        temFiltro ? (
+          <EmptyState
+            icon={<Search size={20} />}
+            title="Nenhum morador com esses filtros"
+            description="Ajuste a busca ou limpe os filtros para ver todos os moradores."
+            action={<Button onClick={limparFiltros}>Limpar filtros</Button>}
+          />
+        ) : (
+          <EmptyState
+            icon={<Users size={20} />}
+            title="Nenhum morador cadastrado"
+            description="Cadastre o primeiro morador para vinculá-lo a uma unidade."
+            action={
+              <Button variant="primary" onClick={abrirNovo} iconLeft={<Plus size={16} />}>
+                Novo morador
+              </Button>
+            }
+          />
+        )
+      ) : (
+        <ListaQueAbre
+          colunas={[
+            { rotulo: "Unidade", largura: "100px", ordem: "id_unidade" },
+            { rotulo: "Nome", largura: "minmax(0, 1.8fr)", ordem: "nome" },
+            { rotulo: "Vínculo", largura: "minmax(0, 1fr)", ordem: "tipo_vinculo" },
+            { rotulo: "Telefone", largura: "150px" },
+            { rotulo: "Situação", largura: "100px", ordem: "status" },
+          ]}
+          ordenacao={ordem}
+          onOrdenar={ordenar}
+          larguraAcoes="96px"
+          itens={linhas.slice(0, limite)}
+          carregando={carregando}
+          chave={(x) => x.id}
+          onAbrir={setDetalhe}
+          rotuloDaLinha={(x) => `Abrir o cadastro de ${nomeProprio(x.nome)} (${rotuloUnidade(x.id_unidade)})`}
+          celulas={(x) => [
+            <b key="u" className="conf-dado__mono">{rotuloUnidade(x.id_unidade)}</b>,
+            <span key="n" className="pis-quem">
+              <Iniciais nome={x.nome} apagado={x.status !== "Ativo"} />
+              <span className="mud-quem">
+                <b>{nomeProprio(x.nome)}</b>
+                {x.cpf ? <small>{maskCPFPrivacy(x.cpf)}</small> : null}
+              </span>
+            </span>,
+            <span key="v" className="mud-quem">
+              <b>{x.tipo_vinculo || "—"}</b>
+              <small>{x.tipo_morador || "Titular"}</small>
+            </span>,
+            <span key="t">{x.telefone ? maskPhone(String(x.telefone)) : "—"}</span>,
+            <Badge key="s" tone={x.status === "Ativo" ? "positive" : "muted"}>{x.status}</Badge>,
+          ]}
+          acoes={(x) => (
+            <>
+              <Button size="sm" variant="ghost" aria-label={`Ver o cadastro de ${nomeProprio(x.nome)}`}
+                      onClick={() => setDetalhe(x)}><Eye size={16} /></Button>
+              <Button size="sm" variant="ghost" aria-label={`Editar o cadastro de ${nomeProprio(x.nome)}`}
+                      onClick={() => abrirEdicao(x)}><Pencil size={16} /></Button>
+            </>
+          )}
+        />
+      )}
+      {linhas.length > limite && (
+        <div className="mud-mais">
+          <Button variant="ghost" onClick={() => setLimite((n) => n + LOTE)}>
+            Mostrar mais ({linhas.length - limite} restantes)
+          </Button>
         </div>
       )}
+
+      {/* ---- Ver: o desenho do detalhe de Encomendas ---- */}
+      <Modal
+        open={Boolean(m)}
+        onClose={() => setDetalhe(null)}
+        title="Cadastro do morador"
+        size="lg"
+        footer={m && (
+          <div className="app-modal__acoes">
+            <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(m)}>Excluir</Button>
+            <Button variant="primary" iconLeft={<Pencil size={15} />}
+                    onClick={() => { setDetalhe(null); abrirEdicao(m); }}>
+              Editar
+            </Button>
+          </div>
+        )}
+      >
+        {m && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <Iniciais nome={m.nome} grande apagado={m.status !== "Ativo"} />
+              <div className="app-modal__quem">
+                <strong>{nomeProprio(m.nome)}</strong>
+                <small>
+                  {rotuloUnidade(m.id_unidade)} · {m.tipo_vinculo || "Sem vínculo"} · {m.tipo_morador || "Titular"}
+                  {m.created_at ? ` · cadastrado em ${dataBR(m.created_at)}` : ""}
+                </small>
+                <span className="app-modal__selos">
+                  <Badge tone={m.status === "Ativo" ? "positive" : "muted"}>{m.status}</Badge>
+                </span>
+              </div>
+            </div>
+
+            <div className="app-detalhe">
+              {/* O contato à esquerda, grande: ligar e chamar no WhatsApp é o
+                  que a portaria faz com este cadastro o dia inteiro. */}
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Contato</p>
+                <div className="app-cartao">
+                  <p className="app-cartao__rotulo">Telefone</p>
+                  <p className="app-cartao__grande">{m.telefone ? maskPhone(String(m.telefone)) : "—"}</p>
+                  <p className="app-cartao__sub">{m.email || "Sem e-mail"}</p>
+                  {m.telefone && (
+                    <div className="app-cartao__acoes">
+                      <Button iconLeft={<Phone size={15} />}
+                              onClick={() => { window.location.href = `tel:${soDigitos(m.telefone)}`; }}>
+                        Ligar
+                      </Button>
+                      <Button iconLeft={<MessageCircle size={15} />}
+                              onClick={() => window.open(linkWhatsApp(m.telefone), "_blank", "noopener")}>
+                        WhatsApp
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Documentos" itens={[
+                  ["CPF", m.cpf ? maskCPFPrivacy(m.cpf) : "Não informado", true],
+                  ["RG", m.rg ? maskRGPrivacy(m.rg) : "Não informado", true],
+                ]} />
+                <Ficha titulo="Permanência" itens={[
+                  ["Entrada", dataBR(m.data_entrada) || "Não informada"],
+                  ["Saída", m.data_saida ? dataBR(m.data_saida) : "Em aberto"],
+                ]} />
+                <Ficha titulo={`Na unidade ${rotuloUnidade(m.id_unidade)}`} itens={[
+                  ["Veículos", veiculosDoDetalhe.length ? veiculosDoDetalhe.join(", ") : "Nenhum"],
+                  ["Outros moradores", vizinhosDoDetalhe.length
+                    ? vizinhosDoDetalhe.map((x) => nomeProprio(x.nome)).join(", ")
+                    : "Nenhum"],
+                ]} />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* ---- Cadastro e edição ---- */}
       <Modal
         open={modalAberto}
         onClose={() => setModalAberto(false)}
-        title={modo === "add" ? "Novo morador" : `Editar ${form.nome}`}
+        title={modo === "add" ? "Novo morador" : "Editar morador"}
+        size="md"
         footer={
-          <>
+          <div className="app-modal__acoes">
+            {modo === "edit"
+              ? <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(form)}>Excluir</Button>
+              : <span />}
             <Button variant="ghost" onClick={() => setModalAberto(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={salvar} loading={salvando}>
+            <Button variant="primary" type="submit" form="form-morador" loading={salvando}>
               {modo === "add" ? "Cadastrar" : "Salvar"}
             </Button>
-          </>
+          </div>
         }
       >
-        <div className="cad-form">
-          <Field label="Nome completo" required error={erroForm.nome} className="cad-form__largo">
-            <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+        <form id="form-morador" className="mud-form" noValidate onSubmit={(e) => { e.preventDefault(); salvar(); }}>
+          <Field label="Nome completo" required error={erroForm.nome}>
+            <Input value={form.nome}
+                   onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                   onBlur={(e) => setForm({ ...form, nome: nomeProprio(e.target.value) })} />
           </Field>
 
-          <Field label="Unidade" required error={erroForm.id_unidade} className="cad-form__largo">
-            {/* Select nativo em vez do dropdown caseiro: no celular abre o
-                seletor do sistema, que é maior e mais fácil de acertar. */}
-            <Select
-              value={form.id_unidade}
-              onChange={(e) => setForm({ ...form, id_unidade: e.target.value })}
-            >
-              <option value="">Selecione a unidade</option>
-              {unidadesOrdenadas.map((u) => (
-                <option key={u.id} value={u.id}>
-                  Bloco {u.bloco} · Unidade {u.unidade}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="CPF" error={erroForm.cpf} help="Opcional, mas não pode repetir">
-            <Input
-              value={form.cpf}
-              inputMode="numeric"
-              placeholder="000.000.000-00"
-              onChange={(e) => setForm({ ...form, cpf: mascaraCPF(e.target.value) })}
+          <Field label="Unidade" required error={erroForm.id_unidade}>
+            <BuscaUnidade
+              unidades={unidadesOrdenadas}
+              valor={unidadePorId.get(String(form.id_unidade)) ?? null}
+              onEscolher={(u) => setForm({ ...form, id_unidade: u?.id ?? "" })}
             />
           </Field>
 
-          <Field label="RG">
-            <Input value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })} />
-          </Field>
+          <div className="mud-form__par">
+            <Field label="CPF" error={erroForm.cpf} help="Opcional, mas não pode repetir">
+              <Input
+                value={form.cpf}
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                onChange={(e) => setForm({ ...form, cpf: mascaraCPF(e.target.value) })}
+              />
+            </Field>
+            <Field label="RG">
+              <Input value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })} />
+            </Field>
+          </div>
 
           <Field label="Vínculo">
-            <Select value={form.tipo_vinculo} onChange={(e) => setForm({ ...form, tipo_vinculo: e.target.value })}>
-              {VINCULOS.map((v) => <option key={v} value={v}>{v}</option>)}
-            </Select>
+            <Opcoes rotulo="Vínculo" valor={form.tipo_vinculo}
+                    onMudar={(x) => setForm({ ...form, tipo_vinculo: x })} opcoes={VINCULOS} />
           </Field>
 
           <Field label="Tipo de morador">
-            <Select value={form.tipo_morador} onChange={(e) => setForm({ ...form, tipo_morador: e.target.value })}>
-              {TIPOS_MORADOR.map((t) => <option key={t} value={t}>{t}</option>)}
-            </Select>
+            <Opcoes rotulo="Tipo de morador" valor={form.tipo_morador}
+                    onMudar={(x) => setForm({ ...form, tipo_morador: x })} opcoes={TIPOS_MORADOR} />
           </Field>
 
-          <Field label="Telefone">
-            <Input
-              value={form.telefone}
-              inputMode="tel"
-              placeholder="(00) 00000-0000"
-              onChange={(e) => setForm({ ...form, telefone: mascaraTelefone(e.target.value) })}
-            />
-          </Field>
+          <div className="mud-form__par">
+            <Field label="Telefone">
+              <Input
+                value={form.telefone}
+                inputMode="tel"
+                placeholder="(00) 00000-0000"
+                onChange={(e) => setForm({ ...form, telefone: mascaraTelefone(e.target.value) })}
+              />
+            </Field>
+            <Field label="E-mail" error={erroForm.email}>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </Field>
+          </div>
 
-          <Field label="E-mail" error={erroForm.email}>
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </Field>
+          <div className="mud-form__par">
+            <Field label="Data de entrada">
+              {/* <input type="date"> fala "AAAA-MM-DD", que é exatamente o que a
+                  coluna `date` devolve e aceita. Nada a converter dos dois lados. */}
+              <Input type="date" value={form.data_entrada ?? ""}
+                     onChange={(e) => setForm({ ...form, data_entrada: e.target.value })} />
+            </Field>
+            <Field label="Data de saída" help="Só quando o morador deixar a unidade">
+              <Input type="date" value={form.data_saida ?? ""}
+                     onChange={(e) => setForm({ ...form, data_saida: e.target.value })} />
+            </Field>
+          </div>
 
-          <Field label="Data de entrada">
-            {/* <input type="date"> fala "AAAA-MM-DD", que é exatamente o que a
-                coluna `date` devolve e aceita. Nada a converter dos dois lados. */}
-            <Input type="date" value={form.data_entrada ?? ""}
-                   onChange={(e) => setForm({ ...form, data_entrada: e.target.value })} />
+          <Field label="Situação">
+            <Opcoes rotulo="Situação" valor={form.status}
+                    onMudar={(x) => setForm({ ...form, status: x })} opcoes={["Ativo", "Inativo"]} />
           </Field>
-
-          <Field label="Data de saída" help="Preencha só quando o morador deixar a unidade">
-            <Input type="date" value={form.data_saida ?? ""}
-                   onChange={(e) => setForm({ ...form, data_saida: e.target.value })} />
-          </Field>
-
-          <Field label="Status" className="cad-form__largo">
-            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Ativo">Ativo</option>
-              <option value="Inativo">Inativo</option>
-            </Select>
-          </Field>
-        </div>
+        </form>
       </Modal>
-
-      {/* ---- Detalhe: painel lateral, para a lista continuar visivel atras ---- */}
-      <Gaveta
-        open={Boolean(detalhe)}
-        onClose={() => setDetalhe(null)}
-        sigla={iniciaisDe(detalhe?.nome)}
-        titulo={detalhe?.nome}
-        meta={metaCadastro}
-        fitas={detalhe && (
-          <>
-            <Badge tone="brand">{rotuloUnidade(detalhe.id_unidade)}</Badge>
-            <Badge tone={(detalhe.tipo_morador || "Titular") === "Titular" ? "positive" : "neutral"}>
-              {detalhe.tipo_morador || "Titular"}
-            </Badge>
-            {detalhe.tipo_vinculo && <Badge tone="neutral">{detalhe.tipo_vinculo}</Badge>}
-            <Badge tone={detalhe.status === "Ativo" ? "positive" : "danger"}>{detalhe.status}</Badge>
-          </>
-        )}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setDetalhe(null)}>Fechar</Button>
-            <Button variant="primary" iconLeft={<Edit2 size={15} />}
-                    onClick={() => { const m = detalhe; setDetalhe(null); abrirEdicao(m); }}>
-              Editar
-            </Button>
-          </>
-        }
-      >
-        {detalhe && (
-          <>
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Contato</p>
-              <Dado rotulo="Telefone" valor={mascaraTelefone(detalhe.telefone)} mono />
-              <Dado rotulo="E-mail" valor={detalhe.email} />
-              {/* Ligar e chamar no WhatsApp em vez de número para copiar à mão:
-                  a portaria faz isso o dia inteiro. */}
-              {detalhe.telefone && (
-                <div className="vit-grupo__acoes">
-                  <Button size="sm" iconLeft={<Phone size={14} />}
-                          onClick={() => { window.location.href = `tel:${soDigitos(detalhe.telefone)}`; }}>
-                    Ligar
-                  </Button>
-                  <Button size="sm" iconLeft={<MessageCircle size={14} />}
-                          onClick={() => window.open(linkWhatsApp(detalhe.telefone), "_blank", "noopener")}>
-                    WhatsApp
-                  </Button>
-                </div>
-              )}
-            </section>
-
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Documentos</p>
-              <Dado rotulo="CPF" valor={mascaraCPF(detalhe.cpf)} mono />
-              <Dado rotulo="RG" valor={detalhe.rg} mono />
-            </section>
-
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Permanência</p>
-              <Dado rotulo="Entrada" valor={dataBR(detalhe.data_entrada)} />
-              <Dado rotulo="Saída" valor={detalhe.data_saida ? dataBR(detalhe.data_saida) : "em aberto"} />
-            </section>
-
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Na unidade {rotuloUnidade(detalhe.id_unidade)}</p>
-              <Dado
-                rotulo="Veículos"
-                valor={(() => {
-                  const lista = veiculosDaUnidade(detalhe.id_unidade);
-                  if (lista.length === 0) return "nenhum";
-                  return (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <Car size={14} aria-hidden="true" />
-                      {lista.join(", ")}
-                    </span>
-                  );
-                })()}
-              />
-              <Dado
-                rotulo="Outros moradores"
-                valor={(() => {
-                  const vizinhos = vizinhosDaUnidade(detalhe.id_unidade, detalhe.cpf);
-                  if (vizinhos.length === 0) return "nenhum";
-                  return vizinhos.map((v) => v.nome).join(", ");
-                })()}
-              />
-            </section>
-          </>
-        )}
-      </Gaveta>
 
       {/* ---- Exportação ---- */}
       <Modal
@@ -876,36 +845,19 @@ export default function Moradores({ user }) {
           </>
         }
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-6)" }}>
+        <p className="vit-modal__desc app-export__texto">
           {linhas.length === moradores.length
             ? `Serão exportados os ${linhas.length} moradores.`
             : `Serão exportados os ${linhas.length} moradores que passam nos filtros atuais, de ${moradores.length} no total.`}
         </p>
-        <p className="vit-field__label" style={{ marginBottom: "var(--space-4)" }}>Colunas do PDF</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <p className="vit-field__label app-export__titulo">Colunas do PDF</p>
+        <div className="app-export__colunas">
           {colunasExport.map((c) => (
             <Checkbox key={c.id} label={c.label} checked={c.selected}
                       onChange={() => alternarColuna(c.id)} />
           ))}
         </div>
       </Modal>
-    </div>
-  );
-}
-
-/** Linha rotulo/valor da gaveta de detalhe. */
-function Dado({ rotulo, valor, mono }) {
-  const vazio = valor === null || valor === undefined || valor === "";
-  return (
-    <div className="vit-dado">
-      <span className="vit-dado__rotulo">{rotulo}</span>
-      <p className={
-        "vit-dado__valor" +
-        (mono ? " vit-dado__valor--mono" : "") +
-        (vazio || valor === "em aberto" || valor === "nenhum" ? " vit-dado__valor--vazio" : "")
-      }>
-        {vazio ? "-" : valor}
-      </p>
     </div>
   );
 }

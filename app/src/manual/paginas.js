@@ -119,27 +119,6 @@ export const PAGINAS = [
     ],
   },
   {
-    id: "painel",
-    tela: "Dashboard",
-    area: "Administração",
-    rota: "/dashboard",
-    titulo: "Painel",
-    resumo: "Os números do condomínio, os relatórios das reservas e a agenda do dia, na primeira tela depois de entrar.",
-    tarefas: [
-      {
-        id: "ler",
-        titulo: "Ler o painel",
-        passos: [
-          {
-            titulo: "Relatórios, agenda e números",
-            texto: "O painel abre logo depois de entrar. Em “Relatórios”, escolha o gráfico (“Receita”, “Reservas” ou “Status”) e o ano. Ao lado, “Hoje e amanhã” lista os compromissos dos próximos dois dias e “Abrir agenda completa” leva à agenda inteira. Embaixo ficam o recebido no ano com festas e churrasqueira, as Reservas ativas, as Encomendas aguardando na portaria e os carros registrados. O Conselheiro vê o recebido e os relatórios da receita; o número que o Cargo não pode ver aparece com um traço e a nota “fora do seu acesso”.",
-            print: { arquivo: "painel/inicio.png", cargo: "Sindico" },
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: "comunicado",
     tela: "Comunicado",
     area: "Administração",

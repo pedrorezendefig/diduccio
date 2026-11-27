@@ -5,7 +5,18 @@
 
 /* ======================= SIDEBAR ======================= */
 
+/* A lateral é verde da marca nos dois temas: separa a navegação da área de
+   trabalho sem precisar de borda forte, e o item ativo se lê de longe no
+   monitor da portaria. A rampa da marca não inverte no escuro, então as cores
+   daqui são todas brand-* e --fg-on-brand, cobertas pelo contraste.test. */
 .vit-sidebar {
+  --sb-fg: var(--fg-on-brand);
+  --sb-fg-2: var(--brand-200);
+  --sb-rotulo: var(--brand-300);
+  --sb-hover: color-mix(in srgb, var(--fg-on-brand) 8%, transparent);
+  --sb-ativo: color-mix(in srgb, var(--brand-300) 16%, transparent);
+  --sb-filete: color-mix(in srgb, var(--fg-on-brand) 14%, transparent);
+
   width: 244px;
   flex-shrink: 0;
   height: 100dvh;
@@ -14,16 +25,51 @@
   display: flex;
   flex-direction: column;
   padding: var(--space-7) var(--space-5);
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
+  background: var(--brand-900);
+  color: var(--sb-fg);
+  border-right: 1px solid var(--brand-900);
   box-sizing: border-box;
+  transition: width var(--dur-slow) var(--ease);
+}
+/* No escuro o papel também é quase preto-esverdeado: a borda volta a separar. */
+[data-theme="dark"] .vit-sidebar { border-right-color: var(--border); }
+
+.vit-sidebar :focus-visible {
+  outline: 2px solid var(--brand-300);
+  outline-offset: 2px;
 }
 
 .vit-sidebar__marca {
   padding: 0 var(--space-3);
   margin-bottom: var(--space-8);
   flex-shrink: 0;
+  white-space: nowrap;
 }
+
+/* Alça de encolher, presa na borda direita. O ::before amplia o alvo para
+   44px sem aumentar o círculo. */
+.vit-sidebar__alca {
+  position: absolute;
+  top: 26px;
+  right: -13px;
+  z-index: 5;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--brand-700);
+  background: var(--brand-800);
+  color: var(--sb-fg-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+.vit-sidebar__alca::before { content: ""; position: absolute; inset: -9px; }
+.vit-sidebar__alca:hover { color: var(--sb-fg); border-color: var(--brand-500); }
 
 .vit-sidebar__nav {
   flex: 1;
@@ -31,16 +77,19 @@
   overflow-x: hidden;
   margin: 0 calc(var(--space-3) * -1);
   padding: 0 var(--space-3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand-700) transparent;
 }
 
 /* Categoria é botão: clicar recolhe a seção. A área clicável cobre a linha
    inteira, não só as letras, senão vira um alvo de 6px de altura. */
 .vit-sidebar__cat {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  margin: var(--space-7) 0 var(--space-3);
+  margin: var(--space-6) 0 var(--space-2);
   padding: var(--space-3) var(--space-4);
   border: none;
   background: transparent;
@@ -51,44 +100,54 @@
   text-transform: uppercase;
   letter-spacing: var(--track-label);
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--sb-rotulo);
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
   transition: color var(--dur-fast) var(--ease),
               background-color var(--dur-fast) var(--ease);
 }
 .vit-sidebar__cat:first-child { margin-top: 0; }
-.vit-sidebar__cat:hover { color: var(--fg-default); background: var(--bg-hover); }
+.vit-sidebar__cat:hover { color: var(--sb-fg); background: var(--sb-hover); }
 
-.vit-sidebar__cat-texto { flex: 1; min-width: 0; }
+.vit-sidebar__cat-texto { flex: 1; min-width: 0; overflow: hidden; }
 
+/* A seta só aparece quando importa: no hover, no foco, ou com a seção fechada. */
 .vit-sidebar__seta {
   flex-shrink: 0;
-  transition: transform var(--dur-base) var(--ease);
+  order: 2;
+  opacity: 0;
+  transition: transform var(--dur-base) var(--ease),
+              opacity var(--dur-fast) var(--ease);
 }
+.vit-sidebar__cat:hover .vit-sidebar__seta,
+.vit-sidebar__cat:focus-visible .vit-sidebar__seta,
+.vit-sidebar__cat--fechada .vit-sidebar__seta { opacity: 1; }
 /* Recolhida: a seta aponta para a direita, indicando que há algo a abrir. */
 .vit-sidebar__cat--fechada .vit-sidebar__seta { transform: rotate(-90deg); }
 
 /* Com a seção fechada o item ativo fica invisível: o título herda o destaque
    para não se perder a referência de onde se está no sistema. */
-.vit-sidebar__cat--marcada { color: var(--fg-brand); }
+.vit-sidebar__cat--marcada { color: var(--sb-fg); }
 .vit-sidebar__cat--marcada::after {
   content: "";
+  order: 1;
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--brand-500);
+  background: var(--brand-300);
   flex-shrink: 0;
 }
 
 .vit-sidebar__lista { list-style: none; padding: 0; margin: 0; }
 
 .vit-navitem {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-5);
   width: 100%;
-  padding: var(--space-4) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-1);
   border: none;
   background: transparent;
@@ -97,24 +156,51 @@
   font-size: var(--text-md);
   line-height: var(--leading-md);
   font-weight: 500;
-  color: var(--fg-secondary);
+  color: var(--sb-fg-2);
   cursor: pointer;
   text-align: left;
   transition: background-color var(--dur-fast) var(--ease),
               color var(--dur-fast) var(--ease);
 }
-.vit-navitem:hover { background: var(--bg-hover); color: var(--fg-default); }
+.vit-navitem:hover { background: var(--sb-hover); color: var(--sb-fg); }
 
-/* Ativo: fundo de marca mais barra interna. A barra usa box-shadow inset
-   para não deslocar o conteúdo como uma border-left faria. */
+/* Ativo: fundo claro sobre o verde, ícone num ladrilho de marca e um filete
+   na borda esquerda da lateral, que é o que o olho acha primeiro. */
 .vit-navitem[aria-current="page"] {
-  background: var(--bg-active);
-  color: var(--fg-brand);
+  background: var(--sb-ativo);
+  color: var(--sb-fg);
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--brand-500);
+}
+.vit-navitem[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-5) * -1);
+  top: var(--space-4);
+  bottom: var(--space-4);
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-300);
 }
 
-.vit-navitem__icone { display: flex; flex-shrink: 0; }
+/* O ladrilho tem 30px mas ocupa 18 no fluxo (margem negativa): o ícone fica
+   no mesmo lugar com ou sem destaque, e o texto não pula. */
+.vit-navitem__icone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  margin: -6px;
+  border-radius: var(--radius-md);
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.vit-navitem[aria-current="page"] .vit-navitem__icone {
+  background: var(--brand-500);
+  color: var(--fg-on-brand);
+}
+
 .vit-navitem__texto {
   flex: 1;
   min-width: 0;
@@ -131,55 +217,110 @@
   font-weight: 600;
   padding: 1px var(--space-3);
   border-radius: var(--radius-sm);
-  background: var(--surface-3);
-  color: var(--fg-secondary);
+  background: color-mix(in srgb, var(--fg-on-brand) 12%, transparent);
+  color: var(--brand-100);
   flex-shrink: 0;
 }
 .vit-navitem[aria-current="page"] .vit-navitem__contador {
-  background: var(--brand-200);
-  color: var(--brand-700);
+  background: var(--brand-300);
+  color: var(--brand-900);
 }
 .vit-navitem__contador--alerta {
-  background: var(--alert-100);
-  color: var(--alert-700);
+  background: var(--alert-600);
+  color: var(--fg-on-brand);
 }
 
-/* ---- Rodapé de perfil ---- */
+/* Bolinha do modo encolhido. Existe sempre e só aparece encolhida, com pop. */
+.vit-navitem__icone[data-contador]::after {
+  content: attr(data-contador);
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-2);
+  box-sizing: border-box;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--brand-900);
+  background: var(--brand-300);
+  color: var(--brand-900);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  opacity: 0;
+  transform: scale(.4);
+  transition: opacity var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+
+/* ---- Rodapé: tema e perfil ---- */
 
 .vit-sidebar__perfil {
   margin-top: auto;
   padding-top: var(--space-6);
   position: relative;
   flex-shrink: 0;
+  border-top: 1px solid var(--sb-filete);
 }
 
-/* O rodapé é um controle, não o fim de uma lista: ganha superfície e borda
-   próprias, para se destacar do fundo da lateral em vez de só ficar embaixo
-   de um filete. */
+.vit-tema {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--sb-hover);
+}
+.vit-tema__opcao {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--sb-fg-2);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.vit-tema__opcao:hover { color: var(--sb-fg); }
+.vit-tema__opcao[aria-pressed="true"] { background: var(--brand-700); color: var(--sb-fg); }
+
+/* O perfil é um controle, não o fim de uma lista: ganha hover próprio em vez
+   de só ficar embaixo de um filete. */
 .vit-perfil {
   display: flex;
   align-items: center;
   gap: var(--space-5);
   width: 100%;
-  padding: var(--space-5);
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
+  padding: var(--space-4);
+  border: 1px solid transparent;
+  background: transparent;
   border-radius: var(--radius-lg);
   cursor: pointer;
   text-align: left;
+  overflow: hidden;
   transition: background-color var(--dur-fast) var(--ease),
-              border-color var(--dur-fast) var(--ease);
+              padding var(--dur-slow) var(--ease);
 }
-.vit-perfil:hover { background: var(--bg-hover); border-color: var(--border-strong); }
-.vit-perfil--aberto { background: var(--bg-active); border-color: var(--brand-400); }
+.vit-perfil:hover { background: var(--sb-hover); }
+.vit-perfil--aberto { background: var(--sb-ativo); }
 
 .vit-perfil__avatar {
   width: 34px;
   height: 34px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: var(--brand-700);
-  color: var(--fg-on-brand);
+  background: var(--brand-300);
+  color: var(--brand-900);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -194,7 +335,7 @@
   display: block;
   font-size: var(--text-base);
   font-weight: 600;
-  color: var(--fg-default);
+  color: var(--sb-fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -205,7 +346,7 @@
   display: block;
   margin-top: 1px;
   font-size: var(--text-xs);
-  color: var(--fg-muted);
+  color: var(--sb-rotulo);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -214,10 +355,11 @@
 .vit-perfil__seta {
   display: flex;
   flex-shrink: 0;
-  color: var(--fg-muted);
+  color: var(--sb-rotulo);
 }
-.vit-perfil--aberto .vit-perfil__seta { color: var(--fg-brand); }
+.vit-perfil--aberto .vit-perfil__seta { color: var(--sb-fg); }
 
+/* O menu é superfície do sistema, não da lateral: volta às cores do tema. */
 .vit-menu {
   position: absolute;
   bottom: calc(100% - var(--space-2));
@@ -229,6 +371,11 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   padding: var(--space-3);
+  animation: vit-menu-abre var(--dur-base) var(--ease);
+  transform-origin: bottom left;
+}
+@keyframes vit-menu-abre {
+  from { opacity: 0; transform: translateY(4px) scale(.97); }
 }
 .vit-menu__item {
   display: flex;
@@ -253,6 +400,88 @@
   background: var(--border);
   margin: var(--space-3) 0;
   border: none;
+}
+
+/* Tooltip do modo encolhido. As cores invertem o tema: escuro no claro e
+   claro no escuro, sempre o oposto do papel. */
+.vit-dica {
+  position: fixed;
+  z-index: 1200;
+  transform: translateY(-50%);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fg-heading);
+  color: var(--bg-app);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+  animation: vit-dica-entra var(--dur-fast) ease-out;
+}
+@keyframes vit-dica-entra {
+  from { opacity: 0; transform: translate(-4px, -50%) scale(.98); }
+}
+
+/* ---- Modo encolhido (só desktop: no celular a lateral é gaveta) ---- */
+
+@media (min-width: 769px) {
+  .vit-sidebar--encolhida { width: 66px; transition-duration: var(--dur-base); }
+
+  /* Ao expandir, o texto espera a largura abrir; ao encolher, some na hora. */
+  .vit-sidebar__marca [role="img"] > span + span,
+  .vit-sidebar__cat-texto,
+  .vit-navitem__texto,
+  .vit-perfil__texto,
+  .vit-perfil__seta {
+    transition: opacity var(--dur-fast) var(--ease) var(--dur-fast);
+  }
+  .vit-sidebar--encolhida .vit-sidebar__marca [role="img"] > span + span,
+  .vit-sidebar--encolhida .vit-sidebar__cat-texto,
+  .vit-sidebar--encolhida .vit-navitem__texto,
+  .vit-sidebar--encolhida .vit-perfil__texto,
+  .vit-sidebar--encolhida .vit-perfil__seta {
+    opacity: 0;
+    transition-delay: 0ms;
+  }
+
+  .vit-sidebar--encolhida .vit-navitem__contador,
+  .vit-sidebar--encolhida .vit-tema { display: none; }
+
+  .vit-sidebar--encolhida .vit-navitem__icone[data-contador]::after {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity var(--dur-slow) var(--ease) var(--dur-fast),
+                transform var(--dur-slow) cubic-bezier(.34, 1.36, .64, 1) var(--dur-fast);
+  }
+
+  /* O título da seção vira filete: a altura fica igual para a lista não pular. */
+  .vit-sidebar--encolhida .vit-sidebar__cat { pointer-events: none; }
+  .vit-sidebar--encolhida .vit-sidebar__seta,
+  .vit-sidebar--encolhida .vit-sidebar__cat--marcada::after { opacity: 0; }
+  .vit-sidebar__cat::before {
+    content: "";
+    position: absolute;
+    left: var(--space-4);
+    right: var(--space-4);
+    top: 50%;
+    height: 1px;
+    background: var(--sb-filete);
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease);
+  }
+  .vit-sidebar--encolhida .vit-sidebar__cat::before { opacity: 1; }
+
+  .vit-sidebar--encolhida .vit-perfil { padding: var(--space-2); }
+
+  /* Sem largura para abrir em cima, o menu do perfil abre ao lado. */
+  .vit-sidebar--encolhida .vit-menu {
+    left: calc(100% + var(--space-4));
+    right: auto;
+    bottom: 0;
+    width: 220px;
+  }
 }
 
 /* ======================= TOPBAR E GAVETA MOBILE ======================= */
@@ -310,17 +539,24 @@
     box-shadow: var(--shadow-lg);
   }
   .vit-sidebar--aberta { transform: translateX(0); }
+  .vit-sidebar__alca { display: none; }
 
   .vit-gaveta-fundo {
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(15, 20, 17, .5);
+    background: rgba(18, 18, 18, .5);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vit-sidebar { transition: none; }
+  .vit-sidebar,
+  .vit-sidebar *,
+  .vit-sidebar *::before,
+  .vit-sidebar *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* ======================= SKIP LINK E MAIN ======================= */

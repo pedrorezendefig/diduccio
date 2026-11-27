@@ -1,0 +1,56 @@
+/* Agenda do condomínio (0100): o mês com os eventos e os feriados. As cores
+   de tipo são as mesmas do Calendário do app do morador. */
+.ag { display: flex; flex-direction: column; gap: var(--space-5, 16px); }
+.ag-mes-cab { display: flex; align-items: center; gap: 12px; }
+.ag-mes-cab h2 { margin: 0; min-width: 200px; font: 700 var(--text-xl) var(--font-display); color: var(--fg-heading); }
+.ag-seta { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--fg-secondary); display: grid; place-items: center; cursor: pointer; }
+.ag-seta:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.ag-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-surface); }
+.ag-sem { padding: 8px 10px; font-size: var(--text-sm); font-weight: 700; color: var(--fg-muted); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.ag-dia { min-height: 108px; padding: 6px; display: flex; flex-direction: column; gap: 3px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-width: 0; }
+.ag-dia:nth-child(7n) { border-right: 0; }
+.ag-dia.fora { background: var(--surface-2); }
+.ag-dia.fora .ag-num { color: var(--fg-muted); }
+.ag-num { align-self: flex-start; min-width: 26px; height: 24px; padding: 0 6px; border: 0; border-radius: 6px; background: none; font: 600 var(--text-base) var(--font-ui); color: var(--fg-secondary); cursor: pointer; }
+.ag-num:hover { background: var(--bg-hover); }
+.ag-num:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ag-dia.hoje .ag-num { background: var(--brand-600); color: #FFFFFF; }
+
+.ag-ev { display: flex; align-items: center; gap: 4px; width: 100%; padding: 2px 6px; border: 0; border-radius: 5px; text-align: left; font: 600 11.5px var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--t-bg); color: var(--t); cursor: pointer; }
+.ag-ev svg { flex: none; }
+.ag-ev:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ag-ev.cancelado { text-decoration: line-through; opacity: .55; }
+span.ag-ev { cursor: default; }
+.ag-t-assembleia { --t: #5B47A0; --t-bg: #E7E2F5; }
+.ag-t-manutencao { --t: #8A5A00; --t-bg: #FBEFD2; }
+.ag-t-falta_agua, .ag-t-falta_luz { --t: #1D6A8A; --t-bg: #DCEEF6; }
+.ag-t-dedetizacao { --t: #A23E22; --t-bg: #F8E6DF; }
+.ag-t-social { --t: #1E3F96; --t-bg: #E3E8F4; }
+.ag-t-outro { --t: #444A52; --t-bg: #E9EAEC; }
+.ag-t-feriado { --t: #6B4A05; --t-bg: #FBEFD2; }
+[data-theme="dark"] .ag-t-assembleia { --t: #B9A8EE; --t-bg: #2A2440; }
+[data-theme="dark"] .ag-t-manutencao, [data-theme="dark"] .ag-t-feriado { --t: #F0C766; --t-bg: #33290F; }
+[data-theme="dark"] .ag-t-falta_agua, [data-theme="dark"] .ag-t-falta_luz { --t: #8CCBE3; --t-bg: #14303A; }
+[data-theme="dark"] .ag-t-dedetizacao { --t: #E59478; --t-bg: #3A1E16; }
+[data-theme="dark"] .ag-t-social { --t: #9DB4EE; --t-bg: #1A2440; }
+[data-theme="dark"] .ag-t-outro { --t: #B8BEC6; --t-bg: #262A2F; }
+
+/* O formulário */
+.ag-form { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.ag-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ag-chip { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-surface); color: var(--fg-secondary); font: 600 var(--text-sm) var(--font-ui); cursor: pointer; }
+.ag-chip.on { background: var(--brand-700); border-color: var(--brand-700); color: #FFFFFF; }
+.ag-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ag-aviso { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); color: var(--fg-secondary); }
+.ag-cancelar { margin-right: auto; color: var(--fg-danger); }
+
+@media (max-width: 760px) {
+  .ag-dia { min-height: 72px; padding: 4px; }
+  .ag-ev { font-size: 10.5px; padding: 1px 4px; }
+  .ag-2 { grid-template-columns: 1fr; }
+}
+.ag-campo { display: flex; flex-direction: column; gap: 6px; }
+.ag-rotulo { font-weight: 600; font-size: var(--text-md); color: var(--fg-heading); }
+.ag-erro { font-size: var(--text-sm); color: var(--fg-danger); }

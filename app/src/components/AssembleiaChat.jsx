@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send, Sparkles, Bot } from "lucide-react";
-import { useTheme } from "../theme/useTheme";
+import { Input } from "../ui";
 import { chamarEdgeFunction, mensagemDaEdgeFunction } from "../api/edge";
 import { dataBR } from "../lib/format";
 
@@ -70,8 +70,6 @@ function responderLocal(pergunta, atas) {
 }
 
 export default function AssembleiaChat({ atas }) {
-  const { theme } = useTheme();
-  const dark = theme.isDark;
   const [aberto, setAberto] = useState(false);
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -118,38 +116,32 @@ export default function AssembleiaChat({ atas }) {
     }
   };
 
-  const vars = {
-    "--ch-card": theme.bgCard, "--ch-border": theme.border, "--ch-text": theme.text,
-    "--ch-sec": theme.textSecondary, "--ch-field": dark ? "#0f172a" : "#f8fafc",
-    "--ch-bot": dark ? "#1e293b" : "#f1f5f9",
-  };
-
+  // As cores e o desenho moram em styles/assembleia.css, nos tokens do ViT
+  // (o azul e o roxo de antes não eram do sistema).
   return (
-    <div style={vars}>
-      <style>{CSS}</style>
-
+    <>
       {aberto && (
-        <div className="ch-panel">
-          <div className="ch-head">
-            <div className="ch-head-ico"><Bot size={18} /></div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Assistente das Atas</div>
-              <div style={{ fontSize: 11.5, opacity: .85, display: "flex", alignItems: "center", gap: 5 }}>
-                <span className="ch-dot" /> online · busca + IA
-              </div>
+        <div className="ch-painel" role="dialog" aria-label="Assistente das atas">
+          <div className="ch-topo">
+            <span className="ch-topo__icone" aria-hidden="true"><Bot size={18} /></span>
+            <div className="ch-topo__nome">
+              <strong>Assistente das atas</strong>
+              <small><span className="ch-ponto" aria-hidden="true" /> Busca nas atas + IA</small>
             </div>
-            <button className="ch-x" onClick={() => setAberto(false)} title="Fechar"><X size={18} /></button>
+            <button type="button" className="ch-fechar" onClick={() => setAberto(false)} title="Fechar" aria-label="Fechar o assistente">
+              <X size={18} />
+            </button>
           </div>
 
-          <div className="ch-body">
+          <div className="ch-corpo">
             {msgs.map((m, i) => (
-              <div key={i} className={"ch-row " + (m.de === "user" ? "ch-row-user" : "ch-row-bot")}>
-                <div className={"ch-bubble " + (m.de === "user" ? "ch-b-user" : "ch-b-bot")}>
-                  {m.titulo && <div className="ch-b-title">{m.titulo}</div>}
-                  {m.texto && <div className="ch-b-text">{m.texto}</div>}
+              <div key={i} className={"ch-linha " + (m.de === "user" ? "ch-linha--eu" : "ch-linha--bot")}>
+                <div className={"ch-balao " + (m.de === "user" ? "ch-balao--eu" : "ch-balao--bot")}>
+                  {m.titulo && <div className="ch-balao__titulo">{m.titulo}</div>}
+                  {m.texto && <div className="ch-balao__texto">{m.texto}</div>}
                   {m.itens && m.tipo === "decisoes" && (
                     <ol className="ch-decisoes">
-                      {m.itens.map((d, k) => (<li key={k}><span className="ch-num">{k + 1}</span><span>{d}</span></li>))}
+                      {m.itens.map((d, k) => (<li key={k}><span className="asb-num">{k + 1}</span><span>{d}</span></li>))}
                     </ol>
                   )}
                   {m.itens && m.tipo === "assinantes" && (
@@ -161,115 +153,37 @@ export default function AssembleiaChat({ atas }) {
               </div>
             ))}
             {carregando && (
-              <div className="ch-row ch-row-bot">
-                <div className="ch-bubble ch-b-bot ch-typing"><span /><span /><span /></div>
+              <div className="ch-linha ch-linha--bot">
+                <div className="ch-balao ch-balao--bot ch-digitando" aria-label="Respondendo"><span /><span /><span /></div>
               </div>
             )}
 
             {msgs.length <= 1 && sugestoes.length > 0 && (
-              <div className="ch-sug">
+              <div className="ch-sugestoes">
                 {sugestoes.map((s, i) => (
-                  <button key={i} className="ch-sug-btn" onClick={() => enviar(s)}><Sparkles size={12} /> {s}</button>
+                  <button key={i} type="button" className="ch-sugestao" onClick={() => enviar(s)}>
+                    <Sparkles size={12} aria-hidden="true" /> {s}
+                  </button>
                 ))}
               </div>
             )}
             <div ref={fimRef} />
           </div>
 
-          <form className="ch-input-row" onSubmit={(e) => { e.preventDefault(); enviar(); }}>
-            <input className="ch-input" placeholder="Pergunte sobre uma ata…" value={input}
+          <form className="ch-envio" onSubmit={(e) => { e.preventDefault(); enviar(); }}>
+            <Input placeholder="Pergunte sobre uma ata…" aria-label="Pergunta sobre as atas" value={input}
               onChange={(e) => setInput(e.target.value)} />
-            <button className="ch-send" type="submit" disabled={!input.trim() || carregando} title="Enviar"><Send size={17} /></button>
+            <button className="ch-enviar" type="submit" disabled={!input.trim() || carregando} title="Enviar" aria-label="Enviar">
+              <Send size={17} />
+            </button>
           </form>
         </div>
       )}
 
-      <button className={"ch-fab" + (aberto ? " ch-fab-open" : "")} onClick={() => setAberto((v) => !v)}
-        title={aberto ? "Fechar" : "Perguntar sobre as atas"}>
+      <button type="button" className={"ch-botao" + (aberto ? " ch-botao--aberto" : "")} onClick={() => setAberto((v) => !v)}
+        title={aberto ? "Fechar" : "Perguntar sobre as atas"} aria-expanded={aberto}>
         {aberto ? <X size={24} /> : <MessageCircle size={24} />}
       </button>
-    </div>
+    </>
   );
 }
-
-const CSS = `
-@keyframes chIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
-@keyframes chPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes chBlink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
-
-.ch-fab {
-  position: fixed; right: 24px; bottom: 24px; z-index: 3000;
-  width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer;
-  display: grid; place-items: center; color: #fff;
-  background: linear-gradient(135deg, #0ea5e9, #0369a1 55%, #4f46e5);
-  box-shadow: 0 14px 30px -8px rgba(3,105,161,.7);
-  transition: transform .18s, box-shadow .18s;
-}
-.ch-fab:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 18px 36px -8px rgba(3,105,161,.85); }
-.ch-fab-open { background: linear-gradient(135deg, #475569, #334155); }
-
-.ch-panel {
-  position: fixed; right: 24px; bottom: 94px; z-index: 3000;
-  width: 370px; max-width: calc(100vw - 32px);
-  height: 520px; max-height: calc(100vh - 130px);
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--ch-card); border: 1px solid var(--ch-border);
-  border-radius: 18px; box-shadow: 0 24px 60px -18px rgba(2,6,23,.55);
-  animation: chIn .28s cubic-bezier(.2,.8,.2,1) both;
-}
-
-.ch-head {
-  display: flex; align-items: center; gap: 11px; padding: 14px 16px; color: #fff;
-  background: linear-gradient(135deg, #0369a1, #075985 45%, #3730a3);
-}
-.ch-head-ico { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center;
-  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.28); }
-.ch-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.28); display: inline-block; }
-.ch-x { margin-left: auto; background: transparent; border: none; color: rgba(255,255,255,.85); cursor: pointer; display: grid; place-items: center; }
-.ch-x:hover { color: #fff; }
-
-.ch-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.ch-body::-webkit-scrollbar { width: 8px; }
-.ch-body::-webkit-scrollbar-thumb { background: var(--ch-border); border-radius: 8px; }
-
-.ch-row { display: flex; }
-.ch-row-user { justify-content: flex-end; }
-.ch-row-bot { justify-content: flex-start; }
-.ch-bubble { max-width: 84%; padding: 10px 13px; border-radius: 15px; font-size: 13.7px; line-height: 1.5; animation: chPop .2s ease both; }
-.ch-b-user { color: #fff; border-bottom-right-radius: 5px; background: linear-gradient(135deg, #0ea5e9, #0369a1); }
-.ch-b-bot { color: var(--ch-text); background: var(--ch-bot); border: 1px solid var(--ch-border); border-bottom-left-radius: 5px; }
-.ch-b-title { font-weight: 700; font-size: 13px; margin-bottom: 5px; }
-.ch-b-text { white-space: pre-wrap; }
-
-.ch-decisoes { list-style: none; margin: 9px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ch-decisoes li { display: flex; gap: 9px; align-items: flex-start; }
-.ch-num { flex: none; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; margin-top: 1px;
-  font-size: 11px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #0ea5e9, #4f46e5); }
-.ch-assinantes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.ch-chip { font-size: 12.5px; font-weight: 500; padding: 4px 10px; border-radius: 999px;
-  background: rgba(245,158,11,.14); color: #b45309; border: 1px solid rgba(245,158,11,.3); }
-
-.ch-typing { display: inline-flex; gap: 4px; }
-.ch-typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--ch-sec); animation: chBlink 1.2s infinite; }
-.ch-typing span:nth-child(2) { animation-delay: .2s; }
-.ch-typing span:nth-child(3) { animation-delay: .4s; }
-
-.ch-sug { display: flex; flex-direction: column; gap: 7px; margin-top: 2px; }
-.ch-sug-btn { text-align: left; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer;
-  padding: 8px 11px; border-radius: 11px; color: #0284c7; background: var(--ch-field); border: 1px dashed var(--ch-border); transition: background .15s, border-color .15s; }
-.ch-sug-btn:hover { background: rgba(2,132,199,.1); border-color: #7dd3fc; }
-
-.ch-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--ch-border); background: var(--ch-card); }
-.ch-input { flex: 1; padding: 11px 13px; border-radius: 12px; font-size: 13.5px; font-family: inherit;
-  color: var(--ch-text); background: var(--ch-field); border: 1px solid var(--ch-border); outline: none; transition: border-color .15s, box-shadow .15s; }
-.ch-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.16); }
-.ch-send { flex: none; width: 44px; border-radius: 12px; border: none; cursor: pointer; color: #fff; display: grid; place-items: center;
-  background: linear-gradient(135deg, #0ea5e9, #0369a1); transition: opacity .15s, transform .12s; }
-.ch-send:disabled { opacity: .45; cursor: not-allowed; }
-.ch-send:not(:disabled):active { transform: scale(.94); }
-
-@media (max-width: 560px) {
-  .ch-panel { right: 12px; left: 12px; width: auto; bottom: 88px; }
-  .ch-fab { right: 16px; bottom: 16px; }
-}
-`;

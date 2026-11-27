@@ -464,15 +464,41 @@
 @media (max-width: 768px) {
   .vit-check { min-height: 44px; }
 }
-.vit-check input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--brand-600);
+.vit-check { position: relative; }
+.vit-check__rotulo { min-width: 0; }
+/* O campo nativo fica por cima da caixa, invisível: clique, teclado e leitor de
+   tela continuam nele. O que aparece é a caixa desenhada. */
+.vit-check__campo {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  opacity: 0;
   cursor: pointer;
-  flex-shrink: 0;
 }
-.vit-check input:disabled,
-.vit-check:has(input:disabled) { cursor: not-allowed; color: var(--fg-muted); }
+.vit-check__caixa {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--fg-brand);
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.vit-check__caixa svg { opacity: 0; transform: scale(.6); transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.vit-check:hover .vit-check__caixa { border-color: var(--brand-500); }
+.vit-check__campo:checked + .vit-check__caixa { border-color: var(--brand-600); background: var(--bg-active); }
+.vit-check__campo:checked + .vit-check__caixa svg { opacity: 1; transform: none; }
+.vit-check__campo:focus-visible + .vit-check__caixa { box-shadow: var(--focus-ring); }
+.vit-check__campo:disabled + .vit-check__caixa { background: var(--surface-2); border-color: var(--border); }
+.vit-check__campo:disabled,
+.vit-check:has(.vit-check__campo:disabled) { cursor: not-allowed; color: var(--fg-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .vit-check__caixa, .vit-check__caixa svg { transition: none; }
+}
 
 /* ======================= TABLE ======================= */
 
@@ -695,7 +721,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-6);
-  background: rgba(15, 20, 17, .55);
+  background: rgba(18, 18, 18, .55);
 }
 @media (prefers-reduced-motion: no-preference) {
   .vit-overlay { animation: vitFade var(--dur-base) var(--ease) both; }
@@ -889,7 +915,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-6);
-  background: rgba(15, 20, 17, .45);
+  background: rgba(18, 18, 18, .45);
 }
 @media (prefers-reduced-motion: no-preference) {
   .vit-ocupado { animation: vitFade var(--dur-fast) var(--ease) both; }
@@ -931,7 +957,7 @@
   position: fixed;
   inset: 0;
   z-index: 1200;
-  background: rgba(15, 20, 17, .42);
+  background: rgba(18, 18, 18, .42);
 }
 
 .vit-gaveta {

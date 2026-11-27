@@ -1,0 +1,446 @@
+/* =========================================================================
+   ViT: Confirmações (0065). Abas com contador e a lista cuja linha abre.
+   Depende de tokens.css e ui.css.
+   ========================================================================= */
+
+/* As abas viram pastilhas: são poucas, e o número de cada uma é o que importa. */
+.conf-abas.vit-tabs { border-bottom: none; gap: var(--space-4); }
+.conf-abas .vit-tab {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 0;
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+}
+.conf-abas .vit-tab[aria-selected="true"] {
+  border-color: var(--brand-500);
+  background: var(--bg-active);
+  color: var(--fg-brand);
+}
+.conf-abas .vit-tab[aria-selected="true"] .vit-tab__count {
+  background: var(--brand-600);
+  color: #FFFFFF;
+}
+
+.conf { min-width: 0; }
+.conf-resumo { margin: 0 0 var(--space-5); color: var(--fg-muted); font-size: var(--text-base); }
+
+/* ---- A lista ---- */
+.conf-lista {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  overflow: hidden;
+  /* As colunas e a largura das ações vêm de cada fila, no style da lista. */
+  --conf-colunas: 1fr;
+  --conf-acoes: 200px;
+  --conf-seta: 28px;
+}
+.conf-lista__cols,
+.conf-linha__abrir {
+  display: grid;
+  grid-template-columns: var(--conf-seta) var(--conf-colunas);
+  gap: var(--space-5);
+  align-items: center;
+}
+.conf-lista__cab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--conf-acoes);
+  padding: var(--space-4) 0 var(--space-4) var(--space-5);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.conf-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--conf-acoes);
+  border-top: 1px solid var(--border);
+}
+.conf-linha--esqueleto { padding: var(--space-6) var(--space-5); display: block; }
+.conf-linha__abrir {
+  min-width: 0;
+  padding: var(--space-5);
+  padding-right: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--fg-default);
+  cursor: pointer;
+}
+/* O destaque é da linha inteira, ações incluídas: no botão só, ele parava
+   antes dos ícones (o olho e o lápis da tela APP ficam fora do botão). */
+.conf-linha:not(.conf-linha--aberta):not(.conf-linha--esqueleto):hover { background: var(--bg-hover); }
+.conf-linha__abrir:focus-visible { outline: 2px solid var(--brand-500); outline-offset: -2px; }
+.conf-linha__seta { display: grid; place-items: center; color: var(--fg-muted); }
+.conf-celula { min-width: 0; overflow-wrap: anywhere; }
+.conf-linha__acoes {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.conf-recusar.vit-btn { color: var(--fg-danger); border-color: currentColor; }
+
+/* A linha aberta: fundo de marca e barra à esquerda, em cima e no painel. */
+.conf-linha--aberta { background: var(--bg-active); box-shadow: inset 3px 0 0 var(--brand-600); }
+.conf-linha--aberta .conf-linha__seta { color: var(--fg-brand); }
+.conf-detalhe {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 0 var(--space-5) var(--space-6) calc(var(--conf-seta) + var(--space-5) * 2);
+}
+.conf-detalhe__aviso { margin: 0; color: var(--fg-muted); font-size: var(--text-base); }
+.conf-detalhe__aviso--erro { color: var(--fg-danger); }
+.conf-detalhe__grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-6) var(--space-8);
+}
+.conf-detalhe__grade > .conf-alerta,
+.conf-detalhe__grade > .conf-faixa-data { grid-column: 1 / -1; }
+
+.conf-dados {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, .9fr) minmax(0, .9fr) minmax(0, 1.5fr);
+  gap: var(--space-5) var(--space-7);
+  align-content: start;
+}
+.conf-dado dt { font-size: var(--text-sm); color: var(--fg-muted); }
+.conf-dado dd { margin: 0; font-size: var(--text-md); overflow-wrap: anywhere; }
+.conf-dado__mono { font-family: var(--font-mono); font-weight: 600; letter-spacing: .04em; white-space: nowrap; }
+.conf-dado__extra { display: block; font-size: var(--text-sm); color: var(--fg-muted); }
+
+.conf-contexto { display: flex; flex-direction: column; gap: var(--space-4); }
+.conf-bloco,
+.conf-comprovante {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  font-size: var(--text-base);
+}
+.conf-bloco small,
+.conf-comprovante small { font-size: var(--text-sm); color: var(--fg-muted); }
+.conf-bloco__vazio { color: var(--fg-muted); }
+
+.conf-alerta {
+  margin: 0;
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--alert-50);
+  color: var(--fg-danger);
+  font-size: var(--text-base);
+}
+.conf-alerta svg { flex: none; margin-top: 2px; }
+
+.conf-espera { color: var(--fg-muted); font-size: var(--text-sm); white-space: nowrap; }
+.conf-espera--longa { color: var(--fg-danger); font-weight: 700; }
+.conf-duas { display: flex; flex-direction: column; min-width: 0; }
+/* O selo (TAG colada, situação) do tamanho do texto, não da coluna. */
+.conf-duas > .vit-badge, .conf-celula > .vit-badge { align-self: flex-start; justify-self: start; width: fit-content; }
+.conf-duas small { font-size: var(--text-sm); color: var(--fg-muted); }
+
+/* ---- A data da reserva: folhinha de calendário ---- */
+.conf-dia { display: flex; align-items: center; gap: var(--space-5); }
+.conf-folha {
+  flex: none;
+  width: 46px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1.5px solid var(--brand-500);
+  background: var(--bg-surface);
+  text-align: center;
+}
+.conf-folha span {
+  display: block;
+  background: var(--brand-600);
+  color: #FFFFFF;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  padding: 1px 0;
+}
+.conf-folha b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--fg-heading);
+}
+.conf-dia--perto .conf-folha { border-color: var(--aviso-400); }
+.conf-dia--perto .conf-folha span { background: var(--aviso-400); color: #3A2A03; }
+.conf-falta { white-space: nowrap; }
+.conf-dia--perto .conf-falta { color: var(--fg-aviso); font-weight: 700; }
+
+.conf-faixa-data {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--brand-500);
+  font-size: var(--text-lg);
+}
+.conf-faixa-data svg { color: var(--fg-brand); flex: none; }
+.conf-faixa-data > span { min-width: 0; }
+.conf-faixa-data b { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--fg-heading); }
+.conf-faixa-data__falta {
+  margin-left: auto;
+  font-size: var(--text-base);
+  font-weight: 700;
+  padding: 2px var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--fg-secondary);
+}
+.conf-faixa-data--perto { border-color: var(--aviso-400); }
+.conf-faixa-data--perto .conf-faixa-data__falta { background: var(--aviso-100); color: var(--aviso-700); }
+
+.conf-comprovante__img { display: flex; flex-direction: column; gap: var(--space-3); text-decoration: none; }
+.conf-comprovante__img img {
+  width: 100%;
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.conf-comprovante__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 700;
+  color: var(--fg-brand);
+}
+
+/* ---- TAG e veículos ---- */
+.conf-placa-repetida { color: var(--fg-danger) !important; font-weight: 700; }
+.conf-tags { margin-top: var(--space-8); }
+.conf-tags h3 { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: var(--text-lg); color: var(--fg-heading); }
+.conf-tags > p { margin: 0 0 var(--space-5); color: var(--fg-muted); font-size: var(--text-base); }
+.conf-tags ul { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); }
+.conf-tags li { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto auto; gap: var(--space-5); align-items: center; padding: var(--space-4) var(--space-5); }
+.conf-tags li + li { border-top: 1px solid var(--border); }
+.conf-tags__acoes { display: flex; gap: var(--space-3); justify-content: flex-end; }
+/* Pendentes: o que está pronto esperando o morador buscar (12/11/2026). */
+.conf-pend { margin-top: var(--space-6); }
+.conf-tags.conf-pend li { grid-template-columns: minmax(0, 1fr) auto auto; }
+.conf-pend__vazio { color: var(--fg-muted); }
+
+/* ---- Solicitações: o chamado e a conversa ---- */
+.conf-linha__acoes:empty { display: none; }
+.conf-num { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg-muted); font-weight: 600; }
+.conf-ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--fg-danger); margin-right: 6px; vertical-align: 1px; }
+/* O chamado aberto (13/11/2026): dados em cima, na largura toda; embaixo a
+   conversa (que ocupa o espaço) e, à direita, anexos e situação. */
+.conf-chamado {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  grid-template-areas: "dados dados" "conversa lado"; gap: var(--space-6) var(--space-7);
+}
+.conf-chamado__dados {
+  grid-area: dados; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--space-4) var(--space-7);
+  padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface);
+}
+.conf-chamado__lado { grid-area: lado; display: flex; flex-direction: column; gap: var(--space-5); }
+.conf-dados--uma { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+/* Os botões de situação da conversa (13/11/2026): um bloco com a situação
+   atual, a faixa do andamento e a faixa da decisão, botões do mesmo tamanho. */
+.conf-passos {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface);
+}
+.conf-passos__topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.conf-passos__rotulo { font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-muted); }
+.conf-passos__faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-3); }
+.conf-passos__faixa .vit-btn { width: 100%; justify-content: center; }
+.conf-passos__faixa--decisao { padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.conf-passos__atual.vit-btn:disabled { opacity: 1; background: var(--bg-active); color: var(--fg-brand); border-color: transparent; cursor: default; }
+.conf-chamado__conversa { grid-area: conversa; display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.conf-chamado__conversa .conf-msgs { flex: 1; min-height: 220px; }
+.conf-msgs { display: flex; flex-direction: column; gap: var(--space-4); max-height: 420px; overflow-y: auto; padding: var(--space-5); border-radius: var(--radius-lg); background: var(--bg-surface); border: 1px solid var(--border); }
+.conf-balao { align-self: flex-start; max-width: 80%; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--surface-2); display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-md); }
+.conf-balao p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.conf-balao small { font-size: var(--text-xs); color: var(--fg-muted); }
+.conf-balao__quem { font-size: var(--text-sm); font-weight: 700; color: var(--fg-brand); }
+.conf-balao--adm { align-self: flex-end; background: var(--brand-600); color: #FFFFFF; }
+.conf-balao--adm small { color: rgba(255, 255, 255, .8); }
+.conf-evento { align-self: center; margin: 0; padding: 2px var(--space-5); border-radius: var(--radius-full); background: var(--surface-3); font-size: var(--text-sm); font-weight: 600; color: var(--fg-secondary); }
+.conf-anexo { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-3); max-width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface); color: var(--fg-default); font: inherit; font-size: var(--text-base); font-weight: 600; cursor: pointer; text-align: left; }
+.conf-anexo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conf-balao--adm .conf-anexo { background: rgba(255, 255, 255, .15); border-color: transparent; color: inherit; }
+.conf-prontas { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.conf-prontas button { padding: var(--space-2) var(--space-5); border-radius: var(--radius-full); border: 1px solid var(--brand-200); background: var(--bg-surface); color: var(--fg-brand); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.conf-responder { display: flex; flex-direction: column; gap: var(--space-3); }
+.conf-responder__linha { display: flex; gap: var(--space-4); align-items: flex-end; }
+.conf-responder__linha label { cursor: pointer; }
+/* A resposta é o <Textarea> do sistema: só cresce na linha e começa baixa. */
+.conf-responder__texto.vit-textarea { flex: 1; min-height: 44px; max-height: 160px; resize: vertical; }
+/* O anexo é o <Input> do sistema, escondido dentro do botão do clipe: o clique
+   no rótulo abre o seletor. */
+.conf-responder__campo.vit-input { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.conf-responder__arq { margin: 0; display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-base); font-weight: 600; color: var(--fg-brand); }
+.conf-responder__arq button { border: 0; background: none; color: var(--fg-muted); cursor: pointer; display: grid; place-items: center; }
+
+/* ---- TAG e veículos: as três vistas e o cadastro interno ---- */
+.conf-vistas { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: var(--space-6); border-radius: var(--radius-lg); background: var(--surface-3); }
+.conf-vistas button { padding: var(--space-3) var(--space-6); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--fg-secondary); font: inherit; font-size: var(--text-md); font-weight: 600; cursor: pointer; }
+.conf-vistas button[aria-pressed="true"] { background: var(--bg-surface); color: var(--fg-default); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.conf-editar { display: flex; flex-direction: column; gap: var(--space-5); }
+.conf-editar__grade { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-5); }
+.conf-alerta--neutro { background: var(--bg-surface); color: var(--fg-secondary); border: 1px solid var(--border); }
+@media (max-width: 1100px) { .conf-editar__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---- Celular e tablet em pé: cada linha vira um cartão ---- */
+@media (max-width: 900px) {
+  .conf-lista__cab { display: none; }
+  .conf-linha { grid-template-columns: minmax(0, 1fr); }
+  .conf-linha__abrir {
+    grid-template-columns: var(--conf-seta) minmax(0, 1fr);
+    padding-right: var(--space-5);
+    row-gap: var(--space-3);
+  }
+  .conf-celula { grid-column: 2; }
+  .conf-celula:first-of-type { grid-row: 1; }
+  .conf-linha__seta { grid-row: 1; }
+  .conf-linha__acoes { justify-content: stretch; padding-top: 0; }
+  .conf-linha__acoes .vit-btn { flex: 1; }
+  .conf-detalhe { padding-left: var(--space-5); }
+  .conf-detalhe__grade { grid-template-columns: minmax(0, 1fr); }
+  .conf-chamado { grid-template-columns: minmax(0, 1fr); grid-template-areas: "dados" "lado" "conversa"; }
+  .conf-dados { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .conf-tags li, .conf-tags.conf-pend li { grid-template-columns: minmax(0, 1fr) auto; }
+  .conf-tags__acoes { grid-column: 1 / -1; justify-content: stretch; }
+  .conf-tags__acoes .vit-btn { flex: 1; }
+}
+@media (max-width: 480px) {
+  .conf-dados { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Registrar saída (0073): a prévia do que acontece. */
+.saida { display: flex; flex-direction: column; gap: var(--space-5); }
+.saida__lista { margin: 0; padding-left: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); font-size: var(--text-base); }
+.saida__secao h3 { margin: 0 0 var(--space-2); font-size: var(--text-sm); font-weight: 600; color: var(--fg-secondary); }
+.saida__secao ul { margin: 0; padding-left: var(--space-6); display: flex; flex-direction: column; gap: 2px; font-size: var(--text-base); }
+.saida__secao p { margin: 0; font-size: var(--text-base); }
+
+/* O nome da coluna que ordena: o mesmo texto do cabeçalho, com a seta. */
+.conf-lista__ordem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.conf-lista__ordem svg { opacity: .45; }
+.conf-lista__ordem:hover { color: var(--fg-default); }
+.conf-lista__ordem:hover svg, .conf-lista__ordem--ativa svg { opacity: 1; }
+.conf-lista__ordem--ativa { color: var(--fg-brand); }
+.conf-lista__ordem:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+
+/* "Ações", em cima dos botões do fim da linha: o título e os botões ficam
+   centrados na mesma coluna, com o mesmo respiro dos lados. */
+.conf-lista__acoes-cab { justify-self: stretch; text-align: center; padding: 0 var(--space-5); }
+.conf-lista__acoes-cab:empty { display: none; }
+
+/* Lista que abre modal: a coluna da seta fica com largura zero (o span vazio
+   continua lá, para as células não escorregarem uma coluna para a esquerda). */
+.conf-lista--modal { --conf-seta: 0px; }
+
+/* ---- Lista que abre modal, no celular: cartão com o nome de cada coluna ----
+   Sem o cabeçalho (escondido no celular), "R$ 107,00" ou "Sim" sozinhos não
+   dizem o que são. Cada célula vira "NOME DA COLUNA ··· valor", e os botões
+   ficam numa barra no rodapé do cartão, à direita e do mesmo tamanho (antes
+   esticavam e cada um ia para um canto). As listas de Confirmações, que
+   abrem embaixo e têm Aprovar/Recusar com texto, continuam como eram. */
+@media (max-width: 900px) {
+  .conf-lista--modal .conf-linha__abrir {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-3);
+    padding: var(--space-5) var(--space-6);
+  }
+  .conf-lista--modal .conf-linha__seta { display: none; }
+  .conf-lista--modal .conf-celula {
+    grid-column: 1;
+    grid-row: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+    min-width: 0;
+    text-align: right;
+  }
+  .conf-lista--modal .conf-celula::before {
+    content: attr(data-rotulo);
+    flex: none;
+    color: var(--fg-muted);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-align: left;
+  }
+  .conf-lista--modal .conf-celula > * { min-width: 0; }
+  .conf-lista--modal .conf-celula .mud-quem { align-items: flex-end; }
+  .conf-lista--modal .conf-linha__acoes {
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    border-top: 1px dashed var(--border);
+  }
+  .conf-lista--modal .conf-linha__acoes .vit-btn { flex: none; width: 40px; height: 40px; padding: 0; justify-content: center; }
+}
+
+/* Histórico: "Por página", "1–15 de 40" e ‹ 1 2 › no fim da lista (12/11/2026). */
+.conf-paginas { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-5); color: var(--fg-muted); font-size: var(--text-sm); }
+.conf-paginas__por { display: inline-flex; align-items: center; gap: var(--space-2); }
+.conf-paginas__por select {
+  min-height: 32px; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg-surface); color: var(--fg-default); font: inherit;
+}
+.conf-paginas__nums { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: auto; }
+.conf-paginas__nums button {
+  min-width: 32px; height: 32px; padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md);
+  background: none; color: var(--fg-secondary); font: 600 var(--text-sm) var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.conf-paginas__nums button:hover:not(:disabled) { background: var(--bg-hover); }
+.conf-paginas__nums button.conf-paginas__atual { background: var(--bg-active); color: var(--fg-brand); }
+.conf-paginas__nums button:disabled { opacity: .35; cursor: default; }
+.conf-paginas__seta { font-size: var(--text-lg) !important; }
+.conf-paginas__reticencias { min-width: 24px; text-align: center; color: var(--fg-muted); }
+
+/* No cartão do modo foco (mais estreito), o chamado empilha: dados, anexos e
+   situação, e a conversa embaixo. */
+.foco-cartao .conf-chamado { grid-template-columns: minmax(0, 1fr); grid-template-areas: "dados" "lado" "conversa"; }
+
+/* O e-mail no chamado: ocupa duas colunas e não quebra no meio (13/11/2026). */
+.conf-chamado__dados .conf-dado--largo { grid-column: span 2; min-width: 0; }
+.conf-dado__linha { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+@media (max-width: 480px) { .conf-chamado__dados .conf-dado--largo { grid-column: auto; } }

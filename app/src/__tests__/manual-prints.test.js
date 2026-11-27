@@ -28,9 +28,9 @@ describe('Manual: plano dos prints do modo demo', () => {
 })
 
 describe('Manual: login de cada print', () => {
-  it('o painel é fotografado com o login do Síndico, que o passo pede, e não com o da portaria', () => {
-    const inicio = planoDosPrints().find((p) => p.arquivo === 'painel/inicio.png')
-    expect(inicio.email).toBe('sindico@exemplo.com.br')
+  it('o Comunicado é fotografado com o login do Síndico, o primeiro Cargo da tela', () => {
+    const exportar = planoDosPrints().find((p) => p.arquivo === 'comunicado/exportar.png')
+    expect(exportar.email).toBe('sindico@exemplo.com.br')
   })
 
   it('recusa um print pedido por um Cargo que não vê a tela', () => {
