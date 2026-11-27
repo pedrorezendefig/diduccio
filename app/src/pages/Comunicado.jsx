@@ -1,111 +1,37 @@
-import React, { useState, useEffect } from "react";
-import { useTheme } from "../theme/useTheme";
-import { PageHeader, useToast, Modal, Button } from "../ui";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  PageHeader, useToast, useConfirm, Modal, Button, Field, Textarea, Input, Select, Badge,
+} from "../ui";
 import {
   Bot, Sparkles, Lightbulb, Share2, Download,
   Bold, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Type, List, ListOrdered, Quote, Undo, Redo, Eraser, Highlighter,FileText, Image, Printer
+  List, ListOrdered, Undo, Redo, Eraser, Highlighter, FileText, Image, Printer,
+  Smartphone, Pin, PinOff, EyeOff, Minus, Plus, ChevronRight,
 } from "lucide-react";
 
-// --- NOVOS IMPORTS TIPTAP ---
+// --- TIPTAP ---
 import { useEditor, EditorContent } from '@tiptap/react';
+import { limparColagem } from "../lib/colagem";
 import StarterKit from '@tiptap/starter-kit';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { Highlight } from '@tiptap/extension-highlight';
-
 import { Extension } from '@tiptap/core';
 
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { useRef } from "react";
 import { chamarEdgeFunction, mensagemDaEdgeFunction } from "../api/edge";
+import { listarNoticiasNoApp, fixarNoticia, retirarNoticia } from "../api/noticias";
+import PublicarNoApp from "../components/comunicado/PublicarNoApp";
+import NoticiasDoApp from "../components/comunicado/NoticiasDoApp";
+import { Opcoes } from "../components/app/pecas";
+import { dataHoraBR } from "../lib/format";
+import { FORMATOS, alturaDaPaginaLonga, paginasDoCanvas } from "../lib/folha";
+// O CSS da folha, em texto: a janela de impressão não tem o resto do CSS.
+import cssDaFolha from "../styles/comunicado-folha.css?inline";
 
 // As chamadas de IA passam pelo backend (proxy) para que as chaves NÃO fiquem no frontend.
-
-export default function Comunicado() {
-  const { theme } = useTheme();
-  const toast = useToast();
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [prompt, setPrompt] = useState("");
-  const [tom, setTom] = useState("Formal");
-  const [isGerando, setIsGerando] = useState(false);
-  const [titulo, setTitulo] = useState("");
-  const [, forceUpdate] = useState(0);
-
-  // Verde da marca ViT. O comunicado impresso já nascia verde-escuro,
-  // então alinhar ao token não muda a identidade do documento.
-  const COR_TURQUESA = "#B33320";
-
-  // Tintas fixas do documento. A folha e branca nos dois temas, entao nada
-  // aqui pode usar var(--fg-*): no escuro o texto saia branco no branco,
-  // inclusive no PDF e na imagem exportados.
-  const TINTA_FRACA = "#63675F";
-
-  const FontSize = Extension.create({
-  name: 'fontSize',
-
-  addOptions() {
-    return {
-      types: ['textStyle'],
-    };
-  },
-
-  addGlobalAttributes() {
-    return [
-      {
-        types: this.options.types,
-        attributes: {
-          fontSize: {
-            default: null,
-            parseHTML: element => element.style.fontSize,
-            renderHTML: attributes => {
-              if (!attributes.fontSize) {
-                return {};
-              }
-
-              return {
-                style: `font-size: ${attributes.fontSize}`,
-              };
-            },
-          },
-        },
-      },
-    ];
-  },
-});
-
-  // --- CONFIGURAÇÃO DO EDITOR TIPTAP ---
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      FontSize, // 🔥 ADICIONADO AQUI
-    ],
-    content: "", 
-    editorProps: {
-      attributes: {
-        style: 'outline: none; min-height: 200px; padding: 5px; width: 100%;',
-      },
-    },
-  });
-
-  // Data Automática Brasil
-  const [dataAtual] = useState(() => {
-    return new Date().toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  });
-
-const [modalExport, setModalExport] = useState(false);
-const a4Ref = useRef();
-const palcoRef = useRef(null);
 
 /**
  * A folha tem 794px fixos (A4 a 96dpi) e NUNCA muda de largura: é isso que
@@ -113,40 +39,158 @@ const palcoRef = useRef(null);
  * em telas menores ela é reduzida por transform, não por reflow.
  */
 const LARGURA_A4 = 794;
-const [escala, setEscala] = useState(1);
-const [alturaFolha, setAlturaFolha] = useState(1123);
+// A4 a 96 dpi: a altura MÍNIMA da folha. Sem a trava de A4 (23/11/2026), ela
+// cresce com o texto; quem exporta escolhe se sai em folhas A4 ou numa
+// página comprida (FORMATOS, lib/folha).
+const ALTURA_A4 = 1123;
+// O que vai para a imagem e o PDF: papel branco, sem a sombra da prévia (o
+// canto transparente da sombra virava borda preta no JPEG). A altura é a da
+// folha, seja qual for.
+const OPCOES_DA_FOTO = { useCORS: true, backgroundColor: "#ffffff", width: LARGURA_A4, windowWidth: LARGURA_A4 };
+const TONS = ["Formal", "Amigável", "Urgente"];
+const TAMANHOS = [12, 14, 16, 18, 20, 24, 28];
 
-useEffect(() => {
-  const palco = palcoRef.current;
-  const folha = a4Ref.current;
-  if (!palco || !folha) return;
+/** O verde da marca (a rampa --brand não inverte no escuro): a cor do texto da folha. */
+const corDaMarca = () =>
+  getComputedStyle(document.documentElement).getPropertyValue("--brand-700").trim() || "rgb(80, 42, 36)";
 
-  const medir = () => {
-    // Mede o CONTAINER, não a janela: a lateral e o formulário ao lado já
-    // comeram largura, e window.innerWidth ignorava os dois.
-    const disponivel = palco.clientWidth;
-    // Antes do primeiro layout a largura é 0. Sem esta guarda a escala viraria
-    // 0 e a folha sumiria da tela.
-    if (disponivel <= 0) return;
-    const nova = Math.min(1, disponivel / LARGURA_A4);
-    setEscala((antes) => (Math.abs(antes - nova) < 0.002 ? antes : nova));
-    // Altura medida, não os 1123px de uma página: o comunicado cresce com o
-    // texto, e o valor fixo deixava sobra ou corte quando passava de uma folha.
-    setAlturaFolha((antes) => (antes === folha.offsetHeight ? antes : folha.offsetHeight));
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addOptions() {
+    return { types: ['textStyle'] };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize,
+            renderHTML: (attributes) => (attributes.fontSize ? { style: `font-size: ${attributes.fontSize}` } : {}),
+          },
+        },
+      },
+    ];
+  },
+});
+
+const escapeHtml = (str) => String(str ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#39;");
+
+/** Um botão da barra de ferramentas. `ativo` vira aria-pressed (negrito, itálico). */
+function Ferramenta({ rotulo, onClick, ativo, children }) {
+  return (
+    <button
+      type="button"
+      className="com-ferramenta"
+      title={rotulo}
+      aria-label={rotulo}
+      aria-pressed={ativo == null ? undefined : ativo}
+      onMouseDown={(e) => e.preventDefault() /* não tira a seleção do texto */}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function Comunicado() {
+  const toast = useToast();
+  const confirmar = useConfirm();
+  const [prompt, setPrompt] = useState("");
+  const [tom, setTom] = useState("Formal");
+  const [isGerando, setIsGerando] = useState(false);
+  const [titulo, setTitulo] = useState("");
+  const [, forceUpdate] = useState(0);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      FontSize,
+    ],
+    content: "",
+    editorProps: {
+      attributes: { class: "com-folha__editor", "aria-label": "Texto do comunicado" },
+      // Texto colado de fora (Word, WhatsApp, site) chega com a fonte, o
+      // tamanho e a cor de lá; entra só a estrutura, na letra do comunicado.
+      transformPastedHTML: limparColagem,
+    },
+    // A barra mostra negrito, itálico e tamanho de onde o cursor está.
+    onSelectionUpdate: () => forceUpdate((v) => v + 1),
+    onTransaction: () => forceUpdate((v) => v + 1),
+  });
+
+  // Data Automática Brasil
+  const [dataAtual] = useState(() =>
+    new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+  );
+
+  const [modalExport, setModalExport] = useState(false);
+
+  // Publicar no app do morador (0079 + 0082): o texto da folha em texto puro
+  // (o app não mostra HTML), o título (que pode mudar só para o app), o
+  // comunicado em PDF e os anexos. A janela é a PublicarNoApp.
+  const [modalPublicar, setModalPublicar] = useState(false);
+  // Todas as notícias (publicadas e arquivadas), para ver e editar (23/11/2026).
+  const [modalNoticias, setModalNoticias] = useState(false);
+  const [noApp, setNoApp] = useState({ carregando: true, lista: [] });
+
+  const recarregarNoApp = async () => {
+    const r = await listarNoticiasNoApp();
+    setNoApp({ carregando: false, lista: r.data, erro: !r.success });
   };
 
-  medir();
-  const observador = new ResizeObserver(medir);
-  observador.observe(palco);
-  observador.observe(folha);
-  return () => observador.disconnect();
-}, []);
+  useEffect(() => {
+    recarregarNoApp();
+  }, []);
+
+  const a4Ref = useRef();
+  const palcoRef = useRef(null);
+  const [escala, setEscala] = useState(1);
+  // A folha cresce com o texto: a caixa da prévia acompanha a altura dela.
+  const [alturaFolha, setAlturaFolha] = useState(ALTURA_A4);
+  // Como sai o PDF e a impressão: em folhas A4 ou numa página comprida.
+  const [formato, setFormato] = useState("a4");
+  // A prévia do que vai sair, montada quando abre Exportar.
+  const [previa, setPrevia] = useState(null);
 
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, []);
+    const palco = palcoRef.current;
+    const folha = a4Ref.current;
+    if (!palco || !folha) return;
+
+    const medir = () => {
+      // Mede o CONTAINER, não a janela: a lateral e o formulário ao lado já
+      // comeram largura, e window.innerWidth ignorava os dois.
+      const disponivel = palco.clientWidth - 2 * parseFloat(getComputedStyle(palco).paddingLeft || 0);
+      // Antes do primeiro layout a largura é 0. Sem esta guarda a escala viraria
+      // 0 e a folha sumiria da tela.
+      if (disponivel <= 0) return;
+      const nova = Math.min(1, disponivel / LARGURA_A4);
+      setEscala((antes) => (Math.abs(antes - nova) < 0.002 ? antes : nova));
+      // offsetHeight não sofre o transform: é a altura de verdade da folha.
+      const altura = Math.max(ALTURA_A4, folha.offsetHeight);
+      setAlturaFolha((antes) => (antes === altura ? antes : altura));
+    };
+
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(palco);
+    observador.observe(folha);
+    // O texto cresce dentro da folha (que tem altura fixa): é ele que se mede.
+    const texto = folha.querySelector(".com-folha__editor");
+    if (texto) observador.observe(texto);
+    return () => observador.disconnect();
+  }, [editor]);
 
   const gerarComIA = async () => {
     if (!prompt.trim()) { toast.error("Descreva o assunto do comunicado antes de gerar."); return; }
@@ -168,7 +212,6 @@ useEffect(() => {
         const corpoExtraido = partes[1].trim();
 
         setTitulo(tituloExtraido);
-        // ATUALIZAÇÃO DO TIPTAP
         if (editor) {
           editor.commands.setContent(corpoExtraido);
           editor.commands.setTextAlign('justify');
@@ -189,454 +232,472 @@ useEffect(() => {
   if (!editor) return null;
 
   const getFontSize = () => {
-  const attrs = editor.getAttributes('textStyle');
-  return attrs.fontSize ? parseInt(attrs.fontSize) : 16; // padrão 16px
-};
+    const attrs = editor.getAttributes('textStyle');
+    return attrs.fontSize ? parseInt(attrs.fontSize) : 16; // padrão 16px
+  };
+  const mudarTamanho = (px) => editor.chain().focus().setMark('textStyle', { fontSize: `${px}px` }).run();
+
+  /**
+   * Uma cópia da folha fora da tela, em tamanho cheio, para virar imagem. A
+   * cópia herda o `transform` da prévia: sem zerar, a imagem sairia no
+   * tamanho encolhido da tela.
+   */
+  const copiaDaFolha = () => {
+    const clone = a4Ref.current.cloneNode(true);
+    Object.assign(clone.style, {
+      position: "absolute", left: "-9999px", top: "0",
+      transform: "none", margin: "0", boxShadow: "none",
+      width: `${LARGURA_A4}px`, height: "auto", minHeight: `${ALTURA_A4}px`,
+    });
+    document.body.appendChild(clone);
+    return clone;
+  };
+
+  // A folha em PDF (jsPDF). Baixar salva; publicar sobe junto com a notícia.
+  // "a4": corta em folhas A4 sem partir linha de texto; "longa": uma página só,
+  // da altura da folha.
+  const gerarPDF = async (modo = formato) => {
+    const clone = copiaDaFolha();
+    try {
+      const canvas = await html2canvas(clone, { ...OPCOES_DA_FOTO, scale: 2 });
+      if (modo === "longa") {
+        const altura = alturaDaPaginaLonga(canvas.width, canvas.height);
+        const pdf = new jsPDF({ orientation: "p", unit: "mm", format: [210, altura] });
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, (210 * canvas.height) / canvas.width);
+        return pdf;
+      }
+      const pdf = new jsPDF("p", "mm", "a4");
+      paginasDoCanvas(canvas).forEach((pagina, i) => {
+        if (i > 0) pdf.addPage("a4", "p");
+        pdf.addImage(pagina.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+      });
+      return pdf;
+    } finally {
+      document.body.removeChild(clone);
+    }
+  };
+
+  /** A prévia de Exportar: a folha em miniatura, já cortada no formato escolhido. */
+  const montarPrevia = async () => {
+    setPrevia({ carregando: true });
+    const clone = copiaDaFolha();
+    try {
+      const canvas = await html2canvas(clone, { ...OPCOES_DA_FOTO, scale: 0.5, logging: false });
+      setPrevia({
+        a4: paginasDoCanvas(canvas).map((p) => p.toDataURL("image/jpeg", 0.8)),
+        longa: canvas.toDataURL("image/jpeg", 0.8),
+        alturaMm: alturaDaPaginaLonga(canvas.width, canvas.height),
+      });
+    } catch (err) {
+      console.error("Erro ao montar a prévia:", err);
+      setPrevia({ erro: true });
+    } finally {
+      document.body.removeChild(clone);
+    }
+  };
+
+  const abrirExportar = () => {
+    setModalExport(true);
+    montarPrevia();
+  };
 
   const baixarPDF = async () => {
-  const element = a4Ref.current;
-  const clone = element.cloneNode(true);
-  Object.assign(clone.style, {
-    position: "absolute", left: "-9999px", top: "0",
-    transform: "none", transformOrigin: "top left",
-    width: "794px", height: "auto", minHeight: "1123px",
-    padding: "20mm", backgroundColor: "#fff", display: "flex", flexDirection: "column"
-  });
-  document.body.appendChild(clone);
-
-  const canvas = await html2canvas(clone, { scale: 2, useCORS: true, width: 794, windowWidth: 794 });
-  const imgData = canvas.toDataURL("image/png");
-  const pdf = new jsPDF("p", "mm", "a4");
-  pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
-  pdf.save("comunicado.pdf");
-  document.body.removeChild(clone);
-};
-
-const baixarImagem = async () => {
-  const element = a4Ref.current;
-  
-  // 1. Criar um clone do elemento A4
-  const clone = element.cloneNode(true);
-  
-  // 2. Estilizar o clone para garantir que ele seja um A4 perfeito
-  // Independentemente de onde ele esteja sendo renderizado
-  Object.assign(clone.style, {
-    position: "absolute",
-    left: "-9999px",
-    top: "0",
-    // Zera a redução da prévia. O clone herda o style inline do original, e
-    // sem isto a imagem sairia no tamanho encolhido da tela.
-    transform: "none",
-    transformOrigin: "top left",
-    width: "794px",      // Largura exata de um A4 em 96dpi
-    height: "auto",      // Deixa crescer conforme o texto
-    minHeight: "1123px",
-    margin: "0",
-    padding: "20mm",
-    display: "flex",
-    flexDirection: "column",
-    backgroundColor: "#fff",
-  });
-
-  // 3. Opcional: Se você usa fontes específicas ou estilos globais, 
-  // certifique-se de que o clone os herde anexando-o ao body
-  document.body.appendChild(clone);
-
-  try {
-    const canvas = await html2canvas(clone, {
-      scale: 3,
-      useCORS: true,
-      logging: false,
-      width: 794,
-      height: clone.offsetHeight,
-      windowWidth: 794, // Força o layout de desktop dentro do canvas
-    });
-
-    const link = document.createElement("a");
-    link.download = "comunicado.jpeg";
-    link.href = canvas.toDataURL("image/jpeg", 1.0);
-    link.click();
-  } catch (err) {
-    console.error("Erro ao gerar imagem:", err);
-  } finally {
-    // 4. Remover o clone do DOM
-    document.body.removeChild(clone);
-  }
-};
-
-const escapeHtml = (str) => String(str ?? "")
-  .replace(/&/g, "&amp;")
-  .replace(/</g, "&lt;")
-  .replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;")
-  .replace(/'/g, "&#39;");
-
-const imprimir = () => {
-  const conteudo = a4Ref.current.innerHTML;
-  const tituloDocumento = titulo || "Comunicado";
-
-  const janela = window.open('', '', 'height=800,width=800');
-
-  janela.document.write(`
-    <html>
-      <head>
-        <title>${escapeHtml(tituloDocumento)}</title>
-        <style>
-          @page { size: A4; margin: 0; }
-          body { margin: 0; padding: 0; background-color: white; font-family: Arial, sans-serif; }
-          
-          .print-container {
-            width: 210mm;
-            height: 297mm;
-            padding: 20mm;
-            margin: 0 auto;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            background-color: white;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-
-          /* Alinhamento da Assinatura */
-          div[style*="margin-top: auto"] { 
-            margin-top: auto !important; 
-          }
-
-          /* Linha do Cabeçalho - Ajustada para o modelo original */
-          div[style*="height: 2px"][style*="opacity: 0.2"] {
-            height: 2px !important;
-            background-color: ${COR_TURQUESA} !important;
-            opacity: 0.2 !important;
-            display: block !important;
-          }
-
-          /* Linha da Assinatura - Ajustada para o modelo original */
-          div[style*="width: 200px"][style*="height: 1px"] {
-            width: 200px !important;
-            height: 1px !important;
-            background-color: ${COR_TURQUESA} !important;
-            opacity: 0.3 !important;
-            margin: 40px auto 10px auto !important;
-            display: block !important;
-          }
-
-          h2 { color: ${COR_TURQUESA} !important; text-align: center; margin-bottom: 10px; }
-          strong { color: ${COR_TURQUESA} !important; }
-          img { width: 90px; height: 90px; display: block; margin: 0 auto; }
-          
-          /* Garante que o texto do corpo respeite as quebras */
-          .ProseMirror { white-space: pre-wrap; word-bundle: break-word; }
-        </style>
-      </head>
-      <body>
-        <div class="print-container">
-          ${conteudo}
-        </div>
-      </body>
-    </html>
-  `);
-
-  janela.document.close();
-  janela.onload = () => {
-    janela.focus();
-    janela.print();
-    janela.onafterprint = () => janela.close();
+    const pdf = await gerarPDF();
+    pdf.save("comunicado.pdf");
   };
-};
 
-const compartilharImagemWhatsApp = async () => {
-  const element = a4Ref.current;
-  const clone = element.cloneNode(true);
-  Object.assign(clone.style, {
-    position: "absolute", left: "-9999px", top: "0",
-    transform: "none", transformOrigin: "top left",
-    width: "794px", height: "auto", padding: "20mm", backgroundColor: "#fff"
-  });
-  document.body.appendChild(clone);
+  // Parágrafos separados por linha em branco: é o formato que o app lê.
+  const textoParaOApp = () => editor.getText({ blockSeparator: "\n\n" }).trim();
 
-  try {
-    const canvas = await html2canvas(clone, { scale: 2, useCORS: true, width: 794, windowWidth: 794 });
-    const image = canvas.toDataURL("image/jpeg", 0.95);
-    const blob = await (await fetch(image)).blob();
-    const arquivo = new File([blob], "comunicado.jpeg", { type: "image/jpeg" });
+  const abrirPublicar = () => {
+    if (titulo.trim().length < 3) { toast.error("Escreva o título do comunicado antes de publicar."); return; }
+    if (!textoParaOApp()) { toast.error("O comunicado está sem texto."); return; }
+    setModalPublicar(true);
+  };
 
-    // navigator.share com arquivo só existe no celular e em poucos
-    // navegadores. Antes, fora deles a função terminava sem fazer nada e sem
-    // avisar: o botão simplesmente não respondia.
-    if (navigator.canShare?.({ files: [arquivo] })) {
-      try {
-        await navigator.share({ files: [arquivo], title: titulo || "Comunicado" });
-      } catch {
-        // Cancelar o compartilhamento é escolha do usuário, não erro.
-      }
+  const pdfParaOApp = async () => (await gerarPDF()).output("blob");
+
+  const aoPublicar = (r) => {
+    if (!r.success) {
+      toast.error("Não foi possível publicar no app. Confira a conexão e tente de novo.");
       return;
     }
+    setModalPublicar(false);
+    const faltou = [
+      r.pdfFalhou && "o comunicado em PDF",
+      r.falharam?.length && (r.falharam.length === 1 ? `o anexo ${r.falharam[0]}` : `${r.falharam.length} anexos`),
+    ].filter(Boolean);
+    if (faltou.length) toast.info(`Publicado no app, mas não subiu: ${faltou.join(" e ")}. O resto está lá.`);
+    else toast.success("Publicado no app do morador.");
+    recarregarNoApp();
+  };
 
-    const link = document.createElement("a");
-    link.download = "comunicado.jpeg";
-    link.href = image;
-    link.click();
-    toast.info("Seu navegador não compartilha direto. A imagem foi baixada — é só anexar no WhatsApp.");
-  } catch (err) {
-    console.error("Erro ao gerar imagem:", err);
-    toast.error("Não foi possível gerar a imagem do comunicado.");
-  } finally {
-    document.body.removeChild(clone);
-  }
-};
+  const alternarFixada = async (n) => {
+    const r = await fixarNoticia(n.id, !n.fixada);
+    if (!r.success) { toast.error("Não foi possível mudar a fixada."); return; }
+    recarregarNoApp();
+  };
+
+  const retirar = async (n) => {
+    const ok = await confirmar({
+      title: `Retirar "${n.titulo}" do app?`,
+      description: "Some para os moradores na hora. A notícia fica guardada; não é apagada.",
+      confirmLabel: "Retirar",
+      danger: true,
+    });
+    if (!ok) return;
+    const r = await retirarNoticia(n.id);
+    if (!r.success) { toast.error("Não foi possível retirar a notícia."); return; }
+    // Retirada vale na hora; o PDF é que fica baixável por quem já tinha aberto
+    // se a troca de endereço (api/noticias.js) falhar.
+    if (r.pdfNoAr) toast.info("Retirada do app. O PDF não mudou de endereço: quem já abriu ainda consegue baixar por até 1 hora.");
+    else toast.success("Retirada do app.");
+    recarregarNoApp();
+  };
+
+  const baixarImagem = async () => {
+    const clone = copiaDaFolha();
+    try {
+      const canvas = await html2canvas(clone, { ...OPCOES_DA_FOTO, scale: 3, logging: false });
+      const link = document.createElement("a");
+      link.download = "comunicado.jpeg";
+      link.href = canvas.toDataURL("image/jpeg", 1.0);
+      link.click();
+    } catch (err) {
+      console.error("Erro ao gerar imagem:", err);
+      toast.error("Não foi possível gerar a imagem do comunicado.");
+    } finally {
+      document.body.removeChild(clone);
+    }
+  };
+
+  const imprimir = () => {
+    // A folha inteira (com as classes) e o CSS dela: a janela nova não tem o
+    // CSS do sistema. Sem o `transform` da prévia, e no tamanho do papel.
+    const folha = a4Ref.current.outerHTML;
+    const janela = window.open('', '', 'height=800,width=800');
+    if (!janela) { toast.error("O navegador bloqueou a janela de impressão. Libere pop-ups para este site."); return; }
+
+    janela.document.write(`
+      <html>
+        <head>
+          <title>${escapeHtml(titulo || "Comunicado")}</title>
+          <style>
+            @page { size: ${formato === "longa" ? `210mm ${Math.round((210 * alturaFolha) / LARGURA_A4)}mm` : "A4"}; margin: 0; }
+            body { margin: 0; padding: 0; background: white; font-family: Arial, sans-serif; }
+            ${cssDaFolha}
+            .com-folha {
+              transform: none !important; width: 210mm; height: auto; min-height: 297mm; box-shadow: none;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+            /* Em folhas A4: a linha de texto não se parte entre duas folhas. */
+            .com-folha p, .com-folha li { break-inside: avoid; }
+          </style>
+        </head>
+        <body>${folha}</body>
+      </html>
+    `);
+
+    janela.document.close();
+    janela.onload = () => {
+      janela.focus();
+      janela.print();
+      janela.onafterprint = () => janela.close();
+    };
+  };
+
+  const compartilharImagemWhatsApp = async () => {
+    const clone = copiaDaFolha();
+    try {
+      const canvas = await html2canvas(clone, { ...OPCOES_DA_FOTO, scale: 2 });
+      const image = canvas.toDataURL("image/jpeg", 0.95);
+      const blob = await (await fetch(image)).blob();
+      const arquivo = new File([blob], "comunicado.jpeg", { type: "image/jpeg" });
+
+      // navigator.share com arquivo só existe no celular e em poucos
+      // navegadores. Fora deles, baixa a imagem e avisa.
+      if (navigator.canShare?.({ files: [arquivo] })) {
+        try {
+          await navigator.share({ files: [arquivo], title: titulo || "Comunicado" });
+        } catch {
+          // Cancelar o compartilhamento é escolha do usuário, não erro.
+        }
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.download = "comunicado.jpeg";
+      link.href = image;
+      link.click();
+      toast.info("Seu navegador não compartilha direto. A imagem foi baixada — é só anexar no WhatsApp.");
+    } catch (err) {
+      console.error("Erro ao gerar imagem:", err);
+      toast.error("Não foi possível gerar a imagem do comunicado.");
+    } finally {
+      document.body.removeChild(clone);
+    }
+  };
+
+  const cmd = () => editor.chain().focus();
+  const tamanho = getFontSize();
+  const noAr = noApp.lista.length;
+  // O cartão mostra as 5 mais recentes; o resto fica na janela "Notícias no app".
+  const MOSTRAR_NO_CARTAO = 5;
 
   return (
-    <div style={{ padding: "10px", paddingTop: isMobile ? 56 : 10 }}>
+    <div>
       <PageHeader
         title="Comunicado"
-        meta="Gere um rascunho com IA e edite direto na folha antes de exportar"
+        meta={`Rascunho com IA, edição direto na folha${noApp.carregando ? "" : ` · ${noAr} ${noAr === 1 ? "notícia" : "notícias"} no app`}`}
         actions={
-          <Button variant="primary" onClick={() => setModalExport(true)} iconLeft={<Download size={16} />}>
-            Exportar
-          </Button>
+          <>
+            <Button onClick={abrirPublicar} iconLeft={<Smartphone size={16} />}>
+              Publicar no app
+            </Button>
+            <Button variant="primary" onClick={abrirExportar} iconLeft={<Download size={16} />}>
+              Exportar
+            </Button>
+          </>
         }
       />
 
-      <div style={contentGrid}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ ...sectionCard, backgroundColor: theme.mainBg, borderColor: theme.border }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-              <Bot size={22} color={COR_TURQUESA} />
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: theme.text }}>Assistente de IA</h3>
+      <div className="com-grade">
+        <aside className="com-lado">
+          <section className="com-cartao" aria-labelledby="ia-titulo">
+            <div className="com-cartao__topo">
+              <span className="com-cartao__icone" aria-hidden="true"><Bot size={18} /></span>
+              <h2 id="ia-titulo">Assistente de IA</h2>
             </div>
-
-            <label style={labelStyle}>O que você quer comunicar?</label>
-            <textarea 
-              style={{ ...textAreaStyle, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }}
-              placeholder="Ex: Manutenção da piscina..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-
-            <label style={labelStyle}>Tom de Voz</label>
-            <select 
-              style={{ ...selectStyle, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }}
-              value={tom}
-              onChange={(e) => setTom(e.target.value)}
-            >
-              <option value="Formal">Formal</option>
-              <option value="Amigável">Amigável</option>
-              <option value="Urgente">Urgente</option>
-            </select>
-
-            <button 
-              onClick={gerarComIA}
-              disabled={isGerando}
-              style={{...btnGerar, backgroundColor: isGerando ? "var(--fg-muted)" : COR_TURQUESA}}
-            >
-              <Sparkles size={18} />
-              {isGerando ? "Processando..." : "Gerar Comunicado"}
-            </button>
-          </div>
-
-          <div style={{ ...dicaCard, backgroundColor: "var(--brand-50)", borderColor: "var(--brand-200)" }}>
-            <Lightbulb size={20} color={COR_TURQUESA} />
-            <p style={{ color: COR_TURQUESA, fontSize: '13px', margin: 0 }}>
-              O texto da IA aparecerá dentro da folha. Você pode clicar e editar qualquer parte.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ ...sectionCard, backgroundColor: theme.mainBg, borderColor: theme.border, padding: 0 }}>
-          <div style={previewHeader}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
-              
-              {/* HISTÓRICO */}
-              <button onClick={() => editor.chain().focus().undo().run()} style={btnToolbar}><Undo size={16}/></button>
-              <button onClick={() => editor.chain().focus().redo().run()} style={btnToolbar}><Redo size={16}/></button>
-              <div style={divisor} />
-
-              {/* FORMATAÇÃO */}
-              <button 
-                onClick={() => editor.chain().focus().toggleBold().run()} 
-                style={{...btnToolbar, backgroundColor: editor.isActive('bold') ? 'var(--brand-100)' : 'var(--surface-2)'}}
-              >
-                <Bold size={16}/>
-              </button>
-              <button 
-                onClick={() => editor.chain().focus().toggleItalic().run()} 
-                style={{...btnToolbar, backgroundColor: editor.isActive('italic') ? 'var(--brand-100)' : 'var(--surface-2)'}}
-              >
-                <Italic size={16}/>
-              </button>
-              <button onClick={() => editor.chain().focus().toggleHighlight().run()} style={btnToolbar}><Highlighter size={16}/></button>
-              
-              <input 
-                type="color" 
-                onInput={e => editor.chain().focus().setColor(e.target.value).run()}
-                style={{ width: '25px', height: '25px', border: 'none', background: 'none', cursor: 'pointer' }}
+            <Field label="O que você quer comunicar?">
+              <Textarea
+                rows={5}
+                placeholder="Ex.: manutenção da piscina na terça, das 8h às 12h"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
               />
+            </Field>
+            <Field label="Tom de voz">
+              <Opcoes rotulo="Tom de voz" valor={tom} onMudar={setTom} opcoes={TONS} />
+            </Field>
+            <Button variant="primary" className="com-gerar" iconLeft={<Sparkles size={16} />} loading={isGerando} onClick={gerarComIA}>
+              {isGerando ? "Escrevendo…" : "Gerar comunicado"}
+            </Button>
+            <p className="com-dica">
+              <Lightbulb size={16} aria-hidden="true" />
+              <span>O texto aparece na folha ao lado. Clique em qualquer parte para editar, até no título.</span>
+            </p>
+          </section>
 
-              <button
-  onClick={() => editor.chain().focus().setColor(COR_TURQUESA).run()}
-  style={{
-    width: '25px',
-    height: '25px',
-    borderRadius: '6px',
-    background: COR_TURQUESA,
-    border: '1px solid var(--border)',
-    cursor: 'pointer'
-  }}
-  title="Cor padrão do sistema"
-/>
+          <section className="com-cartao" aria-labelledby="no-app-titulo">
+            {/* O topo do cartão abre a janela com todas as notícias, para ver e editar. */}
+            <button type="button" className="com-cartao__topo com-cartao__abrir" onClick={() => setModalNoticias(true)} aria-label="Ver e editar as notícias do app">
+              <span className="com-cartao__icone" aria-hidden="true"><Smartphone size={18} /></span>
+              <h2 id="no-app-titulo">No app do morador</h2>
+              {noAr > 0 && <Badge tone="brand">{noAr}</Badge>}
+              <ChevronRight size={16} className="com-cartao__seta" aria-hidden="true" />
+            </button>
+            {noApp.carregando && <p className="com-nota">Carregando…</p>}
+            {!noApp.carregando && noApp.erro && (
+              <p role="alert" className="com-nota">Não foi possível ver as notícias do app agora.</p>
+            )}
+            {!noApp.carregando && !noApp.erro && noAr === 0 && (
+              <p className="com-nota">Nenhuma notícia no app ainda.</p>
+            )}
+            {noAr > 0 && (
+              <ul className="com-noapp">
+                {noApp.lista.slice(0, MOSTRAR_NO_CARTAO).map((n) => (
+                  <li key={n.id}>
+                    <span className="com-noapp__texto">
+                      <strong>
+                        {n.fixada && <Pin size={12} aria-label="Fixada" />}
+                        {n.titulo}
+                      </strong>
+                      <small>
+                        {dataHoraBR(n.publicada_em).slice(0, 10)}
+                        {n.caminho_pdf ? " · com PDF" : ""}
+                        {n.anexos ? ` · ${n.anexos} ${n.anexos === 1 ? "anexo" : "anexos"}` : ""}
+                      </small>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => alternarFixada(n)}
+                      aria-label={n.fixada ? `Desafixar ${n.titulo}` : `Fixar ${n.titulo}`}
+                      title={n.fixada ? "Desafixar" : "Fixar no topo"}
+                    >
+                      {n.fixada ? <PinOff size={15} /> : <Pin size={15} />}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => retirar(n)} aria-label={`Retirar ${n.titulo}`} title="Retirar do app">
+                      <EyeOff size={15} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!noApp.carregando && !noApp.erro && (
+              <Button variant="ghost" size="sm" className="com-ver-todas" onClick={() => setModalNoticias(true)} iconRight={<ChevronRight size={14} />}>
+                {noAr > MOSTRAR_NO_CARTAO ? `Ver todas (${noAr}) e editar` : "Ver todas, editar e arquivadas"}
+              </Button>
+            )}
+          </section>
+        </aside>
 
-              <div style={divisor} />
+        <section className="com-editor" aria-label="Folha do comunicado">
+          <div className="com-ferramentas" role="toolbar" aria-label="Formatação do texto">
+            <Ferramenta rotulo="Desfazer" onClick={() => cmd().undo().run()}><Undo size={16} /></Ferramenta>
+            <Ferramenta rotulo="Refazer" onClick={() => cmd().redo().run()}><Redo size={16} /></Ferramenta>
+            <span className="com-divisor" aria-hidden="true" />
 
-              {/* ALINHAMENTO */}
-              <button onClick={() => editor.chain().focus().setTextAlign('left').run()} style={btnToolbar}><AlignLeft size={16}/></button>
-              <button onClick={() => editor.chain().focus().setTextAlign('center').run()} style={btnToolbar}><AlignCenter size={16}/></button>
-              <button onClick={() => editor.chain().focus().setTextAlign('right').run()} style={btnToolbar}><AlignRight size={16}/></button>
-              <button onClick={() => editor.chain().focus().setTextAlign('justify').run()} style={btnToolbar}><AlignJustify size={16}/></button>
+            <Ferramenta rotulo="Negrito" ativo={editor.isActive('bold')} onClick={() => cmd().toggleBold().run()}><Bold size={16} /></Ferramenta>
+            <Ferramenta rotulo="Itálico" ativo={editor.isActive('italic')} onClick={() => cmd().toggleItalic().run()}><Italic size={16} /></Ferramenta>
+            <Ferramenta rotulo="Marca-texto" ativo={editor.isActive('highlight')} onClick={() => cmd().toggleHighlight().run()}><Highlighter size={16} /></Ferramenta>
+            <Input
+              type="color"
+              className="com-cor"
+              aria-label="Cor do texto"
+              title="Cor do texto"
+              onInput={(e) => cmd().setColor(e.target.value).run()}
+            />
+            <button
+              type="button"
+              className="com-cor-marca"
+              aria-label="Cor da marca"
+              title="Cor da marca"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => cmd().setColor(corDaMarca()).run()}
+            />
+            <span className="com-divisor" aria-hidden="true" />
 
-              <div style={divisor} />
+            <Ferramenta rotulo="Alinhar à esquerda" ativo={editor.isActive({ textAlign: 'left' })} onClick={() => cmd().setTextAlign('left').run()}><AlignLeft size={16} /></Ferramenta>
+            <Ferramenta rotulo="Centralizar" ativo={editor.isActive({ textAlign: 'center' })} onClick={() => cmd().setTextAlign('center').run()}><AlignCenter size={16} /></Ferramenta>
+            <Ferramenta rotulo="Alinhar à direita" ativo={editor.isActive({ textAlign: 'right' })} onClick={() => cmd().setTextAlign('right').run()}><AlignRight size={16} /></Ferramenta>
+            <Ferramenta rotulo="Justificar" ativo={editor.isActive({ textAlign: 'justify' })} onClick={() => cmd().setTextAlign('justify').run()}><AlignJustify size={16} /></Ferramenta>
+            <span className="com-divisor" aria-hidden="true" />
 
-              {/* EXTRAS */}
-              <button onClick={() => editor.chain().focus().toggleBulletList().run()} style={btnToolbar}><List size={16}/></button>
-              <button onClick={() => editor.chain().focus().toggleOrderedList().run()} style={btnToolbar}><ListOrdered size={16}/></button>
-              <button onClick={() => editor.chain().focus().unsetAllMarks().run()} style={btnToolbar} title="Limpar"><Eraser size={16}/></button>
-              <select
-  onChange={(e) => {
-    editor.chain().focus().setMark('textStyle', { fontSize: e.target.value }).run();
-  }}
-  style={{
-    padding: '5px',
-    borderRadius: '6px',
-    border: '1px solid var(--border)',
-    fontSize: '12px'
-  }}
->
-  <option value="">Tamanho</option>
-  <option value="12px">12</option>
-  <option value="14px">14</option>
-  <option value="16px">16</option>
-  <option value="18px">18</option>
-  <option value="20px">20</option>
-  <option value="24px">24</option>
-  <option value="28px">28</option>
-</select>
-{/* DIMINUIR */}
-  <button
-    onClick={() => {
-  const current = getFontSize();
-  const newSize = Math.max(10, current - 1);
+            <Ferramenta rotulo="Lista com marcadores" ativo={editor.isActive('bulletList')} onClick={() => cmd().toggleBulletList().run()}><List size={16} /></Ferramenta>
+            <Ferramenta rotulo="Lista numerada" ativo={editor.isActive('orderedList')} onClick={() => cmd().toggleOrderedList().run()}><ListOrdered size={16} /></Ferramenta>
+            <Ferramenta rotulo="Limpar formatação" onClick={() => cmd().unsetAllMarks().run()}><Eraser size={16} /></Ferramenta>
+            <span className="com-divisor" aria-hidden="true" />
 
-  editor.chain().focus().setMark('textStyle', {
-    fontSize: `${newSize}px`
-  }).run();
-
-  forceUpdate(v => v + 1);
-}}
-    style={btnToolbar}
-    title="Diminuir fonte"
-  >
-    ➖
-  </button>
-
-  {/* MOSTRAR TAMANHO */}
-  <span style={{ fontSize: '12px', minWidth: '30px', textAlign: 'center', color: '#333' }}>
-    {getFontSize()}px
-  </span>
-
-  {/* AUMENTAR */}
-  <button
-    onClick={() => {
-  const current = getFontSize();
-  const newSize = current + 1;
-
-  editor.chain().focus().setMark('textStyle', {
-    fontSize: `${newSize}px`
-  }).run();
-
-  forceUpdate(v => v + 1);
-}}
-    style={btnToolbar}
-    title="Aumentar fonte"
-  >
-    ➕
-  </button>
-            </div>
-          </div>
-
-          <div ref={palcoRef} style={previewContent}>
-            {/* A caixa reserva no layout o tamanho JÁ REDUZIDO. Sem ela a
-                folha continuaria ocupando 794x1123 de espaço e sobraria um
-                vazio enorme embaixo em tela pequena. */}
-            <div
-              style={{
-                width: LARGURA_A4 * escala,
-                height: alturaFolha * escala,
-                flexShrink: 0,
-              }}
+            <Select
+              className="com-tamanho"
+              aria-label="Tamanho da letra"
+              value={TAMANHOS.includes(tamanho) ? String(tamanho) : ""}
+              onChange={(e) => e.target.value && mudarTamanho(e.target.value)}
             >
-              <div
-                style={{
-                  ...a4Paper,
-                  transform: `scale(${escala})`,
-                  transformOrigin: 'top left',
-                }}
-                ref={a4Ref}
-              >
-              <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-                <div style={{ ...logoWrapper, marginTop: '-30px' }}>
-                  <img src="/favicon.png" alt="Logo" style={{ width: '90px', height: '90px' }} />
+              <option value="">Tamanho</option>
+              {TAMANHOS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+            <Ferramenta rotulo="Diminuir a letra" onClick={() => mudarTamanho(Math.max(10, tamanho - 1))}><Minus size={14} /></Ferramenta>
+            <span className="com-tamanho-atual" aria-live="polite">{tamanho}px</span>
+            <Ferramenta rotulo="Aumentar a letra" onClick={() => mudarTamanho(tamanho + 1)}><Plus size={14} /></Ferramenta>
+          </div>
+
+          <div ref={palcoRef} className="com-palco">
+            {/* A caixa reserva no layout o tamanho JÁ REDUZIDO. Sem ela a
+                folha continuaria ocupando o tamanho cheio e sobraria um vazio
+                enorme embaixo em tela pequena. A altura acompanha a folha,
+                que cresce com o texto; é calculada na hora, por isso o style. */}
+            <div style={{ width: LARGURA_A4 * escala, height: alturaFolha * escala, flexShrink: 0 }}>
+              <div ref={a4Ref} className="com-folha" style={{ transform: `scale(${escala})` }}>
+                <div className="com-folha__topo">
+                  <img className="com-folha__logo" src="/favicon.png" alt="Logo" />
+                  <span className="com-folha__marca">DIDUCCIO</span>
+                  <div className="com-folha__linha" />
                 </div>
-                <span style={{ fontSize: '12px', fontWeight: '800', color: COR_TURQUESA, letterSpacing: '2px' }}>
-                    DIDUCCIO
-                </span>
-                <div style={{ height: '2px', background: COR_TURQUESA, marginTop: '15px', opacity: 0.2 }} />
-              </div>
 
-              <h2 
-                contentEditable={true}
-                suppressContentEditableWarning={true}
-                onBlur={(e) => setTitulo(e.currentTarget.innerText.replace("COMUNICADO: ", ""))}
-                style={{...tituloComunicado, color: COR_TURQUESA, outline: 'none'}}
-              >
-                {titulo ? `COMUNICADO: ${titulo}` : "AGUARDANDO TÍTULO..."}
-              </h2>
-              
-              <p style={metaData}>Data: {dataAtual}</p>
+                <h2
+                  className="com-folha__titulo"
+                  contentEditable
+                  suppressContentEditableWarning
+                  aria-label="Título do comunicado"
+                  onBlur={(e) => setTitulo(e.currentTarget.innerText.replace("COMUNICADO: ", ""))}
+                  // Colar no título traria a fonte de fora junto: entra só o texto.
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const texto = e.clipboardData.getData("text/plain").replace(/\s+/g, " ");
+                    document.execCommand("insertText", false, texto);
+                  }}
+                >
+                  {titulo ? `COMUNICADO: ${titulo}` : "AGUARDANDO TÍTULO..."}
+                </h2>
 
-              <div style={textoCorpo}>
-                {/* O TIPTAP ENTRA AQUI */}
-                <EditorContent editor={editor} />
+                <p className="com-folha__data">Data: {dataAtual}</p>
 
-                {/* Cores fixas de propósito daqui para baixo: isto é papel
-                    branco impresso, não superfície do sistema. Com var(--fg-*)
-                    o texto do comunicado ficava branco no branco no tema
-                    escuro, e saía assim no PDF e na imagem. */}
-                <div style={assinaturaContainer}>
-                    <p style={{ margin: 0, fontSize: '14px', color: TINTA_FRACA }}>Atenciosamente,</p>
-                    <div style={{ width: '200px', height: '1px', backgroundColor: COR_TURQUESA, margin: '40px auto 10px auto', opacity: 0.3 }} />
-                    <strong style={{ display: 'block', fontSize: '16px', color: COR_TURQUESA, textTransform: 'uppercase' }}>
-                      O Síndico
-                    </strong>
-                    <span style={{ fontSize: '12px', color: TINTA_FRACA }}>Condomínio Diduccio</span>
-                </div>
+                <div className="com-folha__corpo">
+                  <EditorContent editor={editor} />
+
+                  <div className="com-folha__assinatura">
+                    <p>Atenciosamente,</p>
+                    <div className="com-folha__traco" />
+                    <strong>O Síndico</strong>
+                    <span>Condomínio Diduccio</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
+
+      {modalNoticias && (
+        <NoticiasDoApp open onClose={() => setModalNoticias(false)} onMudou={recarregarNoApp} />
+      )}
+
+      {modalPublicar && (
+        <PublicarNoApp
+          open
+          onClose={() => setModalPublicar(false)}
+          tituloInicial={titulo}
+          texto={textoParaOApp()}
+          gerarPdf={pdfParaOApp}
+          onPublicado={aoPublicar}
+        />
+      )}
 
       <Modal
         open={modalExport}
         onClose={() => setModalExport(false)}
         title="Exportar comunicado"
-        size="sm"
+        size="md"
         footer={<Button variant="ghost" onClick={() => setModalExport(false)}>Fechar</Button>}
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-7)" }}>
-          O arquivo sai sempre em A4, no tamanho cheio, independente do tamanho
-          desta tela.
+        <Field label="Como sai o PDF e a impressão">
+          <Opcoes rotulo="Formato do PDF e da impressão" valor={formato} onMudar={setFormato} opcoes={Object.entries(FORMATOS)} />
+        </Field>
+        <div className="com-previa" aria-live="polite">
+          {(!previa || previa.carregando) && <p className="com-previa__nota">Montando a prévia…</p>}
+          {previa?.erro && <p className="com-previa__nota">Não foi possível montar a prévia. O arquivo sai do mesmo jeito.</p>}
+          {previa?.a4 && formato === "a4" && (
+            <>
+              <p className="com-previa__nota">
+                Sai em <strong>{previa.a4.length} {previa.a4.length === 1 ? "folha A4" : "folhas A4"}</strong>, sem partir linha de texto entre uma folha e outra.
+              </p>
+              <div className="com-previa__paginas">
+                {previa.a4.map((src, i) => (
+                  <figure key={i} className="com-previa__pagina">
+                    <img src={src} alt={`Folha ${i + 1}`} />
+                    <figcaption>{i + 1}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            </>
+          )}
+          {previa?.longa && formato === "longa" && (
+            <>
+              <p className="com-previa__nota">
+                Sai em <strong>uma página de 210 × {previa.alturaMm} mm</strong>, com tudo junto. Boa para ver no celular; na impressora pode não caber numa folha.
+              </p>
+              <div className="com-previa__paginas">
+                <figure className="com-previa__pagina com-previa__pagina--longa">
+                  <img src={previa.longa} alt="Página comprida" />
+                </figure>
+              </div>
+            </>
+          )}
+        </div>
+        <p className="vit-modal__desc com-exporta">
+          A imagem (JPEG) sai sempre com a folha inteira, numa imagem só.
         </p>
 
         <div className="com-saidas">
@@ -676,71 +737,3 @@ const compartilharImagemWhatsApp = async () => {
     </div>
   );
 }
-
-// Estilos
-const a4Paper = { 
-  width: '794px', // Largura fixa de um A4 (96 DPI)
-  minHeight: '1123px', 
-  padding: '20mm', 
-  backgroundColor: '#fff', 
-  boxShadow: "0 0 20px rgba(0,0,0,0.1)", 
-  color: '#333', 
-  margin: '0 auto', 
-  boxSizing: 'border-box', 
-  display: 'flex',
-  flexDirection: 'column'
-  // O zoom/scale do mobile é aplicado inline (reativo) no JSX, via isMobile.
-};
-const contentGrid = { 
-  display: "grid", 
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", // Ajusta automático
-  gap: "25px", 
-  alignItems: "start" 
-};
-const sectionCard = { 
-  padding: "24px", 
-  borderRadius: "20px", 
-  border: "1px solid", 
-  overflow: "hidden",
-  maxWidth: "100%" // Garante que não ultrapasse a tela
-};
-const labelStyle = { display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', marginTop: '20px' };
-const textAreaStyle = { width: '100%', minHeight: '120px', borderRadius: '12px', padding: '12px', fontSize: '14px', border: '1px solid', resize: 'none', outline: 'none' };
-const selectStyle = { width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid', outline: 'none' };
-const btnGerar = { width: '100%', marginTop: '25px', padding: '14px', borderRadius: '12px', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' };
-const dicaCard = { padding: '15px', borderRadius: '15px', border: '1px solid', display: 'flex', gap: '12px', alignItems: 'center' };
-const previewHeader = { padding: '15px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--surface-2)' };
-const previewContent = { 
-  padding: '20px', 
-  display: 'flex', 
-  justifyContent: 'center', 
-  overflowX: 'auto', // Permite ver o papel todo deslizando pro lado no celular
-  backgroundColor: 'var(--border)',
-  borderRadius: '0 0 20px 20px'
-};
-const logoWrapper = { marginBottom: '10px', display: 'flex', justifyContent: 'center' };
-const tituloComunicado = { fontSize: '20px', textAlign: 'center', fontWeight: '800', marginBottom: '10px' };
-const metaData = { fontSize: '13px', color: '#63675F', textAlign: 'center', marginBottom: '40px' };
-const textoCorpo = { 
-  fontSize: '16px', 
-  lineHeight: '1.8', 
-  color: '#1A1C19',
-  flex: 1, 
-  display: 'flex', 
-  flexDirection: 'column',
-  wordBreak: 'break-word', // Garante que palavras muito longas não quebrem o layout
-  overflowWrap: 'anywhere' 
-};
-const assinaturaContainer = { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 'auto' };
-const divisor = { width: '1px', height: '20px', background: 'var(--border)', margin: '0 5px' };
-const btnToolbar = {
-  background: 'var(--surface-2)',
-  border: '1px solid var(--border)',
-  borderRadius: '8px',
-  padding: '6px',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transition: '0.2s'
-};

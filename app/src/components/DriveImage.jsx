@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { FileText } from "lucide-react";
-import { sessionParam } from "../auth/session";
 import { reportarErro } from "../api/reporter";
-import { API_URL, TOKEN } from "../api/config";
 
 // ============================================================
-// Exibição segura de arquivos do Google Drive (N7/LGPD).
-// Busca os bytes pelo backend autenticado (action=getFoto) em vez de depender
-// de URLs públicas/thumbnail do Drive — funciona com os arquivos PRIVADOS.
-// Extraído de Piscina.jsx para uso em todas as telas.
+// Exibição dos anexos (foto, PDF, atestado) em todas as telas.
+// Hoje eles vêm do Supabase Storage, por link assinado. O nome ficou da época
+// do Google Drive: o que ainda só tem endereço do Drive não abre mais
+// (ver fetchFotoCached).
 // ============================================================
 
 export const PIXEL_TRANSPARENTE = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
@@ -29,24 +27,18 @@ export function extrairFileIdDrive(source) {
 // 10-20x menor que o arquivo original — carregamento muito mais rápido.
 const TAMANHO_MINIATURA = 640;
 
-// Cache em nível de módulo (compartilhado por todas as telas):
-// uma vez baixada, a foto fica em memória — reabrir modal/re-render é instantâneo.
-// Guarda Promises para deduplicar buscas simultâneas do mesmo arquivo.
-// A chave inclui o tamanho (miniatura e original são entradas separadas).
-const fotoCache = new Map();
-export function fetchFotoCached(fileId, size) {
-  if (!fileId) return Promise.resolve("");
-  const chave = size ? `${fileId}@${size}` : fileId;
-  if (fotoCache.has(chave)) return fotoCache.get(chave);
-  const paramSize = size ? `&size=${size}` : "";
-  const p = fetch(`${API_URL}?token=${TOKEN}&action=getFoto&fileId=${encodeURIComponent(fileId)}${paramSize}${sessionParam()}`)
-    .then((r) => r.json())
-    .then((d) => (d && d.success && d.base64 ? `data:${d.contentType || "image/jpeg"};base64,${d.base64}` : ""))
-    .catch(() => "");
-  // Se falhar/voltar vazio, descarta do cache para permitir nova tentativa depois.
-  p.then((src) => { if (!src) fotoCache.delete(chave); });
-  fotoCache.set(chave, p);
-  return p;
+/**
+ * Arquivo que ainda só tem o endereço do Google Drive: não abre mais.
+ *
+ * Até 23/11/2026 isto buscava os bytes no `getFoto` do Apps Script, com o
+ * token do Apps Script embutido no bundle (qualquer um lia). Os arquivos já
+ * tinham ido para o bucket em 14/08 (399 de 402; os 3 restantes não existiam
+ * mais no Drive) e o `getFoto` exigia uma sessão que ninguém emite desde o
+ * login pelo Supabase — ou seja, só servia para expor o token. Saiu, e com
+ * ele o Apps Script saiu do sistema. Quem chega aqui vê o "sem foto" de sempre.
+ */
+export function fetchFotoCached() {
+  return Promise.resolve("");
 }
 
 // Inicia o download de uma foto antecipadamente (ao passar o mouse / tocar no item),
@@ -129,7 +121,7 @@ export async function abrirArquivoDrive(source) {
   const dataUrl = await fetchFotoCached(fileId);
   if (!dataUrl) {
     if (janela) janela.close();
-    reportarErro("Não foi possível carregar o arquivo do Drive.");
+    reportarErro("Este arquivo antigo ficou só no Google Drive e não abre mais pelo sistema.");
     return;
   }
   const blob = await (await fetch(dataUrl)).blob();

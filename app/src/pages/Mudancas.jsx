@@ -1,22 +1,24 @@
  
-/* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { 
-  Calendar, Search, Plus, Edit2, Trash2, X, Loader2, 
-  ChevronLeft, ChevronRight, MoreVertical, Eye, DollarSign,
-  FileText, Download, RotateCcw, CheckCircle2, AlertCircle, User, Paperclip, UploadCloud, ChevronDown
+import {
+  Plus, Pencil, Trash2, Eye, FileText, Download, CheckCircle2, Circle,
+  MessageSquareText, Truck,
 } from "lucide-react";
-import { useTheme } from "../theme/useTheme";
 
 // Bibliotecas para exportação
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { maskCPF, maskRG, maskPhone, maskCPFPrivacy, maskRGPrivacy, formatCurrency, dataParaMs } from "../lib/format";
-import { converterUrlDrive, extrairIdDrive, sanitizarCelula, validarAnexo } from "../lib/drive";
-import { useToast, useConfirm, Ocupado, Input, Button, PageHeader, Modal } from "../ui";
+import { maskCPF, maskRG, maskPhone, maskCPFPrivacy, maskRGPrivacy, dataParaMs, dataBR, dataHoraBR, dataHoraInput, nomeProprio } from "../lib/format";
+import { sanitizarCelula } from "../lib/drive";
+import {
+  useToast, useConfirm, Input, Button, PageHeader, Modal, Field, Select, Textarea, Badge, EmptyState,
+} from "../ui";
 import { listar, criar, editar, remover } from "../api/db";
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import BuscaUnidade from "../components/BuscaUnidade";
+import { Chave, Ficha, Filtros, Iniciais, MaisFiltros, Opcoes, PainelDeFiltros } from "../components/app/pecas";
 
 // `mudancas` é administrativo pelas políticas do 0015: porteiro e conselheiro
 // não alcançam — a linha carrega cpf, rg e contato de quem está se mudando. A
@@ -27,61 +29,56 @@ const mensagemErro = (msg) => {
   if (/row-level security|permission denied|PGRST116|coerce the result/i.test(msg)) {
     return "Você não tem permissão para alterar mudanças.";
   }
+  // A coluna `monitor` nasce no 0085. Sem ele aplicado, o PostgREST recusa a
+  // linha inteira por uma coluna que não conhece.
+  if (/monitor/i.test(msg) && /column|schema cache/i.test(msg)) {
+    return "O banco ainda não tem a coluna de monitor. Aplique a migration 0085 no Supabase.";
+  }
   if (/failed to fetch|networkerror|load failed/i.test(msg)) {
     return "Sem conexão com o servidor. Tente de novo.";
   }
   return msg;
 };
 
-// --- ESTILOS ---
-const pageContainer = { padding: "20px", maxWidth: "1200px", margin: "0 auto" };
-const btnNew = { color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' };
-const searchContainer = { display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px', borderRadius: '8px', border: '1px solid' };
-const tableCard = { borderRadius: '16px', border: '1px solid', overflow: 'hidden' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const thStyle = { textAlign: 'left', padding: '16px 24px', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' };
-const thRow = { borderBottom: '1px solid' };
-const tdStyle = { padding: '16px 24px', fontSize: '14px' };
-const trStyle = { transition: '0.2s' };
-const badgeGreen = { backgroundColor: '#FEE4DC', color: '#B33320', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const badgeRed = { backgroundColor: '#F9DEE3', color: '#8F1530', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const paginationFooter = { padding: '15px 24px', borderTop: '1px solid', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(40, 22, 18, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
-const modalContent = { padding: '24px', borderRadius: '20px', width: '90%' };
-const modalHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' };
-const labelStyle = { fontSize: '11px', fontWeight: '700', marginBottom: '5px', display: 'block', textTransform: 'uppercase', color: 'var(--fg-muted)' };
-const selectStyle = { padding: '10px', borderRadius: '8px', border: '1px solid', outline: 'none', fontSize: '14px' };
-const viewBox = { padding: '12px', borderRadius: '12px', fontSize: '13px', border: '1px solid', lineHeight: '1.6' };
+const SITUACOES = ["Pendente", "Agendado", "Realizado", "Cancelado"];
+/**
+ * Quem da equipe pode monitorar uma mudança. A lista é daqui, e não do banco
+ * (0085): quando a equipe mudar, troca-se só esta linha.
+ */
+const MONITORES = ["Bira", "Elias", "Nayra"];
+const SEM_MONITOR = "—";
+const TOM_SITUACAO = { Pendente: "neutral", Agendado: "brand", Realizado: "positive", Cancelado: "danger" };
+const FORM_VAZIO = {
+  id_unidade: "", morador: "", contato: "", data_mudanca: "", data_fim: "",
+  status: "Pendente", cpf: "", rg: "", tipo: "Entrada", periodo: "Manhã", obs: "", monitor: "",
+};
+/** Quantas linhas a lista mostra de cada vez; "Mostrar mais" soma outras tantas. */
+const LOTE = 30;
 
-export default function Festas({ user }) {
+export default function Mudancas({ user }) {
   const toast = useToast();
   const confirmar = useConfirm();
-  const { theme } = useTheme();
   
   const [festas, setFestas] = useState([]);
   const [unidades, setUnidades] = useState([]);
   const [moradores, setMoradores] = useState([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ nome: "Sistema" });
   const location = useLocation();
   
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedFesta, setSelectedFesta] = useState(null);
   const [modalType, setModalType] = useState("add"); // "add" ou "edit"
-  const [showMenuId, setShowMenuId] = useState(null);
-  const menuRef = useRef(null);
   // Guarda o timer que solta a tela depois do carregamento, para cancelá-lo se
   // a pessoa sair antes dele disparar.
   const timerCarregando = useRef(null);
   useEffect(() => () => clearTimeout(timerCarregando.current), []);
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("Todos");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [limite, setLimite] = useState(LOTE);
+  const [maisFiltros, setMaisFiltros] = useState(false);
   const [isMoradorCadastrado, setIsMoradorCadastrado] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -90,95 +87,36 @@ export default function Festas({ user }) {
   tipo: "Entrada", periodo: "Manhã", obs: "", data_fim: "" // Novos campos
 });
 
-const formatToInputDate = (dateStr) => {
-  if (!dateStr) return "";
-  
-  // Se a data já estiver no formato ISO (YYYY-MM-DD...), apenas corta os primeiros 10 caracteres
-  if (dateStr.includes("-") && dateStr.indexOf("-") === 4) {
-    return dateStr.substring(0, 10);
-  }
-
-  // Se a data estiver no formato brasileiro (DD/MM/YYYY...)
-  if (dateStr.includes("/")) {
-    const parts = dateStr.split(" ")[0].split("/");
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    }
-  }
-
-  return dateStr;
-};
 
 const [filterTipo, setFilterTipo] = useState("Todos");
-const [filterPeriodoRapido, setFilterPeriodoRapido] = useState("Todos");
+// Sem atalho de período na tela por enquanto: fica "Todos".
+const filterPeriodoRapido = "Todos";
 
-const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-const [unitSearch, setUnitSearch] = useState("");
-const dropdownRef = useRef(null);
-
-// Função para exibir o texto da unidade selecionada no seletor
-const getUnitLabel = (id) => {
-  const u = unidades.find(unit => unit.id.toString() === id.toString());
-  return u ? `BLOCO ${u.bloco} - UNIDADE ${u.unidade}` : "Selecione a Unidade...";
+const unidadePorId = useMemo(() => new Map(unidades.map((u) => [String(u.id), u])), [unidades]);
+/** "B5-206", o rótulo da unidade em toda a tela. */
+const rotuloUnidade = (id) => {
+  const u = unidadePorId.get(String(id));
+  return u ? `B${u.bloco}-${u.unidade}` : String(id ?? "");
 };
-
-// Filtro da lista de unidades baseado no que o usuário digita
-const unidadesFiltradas = unidades.filter(u => 
-  u.bloco.toString().toLowerCase().includes(unitSearch.toLowerCase()) || 
-  u.unidade.toString().toLowerCase().includes(unitSearch.toLowerCase())
-);
 
   const [filterPeriodo, setFilterPeriodo] = useState({ inicio: "", fim: "" });
   const [filterTurno, setFilterTurno] = useState("Todos"); // Novo (Manhã/Tarde)
+  const [filterMonitor, setFilterMonitor] = useState("Todos");
+  const [filterBloco, setFilterBloco] = useState("Todos");
 
-  const btnSaveStyles = {
-    ...btnNew,
-    backgroundColor: 'var(--btn-primary-bg)',
-    color: '#ffffff',
-    width: '100%',
-    justifyContent: 'center',
-    marginTop: '10px',
-    border: theme.isDark ? '1px solid #EF7A5C' : 'none'
-  };
 
   
 const [sortConfig, setSortConfig] = useState([{ key: 'data_mudanca', direction: 'desc' }]);
+/** Clicar na coluna: a primeira vez ordena crescente; de novo, inverte. */
+const ordenar = (key) => setSortConfig(([atual]) => [
+  { key, direction: atual?.key === key && atual.direction === "asc" ? "desc" : "asc" },
+]);
   // Funções de Máscara
 
-// Converte a data do banco (DD/MM/YYYY HH:mm) para o formato do input (YYYY-MM-DDTHH:mm)
-const formatDateTimeForInput = (dateTimeStr) => {
-  if (!dateTimeStr) return "";
-  if (dateTimeStr.includes('/') && dateTimeStr.includes(' ')) {
-    const [date, time] = dateTimeStr.split(' ');
-    const [day, month, year] = date.split('/');
-    return `${year}-${month}-${day}T${time}`;
-  }
-  return dateTimeStr.substring(0, 16);
-};
 
   useEffect(() => {
     
   fetchData();
-  const handleResize = () => setIsMobile(window.innerWidth < 768);
-  window.addEventListener('resize', handleResize);
-
-  const handleClickOutside = (e) => {
-    // Fecha o menu de ações (três pontinhos)
-    if (menuRef.current && !menuRef.current.contains(e.target)) {
-      setShowMenuId(null);
-    }
-    // NOVO: Fecha o seletor de unidades se clicar fora dele
-    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-      setShowUnitDropdown(false);
-    }
-  };
-
-  document.addEventListener("mousedown", handleClickOutside);
-  return () => {
-    window.removeEventListener('resize', handleResize);
-    document.removeEventListener("mousedown", handleClickOutside);
-  };
   
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []); // Certifique-se de que não há nada sobrando aqui
@@ -265,6 +203,7 @@ const [showExportModal, setShowExportModal] = useState(false);
 const [selectedColumns, setSelectedColumns] = useState([
   { id: 'id_unidade', label: 'Unidade', selected: true },
   { id: 'morador', label: 'Morador', selected: true },
+  { id: 'monitor', label: 'Monitor', selected: true },
   { id: 'cpf', label: 'CPF', selected: true },
   { id: 'rg', label: 'RG', selected: true },
   { id: 'contato', label: 'Telefone', selected: true },
@@ -286,15 +225,17 @@ const exportToExcel = () => {
       if (col.id === 'id_unidade') {
         linha["Unidade"] = sanitizarCelula(unit ? `B${unit.bloco} - ${unit.unidade}` : f.id_unidade);
       }
+      else if (col.id === 'morador') {
+        linha[col.label] = sanitizarCelula(nomeProprio(f.morador));
+      }
       else if (col.id === 'cpf') {
         linha["CPF"] = maskCPFPrivacy(f.cpf);
       } 
       else if (col.id === 'rg') {
         linha["RG"] = maskRGPrivacy(f.rg); // Aplica a máscara solicitada
       }
-      else if (col.id === 'data_mudanca') {
-        const data = f.data_mudanca?.split(' ')[0];
-        linha["Data"] = data?.includes('-') ? data.split('-').reverse().join('/') : data;
+      else if (col.id === 'data_mudanca' || col.id === 'data_fim') {
+        linha[col.label] = dataHoraBR(f[col.id], { comSegundos: false });
       }
       else {
         linha[col.label] = sanitizarCelula(f[col.id] || "");
@@ -319,13 +260,6 @@ const exportToPDF = () => {
   const img = new Image(); 
   img.src = "/logo.png"; 
 
-  // Função interna para a máscara (pode declarar fora se preferir)
-  const maskCPFPrivacy = (cpf) => {
-    if (!cpf) return "";
-    const clean = String(cpf).replace(/\D/g, "");
-    if (clean.length < 11) return cpf;
-    return `${clean.substring(0, 3)}.***.***-${clean.substring(9)}`;
-  };
 
   const colsParaExportar = selectedColumns.filter(c => c.selected);
   const headers = colsParaExportar.map(c => c.label);
@@ -333,6 +267,7 @@ const exportToPDF = () => {
   const body = dadosFiltrados.map(f => colsParaExportar.map(c => {
 
     // 2. Tratamento específico para CPF (Máscara de Privacidade)
+    if(c.id === 'morador') return nomeProprio(f.morador);
     if(c.id === 'cpf') return maskCPFPrivacy(f[c.id]);
 
     if(c.id === 'rg') return maskRGPrivacy(f[c.id]);
@@ -344,7 +279,7 @@ const exportToPDF = () => {
     }
 
     // 4. Tratamento para DATA
-    if(c.id === 'data_mudanca') return f[c.id]?.replace('T', ' ') || "";
+    if(c.id === 'data_mudanca' || c.id === 'data_fim') return dataHoraBR(f[c.id], { comSegundos: false });
 
     return sanitizarCelula(f[c.id] || "");
   }));
@@ -376,62 +311,9 @@ const exportToPDF = () => {
   img.onload = () => gerarPDF(true); 
   img.onerror = () => gerarPDF(false);
 };
-  // arquivoValido agora delega para lib/drive.validarAnexo, que devolve o
-  // motivo em vez de chamar alert(). Quem decide como mostrar é a página.
-  const arquivoValido = (file) => {
-    const r = validarAnexo(file);
-    if (!r.ok) toast.error(r.motivo);
-    return r.ok;
-  };
-
-  const handleFileChange = (e) => {
-  const files = Array.from(e.target.files || []).filter(arquivoValido);
-  if (files.length === 0) { e.target.value = ""; return; }
-  if (files.length > 0) {
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          // IMPORTANTE: O reader.result aqui já contém a informação se é PDF ou Imagem
-          fotosNovas: [...(prev.fotosNovas || []), reader.result] 
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-};
-const formatToInputDateTime = (dateStr) => {
-  if (!dateStr) return "";
-
-  try {
-    const s = dateStr.toString().trim();
-
-    // 1. Tratamento para formato brasileiro: "18/02/2026 15:15:59"
-    if (s.includes('/')) {
-      const [data, horaFull] = s.split(' ');
-      const [d, m, y] = data.split('/');
-      
-      // Pega apenas os primeiros 5 caracteres da hora (HH:mm)
-      const horaMinuto = horaFull ? horaFull.substring(0, 5) : "00:00";
-      
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T${horaMinuto}`;
-    }
-
-    // 2. Tratamento para formato ISO vindo da planilha: "2026-02-18 15:15:59"
-    if (s.includes('-')) {
-      const [data, horaFull] = s.replace('T', ' ').split(' ');
-      const horaMinuto = horaFull ? horaFull.substring(0, 5) : "00:00";
-      
-      return `${data}T${horaMinuto}`;
-    }
-
-    return s;
-  } catch (e) {
-    console.error("Erro ao formatar data:", e);
-    return "";
-  }
-};
+// O recorte da string que morava aqui punha no input a hora UTC que a API
+// devolve, e o `comFuso` do salvar somava três horas a cada edição.
+const formatToInputDateTime = dataHoraInput;
 
   const handleSave = async () => {
   // 1. VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
@@ -453,15 +335,9 @@ const formatToInputDateTime = (dateStr) => {
       if (!f.data_mudanca || f.status === "Cancelado") return false;
 
       const blocoExistente = f.id_unidade?.toString().charAt(0);
-      let dataExistenteISO = "";
-
-      // Normalização da data para comparação YYYY-MM-DD
-      if (f.data_mudanca.includes('/')) {
-          const [d, m, y] = f.data_mudanca.split(' ')[0].split('/');
-          dataExistenteISO = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      } else {
-          dataExistenteISO = f.data_mudanca.split(' ')[0];
-      }
+      // O dia em Brasília. Com o `split(' ')` de antes, o ISO da API passava
+      // inteiro, nunca era igual ao dia novo, e o conflito nunca aparecia.
+      const dataExistenteISO = dataHoraInput(f.data_mudanca).slice(0, 10);
 
       return (
         dataExistenteISO === dataNovaISO && 
@@ -503,7 +379,7 @@ const formatToInputDateTime = (dateStr) => {
   const dados = {
     id_unidade: formData.id_unidade ? Number(formData.id_unidade) : null,
     id_morador: idMoradorFinal || null,
-    morador: formData.morador || null,
+    morador: nomeProprio(formData.morador) || null,
     cpf: formData.cpf || null,
     rg: formData.rg || null,
     contato: formData.contato || null,
@@ -513,6 +389,7 @@ const formatToInputDateTime = (dateStr) => {
     status: formData.status || "Pendente",
     tipo: formData.tipo || "Entrada",
     obs: formData.obs || null,
+    monitor: formData.monitor || null,
   };
 
   try {
@@ -525,10 +402,7 @@ const formatToInputDateTime = (dateStr) => {
     setShowModal(false);
     await fetchData();
 
-    setFormData({
-      id_unidade: "", morador: "", contato: "", data_mudanca: "", data_fim: "",
-      status: "Pendente", cpf: "", rg: "", tipo: "Entrada", periodo: "Manhã", obs: "",
-    });
+    setFormData(FORM_VAZIO);
   } catch (error) {
     console.error(error);
     toast.error("Não foi possível salvar. Seus dados continuam no formulário.");
@@ -555,7 +429,7 @@ const formatToInputDateTime = (dateStr) => {
 
       await fetchData();
       setLoadingGlobal(false);
-      setShowMenuId(null);
+      setShowViewModal(false);
 
     } catch (error) {
       console.error("Erro ao excluir:", error);
@@ -596,12 +470,13 @@ const formatToInputDateTime = (dateStr) => {
     data_fim: formatToInputDateTime(mudanca.data_fim),
     // Garante que campos opcionais não venham como undefined
     obs: mudanca.obs || "",
+    monitor: mudanca.monitor || "",
     cpf: mudanca.cpf || "",
     rg: mudanca.rg || ""
   });
 
+  setShowViewModal(false);
   setShowModal(true);
-  setShowMenuId(null); // Fecha o menu de opções (os três pontinhos)
 };
 
   const dadosFiltrados = React.useMemo(() => {
@@ -620,6 +495,12 @@ const formatToInputDateTime = (dateStr) => {
 
     // Filtro de Turno (Manhã / Tarde) - CORRIGIDO
     const matchesTurno = !filterTurno || filterTurno === "Todos" || f.periodo === filterTurno;
+
+    const matchesBloco = filterBloco === "Todos"
+      || String(unidadePorId.get(String(f.id_unidade))?.bloco) === filterBloco;
+
+    const matchesMonitor = filterMonitor === "Todos"
+      || (filterMonitor === SEM_MONITOR ? !f.monitor : f.monitor === filterMonitor);
 
     // Sem guarda, `"2026-05-16".split("/")` devolvia um pedaço só e o mês vinha
     // `undefined`: Invalid Date, e o filtro de período parava de filtrar sem
@@ -657,7 +538,7 @@ const formatToInputDateTime = (dateStr) => {
     }
 
     // ADICIONADO matchesTurno NO RETURN ABAIXO
-    return matchesSearch && matchesStatus && matchesTipo && matchesData && matchesRapido && matchesTurno;
+    return matchesSearch && matchesStatus && matchesTipo && matchesData && matchesRapido && matchesTurno && matchesMonitor && matchesBloco;
   });
 
   // 2. ORDENAÇÃO
@@ -687,7 +568,12 @@ const formatToInputDateTime = (dateStr) => {
         if (key === 'data_mudanca') {
           valA = dataParaMs(valA);
           valB = dataParaMs(valB);
-        } else if (key === 'valor_taxa' || key === 'id_unidade') {
+        } else if (key === 'id_unidade') {
+          // Pela ordem do prédio (bloco, depois apartamento), e não pelo id.
+          const peso = (id) => { const u = unidadePorId.get(String(id)); return u ? Number(u.bloco) * 100000 + Number(u.unidade) : 0; };
+          valA = peso(valA);
+          valB = peso(valB);
+        } else if (key === 'valor_taxa') {
           valA = Number(valA) || 0;
           valB = Number(valB) || 0;
         } else {
@@ -704,35 +590,11 @@ const formatToInputDateTime = (dateStr) => {
 
   return resultado;
   // ADICIONADO filterTurno NAS DEPENDÊNCIAS ABAIXO
-}, [festas, searchTerm, filterStatus, filterTipo, filterPeriodo, filterPeriodoRapido, filterTurno, sortConfig]);
+}, [festas, searchTerm, filterStatus, filterTipo, filterPeriodo, filterPeriodoRapido, filterTurno, filterMonitor, filterBloco, sortConfig, unidadePorId]);
 
-// --- 3. RE-DECLARAÇÃO DAS VARIÁVEIS DE PAGINAÇÃO (Resolve os erros de undefined) ---
-const totalPages = Math.ceil(dadosFiltrados.length / (itemsPerPage === "Todos" ? dadosFiltrados.length : itemsPerPage));
 
-const handleSort = (key, isShiftPressed) => {
-  setSortConfig(prev => {
-    let newConfig = [...prev];
-    const index = newConfig.findIndex(c => c.key === key);
 
-    if (index > -1) {
-      if (newConfig[index].direction === 'asc') {
-        newConfig[index] = { key, direction: 'desc' };
-      } else {
-        newConfig.splice(index, 1);
-      }
-    } else {
-      const newItem = { key, direction: 'asc' };
-      newConfig = isShiftPressed ? [...newConfig, newItem] : [newItem];
-    }
-    return newConfig;
-  });
-};
-
-const itensExibidos = React.useMemo(() => {
-  if (itemsPerPage === "Todos") return dadosFiltrados;
-  const start = (currentPage - 1) * itemsPerPage;
-  return dadosFiltrados.slice(start, start + itemsPerPage);
-}, [dadosFiltrados, currentPage, itemsPerPage]);
+const itensExibidos = dadosFiltrados.slice(0, limite);
 
 const verificarEAtualizarStatus = async (listaMudancas) => {
   const agora = new Date();
@@ -760,60 +622,305 @@ const verificarEAtualizarStatus = async (listaMudancas) => {
   return mudancasParaAtualizar.map(m => m.id);
 };
 
+  // ---- O que a tela mostra ----
+  const contagem = SITUACOES.reduce((n, st) => ({ ...n, [st]: festas.filter((f) => f.status === st).length }), {});
+  const filtrosDoPainel = [filterBloco !== "Todos", filterTipo !== "Todos", filterTurno !== "Todos", filterMonitor !== "Todos", Boolean(filterPeriodo.inicio || filterPeriodo.fim)].filter(Boolean).length;
+  const limparFiltros = () => {
+    setFilterTipo("Todos");
+    setFilterTurno("Todos");
+    setFilterMonitor("Todos");
+    setFilterBloco("Todos");
+    setFilterPeriodo({ inicio: "", fim: "" });
+  };
+  const abrirNova = () => {
+    setModalType("add");
+    setIsMoradorCadastrado(false);
+    setFormData(FORM_VAZIO);
+    setShowModal(true);
+  };
+  const ver = (m) => { setSelectedFesta(m); setShowViewModal(true); };
+  const mudar = (campo) => (valor) => setFormData((f) => ({ ...f, [campo]: valor }));
+  const moradoresDaUnidade = moradores.filter((m) => String(m.id_unidade) === String(formData.id_unidade));
+  const proximas = festas.filter((f) => {
+    if (f.status === "Cancelado" || !f.data_mudanca) return false;
+    const ms = dataParaMs(f.data_mudanca);
+    return ms >= Date.now() - 86400000 && ms <= Date.now() + 7 * 86400000;
+  }).length;
+  const v = selectedFesta;
+  // Os blocos que existem, em ordem.
+  const blocos = [...new Set(unidades.map((u) => String(u.bloco)))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
   return (
-    
-    <div style={{...pageContainer, ...(isMobile ? { paddingTop: '70px' } : {})}}>
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .action-menu { 
-    position: absolute; 
-    right: 30px; 
-    background: ${theme.mainBg}; 
-    border: 1px solid ${theme.border}; 
-    border-radius: 10px; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-    z-index: 100; 
-    width: 180px; /* <--- Aumente aqui */
-    padding: 5px; 
-}
-    .column-select-item { 
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  padding: 12px; 
-  border-radius: 10px; 
-  border: 1px solid ${theme.border}; 
-  cursor: pointer; 
-  transition: 0.2s; 
-}
-.column-select-item:hover {
-  background: ${theme.bg};
-}
-.column-select-item.active { 
-  border-color: var(--brand-500); 
-  background: var(--bg-active); 
-}
+    <div>
+      <PageHeader
+        title="Mudanças"
+        meta={loadingInitial ? "Carregando mudanças" : `${festas.length} mudanças · ${proximas} nos próximos 7 dias`}
+        actions={
+          <>
+            <Button onClick={() => setShowExportModal(true)} iconLeft={<FileText size={15} />}>Exportar</Button>
+            <Button variant="primary" onClick={abrirNova} iconLeft={<Plus size={16} />}>Nova mudança</Button>
+          </>
+        }
+      />
 
-/* Evita que o texto pule linha e garante alinhamento */
-.menu-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    padding: 10px 12px; 
-    font-size: 13px; 
-    cursor: pointer; 
-    border-radius: 6px; 
-    color: ${theme.text}; 
-    white-space: nowrap; /* <--- ADICIONE ISSO: impede de pular linha */
-}
-        .menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; border-radius: 6px; color: ${theme.text}; }
-        .menu-item:hover { background: ${theme.bg}; }
-        .pagination-btn { background: none; border: 1px solid ${theme.border}; color: ${theme.text}; padding: 5px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; }
-        .pagination-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-      `}</style>
+      <Filtros
+        busca={searchTerm}
+        onBusca={(t) => { setSearchTerm(t); setLimite(LOTE); }}
+        placeholder="Morador ou unidade"
+        filtro={filterStatus}
+        onFiltro={(st) => { setFilterStatus(st); setLimite(LOTE); }}
+        filtros={[["Todos", "Todas", festas.length], ...SITUACOES.map((st) => [st, st, contagem[st]])]}
+        painel={
+        <PainelDeFiltros aberto={maisFiltros}>
+          {blocos.length > 1 && (
+            <Field label="Bloco">
+              <Opcoes rotulo="Bloco" valor={filterBloco} onMudar={(b) => { setFilterBloco(b); setLimite(LOTE); }}
+                opcoes={[["Todos", "Todos"], ...blocos.map((b) => [b, `B${b}`])]} />
+            </Field>
+          )}
+          <Field label="Tipo">
+            <Opcoes rotulo="Tipo" valor={filterTipo} onMudar={setFilterTipo} opcoes={["Todos", "Entrada", "Saída"]} />
+          </Field>
+          <Field label="Turno">
+            <Opcoes rotulo="Turno" valor={filterTurno} onMudar={setFilterTurno} opcoes={["Todos", "Manhã", "Tarde"]} />
+          </Field>
+          <Field label="Monitor">
+            <Opcoes rotulo="Monitor" valor={filterMonitor} onMudar={setFilterMonitor}
+              opcoes={["Todos", ...MONITORES, [SEM_MONITOR, "Sem"]]} />
+          </Field>
+          <Field label="Data de">
+            <Input type="date" value={filterPeriodo.inicio} onChange={(e) => setFilterPeriodo({ ...filterPeriodo, inicio: e.target.value })} />
+          </Field>
+          <Field label="até">
+            <Input type="date" value={filterPeriodo.fim} onChange={(e) => setFilterPeriodo({ ...filterPeriodo, fim: e.target.value })} />
+          </Field>
+        </PainelDeFiltros>
+        }
+      >
+        <MaisFiltros aberto={maisFiltros} onAlternar={() => setMaisFiltros((a) => !a)} ativos={filtrosDoPainel} onLimpar={limparFiltros} />
+      </Filtros>
 
-            <Modal
+      {!loadingInitial && dadosFiltrados.length === 0 ? (
+        <EmptyState
+          icon={<Truck size={22} />}
+          title={festas.length ? "Nenhuma mudança neste filtro" : "Nenhuma mudança cadastrada"}
+          description={festas.length ? "Troque a situação, a busca ou os filtros." : "Cadastre a primeira em Nova mudança."}
+        />
+      ) : (
+        <ListaQueAbre
+          colunas={[
+            { rotulo: "Unidade", largura: "100px", ordem: "id_unidade" },
+            { rotulo: "Responsável", largura: "minmax(0, 1.6fr)", ordem: "morador" },
+            { rotulo: "Monitor", largura: "100px", ordem: "monitor" },
+            { rotulo: "Data", largura: "130px", ordem: "data_mudanca" },
+            { rotulo: "Tipo", largura: "100px", ordem: "tipo" },
+            { rotulo: "Situação", largura: "110px", ordem: "status" },
+          ]}
+          ordenacao={sortConfig[0] && { chave: sortConfig[0].key, direcao: sortConfig[0].direction }}
+          onOrdenar={ordenar}
+          larguraAcoes="96px"
+          itens={itensExibidos}
+          carregando={loadingInitial}
+          chave={(m) => m.id}
+          onAbrir={ver}
+          rotuloDaLinha={(m) => `Ver a mudança de ${nomeProprio(m.morador)} (${rotuloUnidade(m.id_unidade)})`}
+          celulas={(m) => [
+            <b key="u" className="conf-dado__mono">{rotuloUnidade(m.id_unidade)}</b>,
+            <span key="r" className="mud-quem">
+              <b>{nomeProprio(m.morador)}{m.obs?.trim() ? <MessageSquareText size={13} aria-label="Tem observação" /> : null}</b>
+              {m.cpf ? <small>{maskCPFPrivacy(m.cpf)}</small> : null}
+            </span>,
+            m.monitor
+              ? <span key="mo" className="mud-monitor">{m.monitor}</span>
+              : <span key="mo" className="mud-monitor mud-monitor--vazio">Ninguém</span>,
+            <span key="d" className="mud-quem">
+              <b>{m.data_mudanca ? dataBR(dataHoraInput(m.data_mudanca).slice(0, 10)) : "—"}</b>
+              <small>{m.periodo || "Manhã"}</small>
+            </span>,
+            <Badge key="t" tone={m.tipo === "Saída" ? "neutral" : "brand"}>{m.tipo || "Entrada"}</Badge>,
+            <Badge key="s" tone={TOM_SITUACAO[m.status] ?? "neutral"}>{m.status}</Badge>,
+          ]}
+          acoes={(m) => (
+            <>
+              <Button variant="ghost" size="sm" aria-label={`Ver a mudança de ${nomeProprio(m.morador)}`} onClick={() => ver(m)}><Eye size={16} /></Button>
+              <Button variant="ghost" size="sm" aria-label={`Editar a mudança de ${nomeProprio(m.morador)}`} onClick={() => handleEdit(m)}><Pencil size={16} /></Button>
+            </>
+          )}
+        />
+      )}
+      {dadosFiltrados.length > limite && (
+        <div className="mud-mais">
+          <Button variant="ghost" onClick={() => setLimite((n) => n + LOTE)}>
+            Mostrar mais ({dadosFiltrados.length - limite} restantes)
+          </Button>
+        </div>
+      )}
+
+      {/* ---- Ver: o desenho do detalhe de Encomendas ---- */}
+      <Modal
+        open={showViewModal && Boolean(v)}
+        onClose={() => setShowViewModal(false)}
+        title="Detalhes da mudança"
+        size="lg"
+        footer={v && (
+          <div className="app-modal__acoes">
+            <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => handleDelete(v.id)}>Excluir</Button>
+            <Button variant="primary" iconLeft={<Pencil size={15} />} onClick={() => handleEdit(v)}>Editar</Button>
+          </div>
+        )}
+      >
+        {v && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <Iniciais nome={v.morador} grande />
+              <div className="app-modal__quem">
+                <strong>{nomeProprio(v.morador)}</strong>
+                <small>{rotuloUnidade(v.id_unidade)} · {v.tipo === "Saída" ? "Saindo do apartamento" : "Chegando ao apartamento"}</small>
+                <span className="app-modal__selos">
+                  <Badge tone={TOM_SITUACAO[v.status] ?? "neutral"}>{v.status}</Badge>
+                  <Badge tone={v.tipo === "Saída" ? "neutral" : "brand"}>{v.tipo || "Entrada"}</Badge>
+                </span>
+              </div>
+            </div>
+
+            <div className="app-detalhe">
+              {/* O dia em letra grande: é o que a portaria confere primeiro. */}
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Quando</p>
+                <div className="app-cartao">
+                  <p className="app-cartao__rotulo">{v.periodo || "Manhã"} · {rotuloUnidade(v.id_unidade)}</p>
+                  <p className="app-cartao__grande">{dataBR(v.data_mudanca) || "Sem data"}</p>
+                  <p className="app-cartao__sub">
+                    {dataHoraBR(v.data_mudanca, { comSegundos: false }) || "—"}
+                    {v.data_fim ? ` até ${dataHoraBR(v.data_fim, { comSegundos: false })}` : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Quando" itens={[
+                  ["Início", dataHoraBR(v.data_mudanca, { comSegundos: false }) || "—"],
+                  ["Previsão de término", dataHoraBR(v.data_fim, { comSegundos: false }) || "Não informada"],
+                  ["Turno", v.periodo || "Manhã"],
+                  ["Monitor", v.monitor || "Ninguém marcado"],
+                ]} />
+                <Ficha titulo="Responsável" itens={[
+                  // Como nas reservas: documento mascarado no detalhe (o inteiro
+                  // fica no editar e no contrato), telefone com a máscara.
+                  ["CPF", v.cpf ? maskCPFPrivacy(v.cpf) : "Não informado", true],
+                  ["RG", v.rg ? maskRGPrivacy(v.rg) : "Não informado", true],
+                  ["Telefone", v.contato ? maskPhone(String(v.contato)) : "Não informado"],
+                ]} />
+                {v.obs?.trim() && (
+                  <section className="app-ficha">
+                    <h3 className="app-ficha__titulo">Observações</h3>
+                    <p className="mud-obs">{v.obs}</p>
+                  </section>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ---- Criar e editar ---- */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={modalType === "add" ? "Nova mudança" : "Editar mudança"}
+        size="md"
+        footer={
+          <div className="app-modal__acoes">
+            {modalType === "edit"
+              ? <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => { setShowModal(false); handleDelete(formData.id); }}>Excluir</Button>
+              : <span />}
+            <Button variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Button>
+            <Button variant="primary" type="submit" form="form-mudanca" loading={loadingGlobal}>Salvar</Button>
+          </div>
+        }
+      >
+        <form id="form-mudanca" className="mud-form" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+          <Field label="Unidade" required>
+            <BuscaUnidade
+              unidades={unidades}
+              valor={unidadePorId.get(String(formData.id_unidade)) ?? null}
+              onEscolher={(u) => setFormData((f) => ({ ...f, id_unidade: u?.id ?? "" }))}
+            />
+          </Field>
+
+          <Chave
+            ligada={isMoradorCadastrado}
+            onChange={toggleMoradorCadastrado}
+            titulo="É morador cadastrado"
+            sub="Puxa nome, CPF, RG e telefone do cadastro da unidade"
+          />
+          {isMoradorCadastrado && (
+            <Field label="Morador" help={formData.id_unidade ? undefined : "Escolha a unidade primeiro"}>
+              <Select
+                value={moradores.find((m) => m.nome === formData.morador)?.id ?? ""}
+                onChange={(e) => handleMoradorSelect(e.target.value)}
+                disabled={!formData.id_unidade}
+              >
+                <option value="">Escolha…</option>
+                {moradoresDaUnidade.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+              </Select>
+            </Field>
+          )}
+
+          <Field label="Nome do responsável" required>
+            <Input value={formData.morador} readOnly={isMoradorCadastrado} onChange={(e) => mudar("morador")(e.target.value)}
+              onBlur={(e) => mudar("morador")(nomeProprio(e.target.value))} />
+          </Field>
+          <div className="mud-form__par">
+            <Field label="CPF">
+              <Input value={formData.cpf} readOnly={isMoradorCadastrado} inputMode="numeric" placeholder="000.000.000-00"
+                onChange={(e) => mudar("cpf")(maskCPF(e.target.value))} />
+            </Field>
+            <Field label="RG">
+              <Input value={formData.rg || ""} readOnly={isMoradorCadastrado} placeholder="00.000.000-0"
+                onChange={(e) => mudar("rg")(maskRG(e.target.value))} />
+            </Field>
+          </div>
+          <Field label="Telefone" required>
+            <Input value={formData.contato} inputMode="tel" placeholder="(00) 00000-0000"
+              onChange={(e) => mudar("contato")(maskPhone(e.target.value))} />
+          </Field>
+
+          <div className="mud-form__par">
+            <Field label="Tipo">
+              <Opcoes rotulo="Tipo" valor={formData.tipo || "Entrada"} onMudar={mudar("tipo")} opcoes={["Entrada", "Saída"]} />
+            </Field>
+            <Field label="Turno">
+              <Opcoes rotulo="Turno" valor={formData.periodo || "Manhã"} onMudar={mudar("periodo")} opcoes={["Manhã", "Tarde"]} />
+            </Field>
+          </div>
+          <div className="mud-form__par">
+            <Field label="Início" required>
+              <Input type="datetime-local" value={formData.data_mudanca} onChange={(e) => mudar("data_mudanca")(e.target.value)} />
+            </Field>
+            <Field label="Previsão de término" required>
+              <Input type="datetime-local" value={formData.data_fim} onChange={(e) => mudar("data_fim")(e.target.value)} />
+            </Field>
+          </div>
+
+          <Field label="Quem monitora" help="Quem da equipe acompanha a mudança no dia">
+            <Opcoes rotulo="Quem monitora" valor={formData.monitor || ""} onMudar={mudar("monitor")}
+              opcoes={[["", "Ninguém"], ...MONITORES]} />
+          </Field>
+
+          <Field label="Situação">
+            <Opcoes rotulo="Situação" valor={formData.status} onMudar={mudar("status")} opcoes={SITUACOES} />
+          </Field>
+          <Field label="Observações">
+            <Textarea rows={3} value={formData.obs || ""} placeholder="Algo importante sobre a mudança"
+              onChange={(e) => mudar("obs")(e.target.value)} />
+          </Field>
+        </form>
+      </Modal>
+
+      {/* ---- Exportação ---- */}
+      <Modal
         open={showExportModal}
         onClose={() => setShowExportModal(false)}
         title="Exportar mudanças"
@@ -826,15 +933,12 @@ const verificarEAtualizarStatus = async (listaMudancas) => {
           </>
         }
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-6)" }}>
+        <p className="vit-modal__desc mud-exporta">
           {dadosFiltrados.length === festas.length
-            ? `Serão exportados os ${dadosFiltrados.length} mudanças.`
-            : `Serão exportados os ${dadosFiltrados.length} mudanças que passam nos filtros atuais, de ${festas.length} no total.`}
+            ? `Serão exportadas as ${dadosFiltrados.length} mudanças.`
+            : `Serão exportadas as ${dadosFiltrados.length} mudanças que passam nos filtros atuais, de ${festas.length} no total.`}
         </p>
-
-        <p className="vit-field__label" style={{ marginBottom: "var(--space-4)" }}>
-          Colunas do PDF
-        </p>
+        <p className="vit-field__label mud-exporta">Colunas do PDF</p>
         <div className="exp-colunas">
           {selectedColumns.map((col) => (
             <button
@@ -850,739 +954,6 @@ const verificarEAtualizarStatus = async (listaMudancas) => {
           ))}
         </div>
       </Modal>
-
-      <Ocupado
-        open={loadingInitial || loadingGlobal}
-        mensagem={loadingInitial ? "Carregando mudanças..." : "Salvando..."}
-      />
-
-      <PageHeader
-        title="Mudanças"
-        meta={
-          loadingInitial
-            ? "Carregando mudanças"
-            : `${dadosFiltrados.length} de ${festas.length} mudanças`
-        }
-        actions={
-          <>
-            <Button onClick={() => setShowExportModal(true)} iconLeft={<FileText size={15} />}>
-              Exportar
-            </Button>
-            <Button
-              variant="ghost"
-              iconLeft={<RotateCcw size={15} />}
-              onClick={() => {
-                setSearchTerm("");
-                setFilterStatus("Todos");
-                setCurrentPage(1);
-              }}
-            >
-              Redefinir
-            </Button>
-            <Button
-              variant="primary"
-              iconLeft={<Plus size={16} />}
-              onClick={() => {
-                setModalType("add");
-                setShowModal(true);
-              }}
-            >
-              Nova mudança
-            </Button>
-          </>
-        }
-      />
-
-      <div className="res-filtros">
-    <div style={{ display: "contents" }}>
-        
-        {/* LINHA 1: BUSCA E STATUS */}
-        <div className="res-filtros__linha">
-            <div className="cad-filtros__busca">
-                <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar unidade ou morador..."
-                  aria-label="Buscar unidade ou morador..."
-                />
-            </div>
-            
-            <div className="res-filtros__rolagem">
-                {["Todos", "Pendente", "Confirmado", "Realizado", "Cancelado"].map(s => (
-                    <button key={s} className={`filter-pill ${filterStatus === s ? 'active' : ''}`} onClick={() => setFilterStatus(s)}>{s}</button>
-                ))}
-            </div>
-        </div>
-
-        {/* LINHA 2: TIPO, TURNO E PERÍODO */}
-        <div className="res-filtros__linha">
-            
-            {/* Filtro Tipo (Entrada/Saída) */}
-            <div className="res-filtros__rolagem">
-                {["Todos", "Entrada", "Saída"].map(t => (
-                    <button key={t} className={`filter-pill ${filterTipo === t ? 'active' : ''}`} onClick={() => setFilterTipo(t)}>
-                        {t === "Todos" ? "Tipo: Todos" : t}
-                    </button>
-                ))}
-            </div>
-
-            {/* Filtro Turno (Manhã/Tarde) */}
-            <div className="res-filtros__rolagem">
-                {["Todos", "Manhã", "Tarde"].map(turno => (
-                    <button key={turno} className={`filter-pill ${filterTurno === turno ? 'active' : ''}`} onClick={() => setFilterTurno(turno)}>
-                        {turno === "Todos" ? "Turno: Todos" : turno}
-                    </button>
-                ))}
-            </div>
-
-            {/* Calendário */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, justifyContent: isMobile ? 'center' : 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ ...searchContainer, backgroundColor: theme.bg, borderColor: theme.border, padding: '5px 10px', minWidth: isMobile ? '100%' : '140px' }}>
-                    <Calendar size={14} color={theme.textSecondary} />
-                    <input type="date" style={{ background:'none', border:'none', color: theme.text, fontSize:'12px', outline:'none', width: '100%' }} value={filterPeriodo.inicio} onChange={e => setFilterPeriodo({...filterPeriodo, inicio: e.target.value})} />
-                </div>
-
-                <span style={{color: theme.textSecondary, fontSize: '12px', display: isMobile ? 'none' : 'block'}}>até</span>
-
-                <div style={{ ...searchContainer, backgroundColor: theme.bg, borderColor: theme.border, padding: '5px 10px', minWidth: isMobile ? '100%' : '140px' }}>
-                    <Calendar size={14} color={theme.textSecondary} />
-                    <input type="date" style={{ background:'none', border:'none', color: theme.text, fontSize:'12px', outline:'none', width: '100%' }} value={filterPeriodo.fim} onChange={e => setFilterPeriodo({...filterPeriodo, fim: e.target.value})} />
-                </div>
-
-                {(filterPeriodo.inicio || filterPeriodo.fim) && (
-                    <RotateCcw size={16} cursor="pointer" color={theme.textSecondary} onClick={() => setFilterPeriodo({inicio: "", fim: ""})} />
-                )}
-            </div>
-        </div>
     </div>
-</div>
-
-      <div style={{...tableCard, backgroundColor: theme.mainBg, borderColor: theme.border}}>
-        <div style={{ overflowX: 'auto' }}>
-            <table style={{...tableStyle, minWidth: isMobile ? '700px' : 'auto'}}>
-                <thead>
-                    <tr style={{...thRow, borderBottomColor: theme.border, backgroundColor: theme.isDark ? 'var(--fg-default)' : 'var(--surface-2)'}}>
-    {[
-  { label: "Unidade", key: "id_unidade" },
-  { label: "Responsável", key: "morador" },
-  { label: "Data", key: "data_mudanca" },
-  { label: "Tipo", key: "tipo" },       // Alterado de 'Valor' para 'Tipo'
-  { label: "Período", key: "periodo" }, // Alterado de 'Pago' para 'Período'
-  { label: "Status", key: "status" }
-].map((col) => {
-      const config = sortConfig.find(c => c.key === col.key);
-      return (
-        <th 
-          key={col.key}
-          style={{...thStyle, color: theme.textSecondary, cursor: 'pointer', userSelect: 'none'}}
-          onClick={(e) => handleSort(col.key, e.shiftKey)}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {col.label}
-            {config && (config.direction === 'asc' ? " ↑" : " ↓")}
-          </div>
-        </th>
-      );
-    })}
-    <th style={{...thStyle, textAlign: 'right', color: theme.textSecondary}}>Ações</th>
-  </tr>
-</thead>
-                <tbody>
-    {itensExibidos.map((f) => {
-        const unit = unidades.find(u => u.id?.toString() === f.id_unidade?.toString());
-        
-        // Os tres chips abaixo saem inteiros dos tokens. Antes misturavam azul
-        // e laranja do Tailwind com cinza fixo sobre var(--surface-3): no tema
-        // escuro o texto cinza ficava ilegivel sobre o fundo escuro do token.
-        const getPeriodoStyle = (periodo) => {
-            if (periodo === "Manhã") return { backgroundColor: 'var(--brand-50)', color: 'var(--brand-700)' };
-            if (periodo === "Tarde") return { backgroundColor: 'var(--alert-50)', color: 'var(--alert-700)' };
-            return { backgroundColor: 'var(--surface-3)', color: 'var(--fg-secondary)' };
-        };
-
-        // Cores para Tipo de Mudança
-        const getTipoStyle = (tipo) => {
-            if (tipo === "Entrada") return { backgroundColor: 'var(--brand-100)', color: 'var(--brand-700)' };
-            if (tipo === "Saída") return { backgroundColor: 'var(--alert-50)', color: 'var(--alert-700)' };
-            return { backgroundColor: 'var(--surface-3)', color: 'var(--fg-secondary)' };
-        };
-
-        // Cores para Status
-        const getStatusStyle = (status) => {
-            switch (status) {
-                case 'Pendente': return { backgroundColor: 'var(--surface-3)', color: 'var(--fg-secondary)' };
-                case 'Agendado': return { backgroundColor: 'var(--brand-100)', color: 'var(--brand-700)' };
-                case 'Realizado': return { backgroundColor: 'var(--brand-100)', color: 'var(--brand-700)' };
-                case 'Cancelado': return { backgroundColor: 'var(--alert-50)', color: 'var(--alert-700)' };
-                default: return { backgroundColor: 'var(--surface-3)', color: 'var(--fg-secondary)' };
-            }
-        };
-
-        return (
-            <tr key={f.id} style={{ ...trStyle, borderBottom: `1px solid ${theme.border}` }}>
-                <td style={{ ...tdStyle, color: theme.text }}>
-                    <strong>{unit ? `B${unit.bloco} - ${unit.unidade}` : f.id_unidade}</strong>
-                </td>
-                
-                <td style={{ ...tdStyle, color: theme.text }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: '600' }}>{f.morador}</span>
-                        {f.cpf && (
-                            <span style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '2px' }}>
-                                {maskCPFPrivacy(f.cpf)}
-                            </span>
-                        )}
-                    </div>
-                </td>
-
-               <td style={{ ...tdStyle, color: theme.text }}>
-                    {(() => {
-                        const dataBruta = f.data_mudanca || f.data_reserva;
-                        if (!dataBruta) return "-";
-
-                        // Remove o " 00:00" ou qualquer coisa após o espaço
-                        const apenasData = dataBruta.toString().split(' ')[0];
-
-                        // Se a data vier no formato AAAA-MM-DD (ISO), inverte
-                        if (apenasData.includes('-')) {
-                            return apenasData.split('-').reverse().join('/');
-                        }
-                        
-                        return apenasData; // Retorna DD/MM/AAAA
-                    })()}
-                </td>
-
-                {/* Tipo de Mudança: Entrada/Saída */}
-                <td style={tdStyle}>
-                    <span style={{ ...badgeGreen, ...getTipoStyle(f.tipo) }}>
-                        {f.tipo || "Entrada"}
-                    </span>
-                </td>
-
-                {/* Período: Manhã/Tarde */}
-                <td style={tdStyle}>
-                    <span style={{ ...badgeGreen, ...getPeriodoStyle(f.periodo) }}>
-                        {f.periodo || "Manhã"}
-                    </span>
-                </td>
-
-                {/* Status: Pendente, Confirmado, Realizado, Cancelado */}
-                <td style={tdStyle}>
-                    <span style={{ ...badgeGreen, ...getStatusStyle(f.status) }}>
-                        {f.status}
-                    </span>
-                </td>
-
-                <td style={{ ...tdStyle, textAlign: 'right', position: 'relative' }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-        
-        {/* Ícone do Olho com Alerta de Obs */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Eye 
-                size={18} 
-                color={theme.brand} 
-                cursor="pointer" 
-                onClick={() => { setSelectedFesta(f); setShowViewModal(true); }} 
-            />
-            {f.obs && f.obs.trim() !== "" && (
-                <span style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '-6px',
-                    color: '#B8203F',
-                    fontWeight: 'bold',
-                    fontSize: '18px',
-                    lineHeight: '1',
-                    textShadow: theme.isDark ? '0 0 2px #000' : '0 0 2px #fff'
-                }}>
-                    *
-                </span>
-            )}
-        </div>
-
-        <button onClick={() => setShowMenuId(showMenuId === f.id ? null : f.id)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <MoreVertical size={20} color={theme.textSecondary} />
-        </button>
-    </div>
-                    
-                    {showMenuId === f.id && (
-                        <div ref={menuRef} className="action-menu" style={{ right: '10px', top: '40px', zIndex: 100 }}>
-                            <div className="menu-item" onClick={() => { 
-    setModalType("edit"); 
-    
-    // Importante: define se o morador é cadastrado para habilitar/desabilitar campos
-    setIsMoradorCadastrado(!!f.id_morador); 
-
-    setFormData({
-        ...f, 
-        // Agora a função limpa os segundos automaticamente
-        data_mudanca: formatToInputDateTime(f.data_mudanca),
-        data_fim: formatToInputDateTime(f.data_fim),
-        obs: f.obs || "" // Evita que o campo de observação venha como undefined
-    });
-    
-    setShowModal(true); 
-    setShowMenuId(null); 
-}}>
-    <Edit2 size={14} /> Editar
-</div>
-                            
-                            <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
-                                <Trash2 size={14} /> Excluir
-                            </div>
-                        </div>
-                    )}
-                </td>
-            </tr>
-        );
-    })}
-</tbody>
-            </table>
-        </div>
-
-        <div style={{
-  ...paginationFooter,
-  borderTopColor: theme.border,
-  backgroundColor: theme.mainBg,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: isMobile ? "12px" : "0"
-}}>
-
-  {/* ESQUERDA: Exibir + Contador */}
-  <div style={{ 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "20px" 
-  }}>
-    
-    {/* Seletor Exibir */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <span style={{ fontSize: '13px', color: theme.textSecondary }}>
-        Exibir:
-      </span>
-      <select 
-        value={itemsPerPage} 
-        onChange={(e) => {
-          const val = e.target.value;
-          setItemsPerPage(val === "Todos" ? "Todos" : Number(val));
-          setCurrentPage(1);
-        }}
-        style={{
-          padding: '4px 8px',
-          borderRadius: '6px',
-          border: '1px solid ' + theme.border,
-          backgroundColor: theme.bg,
-          color: theme.text,
-          fontSize: '13px',
-          outline: 'none',
-          cursor: 'pointer'
-        }}
-      >
-        <option value={10}>10</option>
-        <option value={20}>20</option>
-        <option value={50}>50</option>
-        <option value={100}>100</option>
-        <option value="Todos">Todos</option>
-      </select>
-    </div>
-
-    {/* Contador */}
-    <div style={{ fontSize: '13px', color: theme.textSecondary }}>
-      Exibindo <strong>{itensExibidos.length}</strong> de{" "}
-      <strong>{dadosFiltrados.length}</strong> registros
-    </div>
-
-  </div>
-
-  {/* DIREITA: Paginação */}
-  {itemsPerPage !== "Todos" && (
-    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-      <button 
-        className="pagination-btn" 
-        disabled={currentPage === 1} 
-        onClick={() => setCurrentPage(c => c - 1)}
-      >
-        <ChevronLeft size={18}/>
-      </button>
-
-      <span style={{fontSize:'13px', color: theme.text}}>
-        {currentPage} / {totalPages || 1}
-      </span>
-
-      <button 
-        className="pagination-btn" 
-        disabled={currentPage === totalPages || totalPages === 0} 
-        onClick={() => setCurrentPage(c => c + 1)}
-      >
-        <ChevronRight size={18}/>
-      </button>
-    </div>
-  )}
-
-</div>
-
-        </div>
-
-    {showModal && (
-  <div style={modalOverlay}>
-    <div style={{ ...modalContent, backgroundColor: theme.mainBg, color: theme.text, maxWidth: '500px', width: isMobile ? 'calc(100% - 24px)' : '90%', maxHeight: '90vh', overflowY: 'auto', padding: isMobile ? '16px' : '24px' }}>
-      <div style={modalHeader}>
-        <h3 style={{ margin: 0 }}>{modalType === "add" ? "Nova Mudança" : "Editar Mudança"}</h3>
-        <X size={20} cursor="pointer" onClick={() => setShowModal(false)} />
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '70vh', overflowY: 'auto', padding: '5px' }}>
-
-        {/* Campo Unidade com Busca Flutuante */}
-        <div style={{ position: 'relative' }} ref={dropdownRef}>
-          <label style={labelStyle}>Unidade</label>
-          <div
-            style={{
-              ...selectStyle,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              cursor: 'pointer',
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border
-            }}
-            onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-          >
-            <span>{formData.id_unidade ? getUnitLabel(formData.id_unidade) : "Selecione a unidade..."}</span>
-            <ChevronDown size={16} />
-          </div>
-
-          {showUnitDropdown && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, width: '100%',
-              backgroundColor: theme.mainBg, border: `1px solid ${theme.border}`,
-              borderRadius: '8px', zIndex: 1200, boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-              marginTop: '4px', overflow: 'hidden'
-            }}>
-              <div style={{ padding: '8px' }}>
-                <input
-                  style={{
-                    width: '100%', padding: '8px', borderRadius: '6px',
-                    border: `1px solid ${theme.border}`, backgroundColor: theme.bg,
-                    color: theme.text, boxSizing: 'border-box', outline: 'none'
-                  }}
-                  placeholder="Digite o bloco ou apto..."
-                  autoFocus
-                  value={unitSearch}
-                  onChange={(e) => setUnitSearch(e.target.value)}
-                />
-              </div>
-              <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                {unidadesFiltradas.length > 0 ? (
-                  unidadesFiltradas.map(u => (
-                    <div
-                      key={u.id}
-                      style={{
-                        padding: '10px 15px', cursor: 'pointer', fontSize: '14px',
-                        borderBottom: `1px solid ${theme.border}`
-                      }}
-                      onClick={() => {
-                        setFormData({ ...formData, id_unidade: u.id });
-                        setShowUnitDropdown(false);
-                        setUnitSearch("");
-                      }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = theme.bg}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                    >
-                      BLOCO {u.bloco} - UNIDADE {u.unidade}
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ padding: '15px', textAlign: 'center', fontSize: '12px', opacity: 0.7 }}>
-                    Nenhuma unidade encontrada
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Checkbox Morador */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', borderRadius: '8px', backgroundColor: theme.bg }}>
-          <input type="checkbox" id="checkMorador" checked={isMoradorCadastrado} onChange={e => toggleMoradorCadastrado(e.target.checked)} />
-          <label htmlFor="checkMorador" style={{ fontSize: '13px', cursor: 'pointer', margin: 0 }}>Morador Cadastrado?</label>
-        </div>
-
-        {isMoradorCadastrado && (
-          <div>
-            <label style={labelStyle}>Selecionar Morador</label>
-            <select 
-              style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-              onChange={e => handleMoradorSelect(e.target.value)}
-            >
-              <option value="">Escolha...</option>
-              {moradores
-                .filter(m => m.id_unidade?.toString() === formData.id_unidade?.toString())
-                .map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Nome do Responsável */}
-        <div>
-          <label style={labelStyle}>Nome do Responsável</label>
-          <input 
-            style={{...selectStyle, width:'100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1}} 
-            value={formData.morador} 
-            readOnly={isMoradorCadastrado}
-            onChange={e => setFormData({...formData, morador: e.target.value})} 
-          />
-        </div>
-
-        {/* CPF e RG */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>CPF</label>
-            <input 
-              style={{...selectStyle, width:'100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1}} 
-              value={formData.cpf} 
-              readOnly={isMoradorCadastrado}
-              onChange={e => setFormData({...formData, cpf: maskCPF(e.target.value)})} 
-            />
-          </div>
-          <div>
-  <label style={labelStyle}>RG</label>
-  <input 
-    style={{
-      ...selectStyle, 
-      width:'100%', 
-      backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, 
-      color: theme.text, 
-      borderColor: theme.border, 
-      opacity: isMoradorCadastrado ? 0.7 : 1
-    }} 
-    value={formData.rg || ""} 
-    readOnly={isMoradorCadastrado}
-    placeholder="Ex: 00.000.000-0"
-    // GARANTA QUE A LINHA ABAIXO ESTEJA ASSIM:
-    onChange={e => setFormData({...formData, rg: maskRG(e.target.value)})} 
-  />
-</div>
-        </div>
-
-        {/* Seção de Horários (Início e Fim) */}
-<div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px', marginBottom: '15px'}}>
-  <div>
-    <label style={labelStyle}>Início da Mudança</label>
-    <input 
-      type="datetime-local" 
-      style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-      value={formData.data_mudanca} 
-      onChange={e => setFormData({...formData, data_mudanca: e.target.value})} 
-    />
-  </div>
-  <div>
-    <label style={labelStyle}>Previsão de Término</label>
-    <input 
-      type="datetime-local" 
-      style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-      value={formData.data_fim} 
-      onChange={e => setFormData({...formData, data_fim: e.target.value})} 
-    />
-  </div>
-</div>
-
-{/* Seção de Contato (Linha Única ou Grid com outro campo) */}
-<div style={{marginBottom: '15px'}}>
-  <label style={labelStyle}>Telefone Contato</label>
-  <input 
-    style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-    value={formData.contato} 
-    onChange={e => setFormData({...formData, contato: maskPhone(e.target.value)})} 
-    placeholder="(00) 00000-0000"
-  />
-</div>
-
-        {/* NOVOS CAMPOS: Tipo e Período */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>Tipo de Mudança</label>
-            <select 
-              style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-              value={formData.tipo || "Entrada"} 
-              onChange={e => setFormData({...formData, tipo: e.target.value})}
-            >
-              <option value="Entrada">Entrada</option>
-              <option value="Saída">Saída</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Período</label>
-            <select 
-              style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-              value={formData.periodo || "Manhã"} 
-              onChange={e => setFormData({...formData, periodo: e.target.value})}
-            >
-              <option value="Manhã">Manhã</option>
-              <option value="Tarde">Tarde</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Status */}
-        <div>
-          <label style={labelStyle}>Status</label>
-          <select 
-            style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-            value={formData.status} 
-            onChange={e => setFormData({...formData, status: e.target.value})}
-          >
-            <option value="Pendente">Pendente</option>
-            <option value="Agendado">Agendado</option>
-            <option value="Realizado">Realizado</option>
-            <option value="Cancelado">Cancelado</option>
-          </select>
-        </div>
-
-        {/* NOVO CAMPO: Observações */}
-<div>
-  <label style={labelStyle}>Observações</label>
-  <textarea 
-    style={{
-      ...selectStyle, 
-      width:'100%', 
-      backgroundColor: theme.bg, 
-      color: theme.text, 
-      borderColor: theme.border,
-      minHeight: '80px',
-      fontFamily: 'inherit',
-      resize: 'vertical'
-    }} 
-    placeholder="Alguma observação importante sobre a mudança..."
-    value={formData.obs || ""} 
-    onChange={e => setFormData({...formData, obs: e.target.value})}
-  />
-</div>
-
-        <button 
-          style={{
-            backgroundColor: 'var(--btn-primary-bg)', color: 'white', border: 'none', padding: '12px', 
-            borderRadius: '10px', fontWeight: '700', cursor: 'pointer', marginTop: '10px',
-            display: 'flex', justifyContent: 'center', alignItems: 'center'
-          }} 
-          onClick={handleSave}
-          disabled={loadingGlobal}
-        >
-          {loadingGlobal ? <Loader2 className="animate-spin" size={18}/> : "Salvar Mudança"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-      {/* MODAL VER MAIS - ATUALIZADO PARA MUDANÇAS */}
-      {showViewModal && selectedFesta && (
-        <div style={modalOverlay}>
-          <div style={{...modalContent, backgroundColor: theme.mainBg, color: theme.text, maxWidth:'450px', width: isMobile ? 'calc(100% - 24px)' : '90%', maxHeight: '90vh', overflowY: 'auto', padding: isMobile ? '16px' : '24px'}}>
-            <div style={modalHeader}>
-              <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                <Calendar color={theme.brand}/> 
-                <h3 style={{margin: 0}}>Detalhes da Mudança</h3>
-              </div>
-              <X onClick={() => setShowViewModal(false)} cursor="pointer"/>
-            </div>
-
-            <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
-              
-              {/* Identificação da Unidade e Morador */}
-              <div style={{...viewBox, backgroundColor: theme.bg, borderColor: theme.border}}>
-                <div style={{marginBottom: '8px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '4px'}}>
-                  <strong style={{color: 'var(--fg-brand)'}}>
-                    Unidade: {(() => {
-                      const unit = unidades.find(u => u.id?.toString() === selectedFesta.id_unidade?.toString());
-                      return unit ? `B${unit.bloco} - ${unit.unidade}` : selectedFesta.id_unidade;
-                    })()}
-                  </strong>
-                </div>
-                <strong>Responsável:</strong> {selectedFesta.morador} <br/>
-                <strong>CPF:</strong> {selectedFesta.cpf || "N/D"} <br/>
-                <strong>RG:</strong> {selectedFesta.rg || "N/D"} <br/>
-                <strong>Contato:</strong> {selectedFesta.contato || "N/D"}
-              </div>
-
-              {/* Dados da Mudança (Horário Completo) */}
-<div style={{...viewBox, backgroundColor: theme.bg, borderColor: theme.border}}>
-  <strong>Tipo / Sentido:</strong> {selectedFesta.tipo === 'Entrada' ? '⬆ Entrada' : '⬇ Saída'} <br/>
-  
-  {/* Horários sem o box de fundo */}
-  <div style={{ marginTop: '10px' }}>
-    <div style={{ marginBottom: '4px' }}>
-      <strong style={{ fontSize: '13px' }}>Início:</strong> 
-      <span style={{ color: theme.text, marginLeft: '5px' }}>
-        {selectedFesta.data_mudanca || "-"}
-      </span>
-    </div>
-    <div style={{ marginBottom: '4px' }}>
-      <strong style={{ fontSize: '13px' }}>Fim:</strong> 
-      <span style={{ color: theme.text, marginLeft: '5px' }}>
-        {selectedFesta.data_fim || "Não informado"}
-      </span>
-    </div>
-  </div>
-
-  <div style={{ marginTop: '8px' }}>
-    <strong>Período / Turno:</strong> {selectedFesta.periodo || "Não informado"}
-  </div>
-</div>
-
-              {/* Status e Observações */}
-<div style={{
-  ...viewBox, 
-  backgroundColor: theme.bg, 
-  borderColor: theme.border,
-  wordBreak: 'break-word', // Força a quebra de palavras muito longas
-  overflowWrap: 'anywhere'  // Garante que o texto não escape do limite horizontal
-}}>
-  <span><strong>Status:</strong> {selectedFesta.status}</span>
-  
-  {selectedFesta.obs && (
-    <div style={{
-      marginTop: '8px', 
-      paddingTop: '8px', 
-      borderTop: `1px solid ${theme.border}`, 
-      fontSize: '13px'
-    }}>
-      <strong>Observações:</strong>
-      <div style={{ 
-        marginTop: '4px', 
-        whiteSpace: 'pre-wrap', // Preserva quebras de linha manuais
-        color: theme.textSecondary,
-        lineHeight: '1.4'
-      }}>
-        {selectedFesta.obs}
-      </div>
-    </div>
-  )}
-</div>
-
-              <button 
-                onClick={() => setShowViewModal(false)}
-                style={{
-                  marginTop: '10px',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--btn-primary-bg)',
-                  color: 'white',
-                  border: 'none',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div> // FECHAMENTO DA DIV PRINCIPAL (PAGE CONTAINER)
-  ); // FECHAMENTO DO RETURN
-} // FECHAMENTO DA FUNCTION COMPONENTE
+  );
+}

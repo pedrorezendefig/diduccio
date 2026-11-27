@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { NotebookPen, Plus, Search } from "lucide-react";
+import { NotebookPen, Plus } from "lucide-react";
 import { Button, EmptyState, PageHeader, useToast } from "../ui";
 import QuadroDeTarefas from "../components/QuadroDeTarefas";
 import GavetaDeTarefa from "../components/GavetaDeTarefa";
 import BlocoDeNotas from "../components/BlocoDeNotas";
+import { Filtros } from "../components/app/pecas";
 import { listar, listarResponsaveis, criar, editar, remover, lerNotas, salvarNotas } from "../api/db";
 import { can } from "../auth/permissions";
 import { useEstreito } from "../lib/useEstreito";
@@ -577,30 +578,17 @@ export default function Tarefas({ user }) {
       />
 
       {!erroCarga && (
-        <div className="tar-filtros">
-          {/* Só para quem vê o quadro inteiro: o auxiliar já recebe do banco
-              apenas as dele, e o filtro teria as duas opções iguais. */}
-          {veTodas && (
-            <div className="tar-segmento" role="group" aria-label="Quais tarefas mostrar">
-              <button type="button" className="tar-segmento__botao" aria-pressed={!minhas} onClick={() => setMinhas(false)}>
-                Todas <span className="tar-segmento__conta">{abertas}</span>
-              </button>
-              <button type="button" className="tar-segmento__botao" aria-pressed={minhas} onClick={() => setMinhas(true)}>
-                Minhas <span className="tar-segmento__conta">{abertasMinhas}</span>
-              </button>
-            </div>
-          )}
-          <label className="tar-busca">
-            <Search size={15} aria-hidden="true" />
-            <input
-              type="search"
-              aria-label="Buscar tarefa"
-              placeholder="Buscar tarefa"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </label>
-        </div>
+        <Filtros
+          busca={busca}
+          onBusca={setBusca}
+          placeholder="Buscar tarefa"
+          rotuloFiltro="Mostrar"
+          // Só para quem vê o quadro inteiro: o auxiliar já recebe do banco
+          // apenas as dele, e o filtro teria as duas opções iguais.
+          filtros={veTodas ? [["todas", "Todas", abertas], ["minhas", "Minhas", abertasMinhas]] : null}
+          filtro={minhas ? "minhas" : "todas"}
+          onFiltro={(f) => setMinhas(f === "minhas")}
+        />
       )}
 
       {erroCarga ? (

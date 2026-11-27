@@ -22,6 +22,14 @@ const VALIDADE = 60 * 10;
  * políticas do 0017 leem para decidir quem alcança o arquivo. Mudar o formato
  * aqui sem mexer lá abre ou fecha acesso sem querer.
  */
+/**
+ * O comprovante que o morador mandou pelo app (0056): mora em
+ * `reservas-morador/` e é o MESMO arquivo que o app e Confirmações mostram.
+ * Tirar o anexo da reserva não apaga esse arquivo; ele é o recibo do morador
+ * (e o bucket só deixa o síndico apagá-lo, 0068).
+ */
+export const arquivoDoApp = (caminho) => String(caminho ?? "").startsWith("reservas-morador/");
+
 export function caminhoAnexo(modulo, idRegistro, nomeArquivo) {
   const limpo = String(nomeArquivo)
     .normalize("NFD")
@@ -49,6 +57,26 @@ export async function enviarAnexo(modulo, idRegistro, arquivo, nomeSugerido) {
 
   if (error) return { success: false, message: error.message };
   return { success: true, caminho, nome };
+}
+
+/**
+ * Foto de encomenda: sobe a grande e, ao lado, a miniatura (0084). Depois de
+ * 90 dias a função `reduzir-fotos` apaga a grande e a linha passa a mostrar a
+ * miniatura. Se só a miniatura falhar, a foto continua valendo: ela apenas não
+ * poderá ser reduzida depois. Devolve `{ success, caminho, nome, miniatura }`.
+ */
+export async function enviarFotoDaEncomenda(idEncomenda, foto) {
+  const grande = await enviarAnexo("encomendas", idEncomenda, foto.src);
+  if (!grande.success) return grande;
+  const temMiniatura = foto.thumb && foto.thumb !== foto.src;
+  const mini = temMiniatura ? await enviarAnexo("encomendas", idEncomenda, foto.thumb, `mini-${grande.nome}`) : null;
+  return { success: true, caminho: grande.caminho, nome: grande.nome, miniatura: mini?.success ? mini.caminho : null };
+}
+
+/** Desfaz o envio das duas versões, quando a linha da foto não pôde ser gravada. */
+export async function removerFotoDaEncomenda(envio) {
+  await removerAnexo(envio.caminho);
+  if (envio.miniatura) await removerAnexo(envio.miniatura);
 }
 
 /** Extensão a partir do mime, para o arquivo abrir no programa certo depois. */
@@ -111,6 +139,38 @@ export async function urlDoAnexo(registro) {
   return registro?.url_drive ?? null;
 }
 
+/** Quantos caminhos vão em cada pedido de links em lote. */
+const LOTE = 100;
+
+/**
+ * Links assinados de muitos anexos de uma vez: um pedido para cada 100
+ * caminhos, um lote depois do outro. Devolve um Map caminho → link; o que
+ * falhar fica de fora (a tela mostra o "sem foto" de sempre).
+ *
+ * Existe porque as listas (Encomendas, Piscina, Festas, Churrasqueira) pediam
+ * um link por arquivo, todos ao mesmo tempo: centenas de pedidos simultâneos
+ * ao Storage, cada um ocupando uma conexão com o banco. No plano grátis do
+ * Supabase as conexões acabavam e o Storage respondia 544 "DatabaseTimeout"
+ * (visto em 23/11/2026, numa foto de encomenda).
+ */
+export async function urlsDosAnexos(caminhos) {
+  const unicos = [...new Set((caminhos ?? []).filter(Boolean))];
+  const links = new Map();
+  for (let i = 0; i < unicos.length; i += LOTE) {
+    const parte = unicos.slice(i, i + LOTE);
+    try {
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(parte, VALIDADE);
+      if (error || !Array.isArray(data)) continue;
+      for (const item of data) {
+        if (item?.signedUrl && !item.error && item.path) links.set(item.path, item.signedUrl);
+      }
+    } catch {
+      // Um lote que falha não derruba a tela: só esses arquivos ficam sem link.
+    }
+  }
+  return links;
+}
+
 /**
  * Remove um anexo do bucket.
  *
@@ -156,4 +216,29 @@ export async function removerAnexosDoRegistro(modulo, idRegistro) {
   return removidos === caminhos.length
     ? { success: true, removidos }
     : { success: false, removidos, message: `${caminhos.length - removidos} arquivo(s) não saíram do bucket.` };
+}
+
+/**
+ * Os arquivos da pasta de um registro, do mais novo para o mais velho.
+ * O nome começa pelo instante do envio (`caminhoAnexo`), então a ordem do
+ * nome é a ordem do envio. Devolve `[{ nome, caminho, tamanho }]`.
+ */
+export async function listarAnexos(modulo, idRegistro) {
+  const pasta = `${modulo}/${idRegistro}`;
+  const { data, error } = await supabase.storage.from(BUCKET).list(pasta, { limit: 100 });
+  if (error) return { success: false, message: error.message, arquivos: [] };
+  const arquivos = (data ?? [])
+    .filter((i) => i.name && !i.name.startsWith("."))
+    .map((i) => ({ nome: i.name, caminho: `${pasta}/${i.name}`, tamanho: i.metadata?.size ?? null }))
+    .sort((a, b) => b.nome.localeCompare(a.nome));
+  return { success: true, arquivos };
+}
+
+/** URL assinada que baixa o arquivo com o nome dado, em vez de abrir. */
+export async function urlParaBaixar(caminho, nomeDoArquivo) {
+  if (!caminho) return null;
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(caminho, VALIDADE, { download: nomeDoArquivo || true });
+  return error ? null : data.signedUrl;
 }

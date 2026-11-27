@@ -1,13 +1,12 @@
-/* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import {
-  CalendarDays, ChevronLeft, ChevronRight, Plus, X,
-  Edit2, Trash2, Loader2, Clock, User, Phone,
-  ChevronDown, AlertCircle, CheckCircle2
-} from "lucide-react";
-import { useTheme } from "../theme/useTheme";
+import React, { useState, useEffect, useMemo } from "react";
+import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from "lucide-react";
 import { listar, criar, editar, remover } from "../api/db";
-import { useToast, useConfirm } from "../ui";
+import {
+  useToast, useConfirm, Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea,
+} from "../ui";
+import BuscaUnidade from "../components/BuscaUnidade";
+import { Ficha, Iniciais, Opcoes } from "../components/app/pecas";
+import { dataBR, maskPhone, nomeProprio } from "../lib/format";
 
 // `agendamentos` é administrativo: pelas políticas do 0015, porteiro e
 // conselheiro não leem nem escrevem. A mensagem do Postgres fala de
@@ -28,12 +27,9 @@ const DURACOES = ["30min", "1h", "1h30", "2h"];
 const STATUS_OPTIONS = ["Agendado", "Confirmado", "Realizado", "Cancelado"];
 const TIPOS = ["Morador", "Prestador de Serviço", "Administradora", "Funcionário"];
 
-const STATUS_COLORS = {
-  Agendado:   { bg: "#E35A3A20", border: "#E35A3A", text: "#F7A48E", badge: "#E35A3A30" },
-  Confirmado: { bg: "#E35A3A20", border: "#E35A3A", text: "#EF7A5C", badge: "#E35A3A30" },
-  Realizado:  { bg: "#B3332020", border: "#B33320", text: "#FCC8B9", badge: "#B3332030" },
-  Cancelado:  { bg: "#B8203F15", border: "#B8203F", text: "#D9607A", badge: "#B8203F30" },
-};
+/** O tom de cada situação: o mesmo do selo e da borda do cartão na agenda. */
+const TOM_SITUACAO = { Agendado: "neutral", Confirmado: "brand", Realizado: "positive", Cancelado: "danger" };
+const tomDe = (status) => TOM_SITUACAO[status] ?? "neutral";
 
 function horaParaMinutos(hora) {
   if (!hora) return 0;
@@ -94,14 +90,14 @@ function normalizarHora(valor) {
   return valor.toString().trim();
 }
 
-// Máscara de telefone no formato (dd)nnnnn-nnnn.
-function maskPhone(v) {
+// Máscara de telefone enquanto digita: (dd) nnnnn-nnnn.
+function maskTelefone(v) {
   let d = (v || "").toString().replace(/\D/g, "");
   if (d.length > 11) d = d.slice(0, 11);
   if (d.length === 0) return "";
   if (d.length <= 2) return `(${d}`;
-  if (d.length <= 7) return `(${d.slice(0, 2)})${d.slice(2)}`;
-  return `(${d.slice(0, 2)})${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
 const FORM_INICIAL = {
@@ -121,8 +117,6 @@ const FORM_INICIAL = {
 export default function Agendamento({ user }) {
   const toast = useToast();
   const confirmar = useConfirm();
-  const { theme } = useTheme();
-  const dropdownRef = useRef(null);
 
   const [agendamentos, setAgendamentos] = useState([]);
   const [unidades, setUnidades]         = useState([]);
@@ -130,7 +124,6 @@ export default function Agendamento({ user }) {
 
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingGlobal,  setLoadingGlobal]  = useState(false);
-  const [isMobile, setIsMobile]             = useState(window.innerWidth < 768);
 
   const hoje = formatDateKey(new Date());
   const [selectedDate, setSelectedDate] = useState(hoje);
@@ -143,23 +136,10 @@ export default function Agendamento({ user }) {
   const [modalType,    setModalType]    = useState("add");
   const [formData,     setFormData]     = useState(FORM_INICIAL);
   const [conflitError, setConflitError] = useState("");
-  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-  const [unitSearch,       setUnitSearch]       = useState("");
+  // O agendamento aberto no VER (só leitura); Editar passa para o formulário.
+  const [vendo, setVendo] = useState(null);
 
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
-        setShowUnitDropdown(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const fetchData = async () => {
     try {
@@ -198,6 +178,7 @@ export default function Agendamento({ user }) {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
 
   const autoAtualizarRealizados = async (lista) => {
@@ -273,23 +254,7 @@ export default function Agendamento({ user }) {
     });
   };
 
-  const getUnitLabel = (id) => {
-    const u = unidades.find(u => u.id?.toString() === id?.toString());
-    return u ? `BLOCO ${u.bloco} - UNIDADE ${u.unidade}` : "Selecione a unidade...";
-  };
 
-  const unidadesFiltradas = useMemo(() =>
-    unidades
-      .filter(u =>
-        u.bloco?.toString().toLowerCase().includes(unitSearch.toLowerCase()) ||
-        u.unidade?.toString().toLowerCase().includes(unitSearch.toLowerCase())
-      )
-      .sort((a, b) => {
-        const cb = a.bloco?.toString().localeCompare(b.bloco?.toString(), undefined, { numeric: true });
-        if (cb !== 0) return cb;
-        return a.unidade?.toString().localeCompare(b.unidade?.toString(), undefined, { numeric: true });
-      }),
-  [unidades, unitSearch]);
 
   const moradoresDaUnidade = useMemo(() =>
     moradores.filter(m => m.id_unidade?.toString() === formData.id_unidade?.toString()),
@@ -306,7 +271,7 @@ export default function Agendamento({ user }) {
         id_unidade: unidadeId,
         id_morador: m.id,
         nome: m.nome || "",
-        telefone: maskPhone(m.telefone || m.celular || ""),
+        telefone: maskTelefone(m.telefone || m.celular || ""),
       }));
     } else {
       setFormData(prev => ({
@@ -317,8 +282,6 @@ export default function Agendamento({ user }) {
         telefone: "",
       }));
     }
-    setShowUnitDropdown(false);
-    setUnitSearch("");
   };
 
   const handleMoradorSelect = (id) => {
@@ -332,7 +295,7 @@ export default function Agendamento({ user }) {
         ...prev,
         id_morador: id,
         nome: m.nome || "",
-        telefone: maskPhone(m.telefone || m.celular || ""),
+        telefone: maskTelefone(m.telefone || m.celular || ""),
       }));
     }
   };
@@ -387,7 +350,7 @@ export default function Agendamento({ user }) {
       id_unidade:  formData.tipo === "Morador" && formData.id_unidade
         ? Number(formData.id_unidade)
         : null,
-      nome:        formData.nome,
+      nome:        nomeProprio(formData.nome),
       telefone:    formData.telefone || null,
       // `data` é date e `hora_inicio` é time: os valores do formulário já vêm
       // em "AAAA-MM-DD" e "HH:MM", que é o que os dois tipos aceitam.
@@ -482,416 +445,278 @@ export default function Agendamento({ user }) {
 
   const totalDisponiveis = linhasDoDia.filter(l => l.tipo === "livre").length;
 
+  // ---- A tela ----
+  // Agenda do dia (não lista): o mini calendário escolhe o dia, e o dia mostra
+  // os agendamentos e os horários livres em ordem. Tocar num agendamento abre
+  // o VER (só leitura); tocar num horário livre abre o NOVO já com a hora.
+  const unidadePorId = new Map(unidades.map((u) => [String(u.id), u]));
+  const rotuloUnidade = (id) => {
+    const u = unidadePorId.get(String(id));
+    return u ? `B${u.bloco}-${u.unidade}` : "";
+  };
+  const resumoDe = (ag) => [
+    ag.tipo,
+    ag.tipo === "Morador" && ag.id_unidade ? rotuloUnidade(ag.id_unidade) : "",
+    ag.assunto,
+  ].filter(Boolean).join(" · ");
+  const ver = (ag) => setVendo(ag);
+  const editarVendo = () => { const ag = vendo; setVendo(null); abrirModalEditar(ag); };
+  const mudar = (campo) => (valor) => setFormData((f) => ({ ...f, [campo]: valor }));
+  const marcarHorario = (campo) => (valor) => { setFormData((f) => ({ ...f, [campo]: valor })); setConflitError(""); };
+  const doDia = agendamentosDoDia.filter((a) => a.status !== "Cancelado").length;
+  // Os números do cabeçalho: hoje e a semana que vem (sem os cancelados).
+  const vivos = agendamentos.filter((a) => a.status !== "Cancelado");
+  const deHoje = vivos.filter((a) => a.data === hoje).length;
+  const daquiASete = formatDateKey(new Date(Date.now() + 7 * 86400000));
+  const naSemana = vivos.filter((a) => a.data > hoje && a.data <= daquiASete).length;
+  const irPara = (dateStr) => {
+    const [y, m] = dateStr.split("-").map(Number);
+    setSelectedDate(dateStr);
+    setViewMonth(new Date(y, m - 1, 1));
+  };
+
   return (
-    <div style={{ padding: isMobile ? "20px 14px" : "20px", paddingTop: isMobile ? 60 : 20, maxWidth: "1200px", margin: "0 auto" }}>
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .slot-livre:hover { background: ${theme.isDark ? "#B3332020" : "#e0f2fe"} !important; border-color: #B33320 !important; cursor: pointer; }
-        .slot-livre:hover .slot-plus { color: ${theme.isDark ? "#EF7A5C" : "#B33320"} !important; }
-        .cal-day:hover { background: ${theme.isDark ? "var(--border-strong)" : "var(--surface-3)"} !important; cursor: pointer; }
-        .ag-card:hover { opacity: 0.85; cursor: pointer; }
-      `}</style>
+    <div>
+      <PageHeader
+        title="Agendamento"
+        meta={loadingInitial ? "Carregando a agenda" : `${deHoje} hoje · ${naSemana} nos próximos 7 dias`}
+        actions={<Button variant="primary" iconLeft={<Plus size={16} />} onClick={() => abrirModalNovo()}>Novo agendamento</Button>}
+      />
 
-      {(loadingInitial || loadingGlobal) && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(40,22,18,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}>
-          <Loader2 className="animate-spin" color="#E35A3A" size={50} />
-        </div>
-      )}
-
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: theme.text, margin: 0 }}>Agendamento</h1>
-        <p style={{ fontSize: 14, color: theme.textSecondary, margin: "4px 0 0" }}>Gerencie as reuniões com moradores, prestadores e colaboradores.</p>
-      </div>
-
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexDirection: isMobile ? "column" : "row" }}>
-
-        {/* SIDEBAR ESQUERDA */}
-        <div style={{ width: isMobile ? "100%" : 220, flexShrink: 0, background: theme.mainBg, borderRadius: 16, padding: 16, border: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* Mini Calendário */}
-          <div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: 10 }}>
-              <button
-                onClick={() => setViewMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                style={{ background: theme.bg, border: `1px solid ${theme.border}`, color: theme.text, borderRadius: 6, width: 26, height: 26, cursor: "pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-              ><ChevronLeft size={14} /></button>
-              <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
-                {nomesMeses[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-              </span>
-              <button
-                onClick={() => setViewMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                style={{ background: theme.bg, border: `1px solid ${theme.border}`, color: theme.text, borderRadius: 6, width: 26, height: 26, cursor: "pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-              ><ChevronRight size={14} /></button>
-            </div>
-
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap: 2, textAlign:"center" }}>
-              {nomesDias.map(d => (
-                <span key={d} style={{ fontSize: 10, fontWeight: 600, color: theme.textSecondary, padding: "2px 0" }}>{d}</span>
-              ))}
+      <div className="agd-grade">
+        <aside className="agd-lado">
+          <section className="agd-cartao" aria-label="Calendário">
+            <header className="agd-mes">
+              <Button variant="ghost" size="sm" aria-label="Mês anterior"
+                onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}><ChevronLeft size={16} /></Button>
+              <b>{nomesMeses[viewMonth.getMonth()]} {viewMonth.getFullYear()}</b>
+              <Button variant="ghost" size="sm" aria-label="Próximo mês"
+                onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}><ChevronRight size={16} /></Button>
+            </header>
+            <div className="agd-cal">
+              {nomesDias.map((d) => <span key={d} className="agd-cal__semana">{d}</span>)}
               {diasDoMes.map((dia, idx) => {
                 if (!dia) return <span key={`e-${idx}`} />;
-                const dateStr = `${viewMonth.getFullYear()}-${(viewMonth.getMonth()+1).toString().padStart(2,"0")}-${dia.toString().padStart(2,"0")}`;
-                const isToday    = dateStr === hoje;
-                const isSelected = dateStr === selectedDate;
-                const temAg      = diasComAgendamento.has(dateStr);
+                const dateStr = `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+                const temAg = diasComAgendamento.has(dateStr);
                 return (
-                  <div
-                    key={dateStr}
-                    className="cal-day"
-                    onClick={() => setSelectedDate(dateStr)}
-                    style={{
-                      padding: "4px 2px",
-                      borderRadius: 6,
-                      fontSize: 11,
-                      fontWeight: isToday ? 700 : 400,
-                      color: isSelected ? (theme.isDark ? "#EF7A5C" : "#B33320") : isToday ? "#E35A3A" : theme.text,
-                      background: isSelected ? (theme.isDark ? "#B3332030" : "#e0f2fe") : "transparent",
-                      border: isToday && !isSelected ? `1px solid #E35A3A` : "1px solid transparent",
-                      textAlign: "center",
-                    }}
-                  >
+                  <button key={dateStr} type="button"
+                    className={`agd-cal__dia${dateStr === hoje ? " agd-cal__dia--hoje" : ""}${dateStr === selectedDate ? " agd-cal__dia--sel" : ""}`}
+                    aria-pressed={dateStr === selectedDate}
+                    aria-label={`${dia} de ${nomesMeses[viewMonth.getMonth()]}${temAg ? ", tem agendamento" : ""}`}
+                    onClick={() => setSelectedDate(dateStr)}>
                     {dia}
-                    {temAg && (
-                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#E35A3A", margin: "1px auto 0" }} />
-                    )}
-                  </div>
+                    {temAg && <i aria-hidden="true" />}
+                  </button>
                 );
               })}
             </div>
-          </div>
+            {selectedDate !== hoje && (
+              <Button variant="ghost" size="sm" className="agd-hoje" onClick={() => irPara(hoje)}>Voltar para hoje</Button>
+            )}
+          </section>
 
-          {/* Próximos */}
           {proximosAgendamentos.length > 0 && (
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 700, color: theme.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Próximos</p>
-              {proximosAgendamentos.map(ag => {
-                const c = STATUS_COLORS[ag.status] || STATUS_COLORS.Agendado;
-                const isHoje = ag.data === hoje;
-                const [, m, d] = ag.data.split("-").map(Number);
-                const labelData = isHoje ? "Hoje" : `${d}/${m}`;
-                return (
-                  // role e teclado: a div clicável não recebia foco, e o
-                  // script de prints do Manual não tinha como abrir o
-                  // Atendimento.
-                  <div
-                    key={ag.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => { setSelectedDate(ag.data); abrirModalEditar(ag); }}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      setSelectedDate(ag.data);
-                      abrirModalEditar(ag);
-                    }}
-                    style={{ background: theme.bg, borderRadius: 8, padding: 8, borderLeft: `3px solid ${c.border}`, marginBottom: 6, cursor: "pointer" }}
-                  >
-                    <div style={{ fontSize: 10, color: theme.textSecondary }}>{labelData} · {ag.hora_inicio}</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>{ag.nome}</div>
-                    <div style={{ fontSize: 10, color: theme.textSecondary }}>{ag.tipo === "Morador" && ag.id_unidade ? `Unid. ${ag.id_unidade} · ` : ""}{ag.assunto}</div>
-                  </div>
-                );
-              })}
-            </div>
+            <section className="agd-cartao agd-cartao--proximos">
+              <h3 className="app-ficha__titulo">Próximos</h3>
+              <ul className="agd-proximos">
+                {proximosAgendamentos.map((ag) => {
+                  const [, m, d] = ag.data.split("-").map(Number);
+                  return (
+                    <li key={ag.id}>
+                      <button type="button" className={`agd-proximo agd-tom--${tomDe(ag.status)}`}
+                        onClick={() => { irPara(ag.data); ver(ag); }}>
+                        <small>{ag.data === hoje ? "Hoje" : `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`} · {ag.hora_inicio}</small>
+                        <b>{nomeProprio(ag.nome)}</b>
+                        {resumoDe(ag) && <small>{resumoDe(ag)}</small>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
-        </div>
+        </aside>
 
-        {/* ÁREA PRINCIPAL */}
-        <div style={{ flex: 1, background: theme.mainBg, borderRadius: 16, padding: 20, border: `1px solid ${theme.border}` }}>
+        <section className="agd-cartao agd-dia" aria-label="Agenda do dia">
+          <header className="agd-dia__topo">
+            <h2>{formatDataExtenso(selectedDate)}</h2>
+            <p>
+              {loadingInitial ? "Carregando…" : `${doDia} ${doDia === 1 ? "agendamento" : "agendamentos"} · ${totalDisponiveis} ${totalDisponiveis === 1 ? "horário livre" : "horários livres"}`}
+            </p>
+          </header>
 
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.text, margin: 0, textTransform: "capitalize" }}>
-                {formatDataExtenso(selectedDate)}
-              </h2>
-              <p style={{ fontSize: 13, color: theme.textSecondary, margin: "4px 0 0" }}>
-                {agendamentosDoDia.filter(a => a.status !== "Cancelado").length} agendamento(s) · {totalDisponiveis} horário(s) disponível(is)
-              </p>
-            </div>
-            <button
-              onClick={() => abrirModalNovo()}
-              style={{ background: "#E35A3A", color: "white", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", display:"flex", alignItems:"center", gap: 6 }}
-            >
-              <Plus size={16} /> Novo Agendamento
-            </button>
-          </div>
-
-          <div style={{ display:"flex", gap: 12, flexWrap:"wrap", marginBottom: 16 }}>
-            {STATUS_OPTIONS.map(s => {
-              const c = STATUS_COLORS[s];
-              return (
-                <div key={s} style={{ display:"flex", alignItems:"center", gap: 5, fontSize: 11, color: theme.textSecondary }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: c.border }} />
-                  {s}
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ display:"flex", flexDirection:"column", gap: 4 }}>
-            {linhasDoDia.map((linha, idx) => {
-              if (linha.tipo === "ag") {
-                const ag = linha.ag;
-                const c = STATUS_COLORS[ag.status] || STATUS_COLORS.Agendado;
-                return (
-                  <div key={ag.id} style={{ display:"flex", gap: 12, alignItems:"flex-start" }}>
-                    <div style={{ width: 44, fontSize: 11, color: theme.textSecondary, textAlign:"right", paddingTop: 12, flexShrink: 0, fontWeight: 600 }}>{ag.hora_inicio}</div>
-                    <div
-                      className="ag-card"
-                      onClick={() => abrirModalEditar(ag)}
-                      style={{ flex: 1, background: c.bg, borderLeft: `3px solid ${c.border}`, borderRadius: 10, padding: "10px 14px", minHeight: 44 }}
-                    >
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{ag.nome}</div>
-                          <div style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
-                            {ag.tipo}
-                            {ag.tipo === "Morador" && ag.id_unidade ? ` · Unid. ${ag.id_unidade}` : ""}
-                            {ag.telefone ? ` · ${ag.telefone}` : ""}
-                            {ag.assunto ? ` · ${ag.assunto}` : ""}
-                          </div>
-                          <div style={{ fontSize: 10, marginTop: 2, color: theme.textSecondary }}>
-                            {ag.hora_inicio} – {calcHoraFim(ag.hora_inicio, ag.duracao)} ({ag.duracao})
-                          </div>
-                        </div>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: c.badge, color: c.border, whiteSpace:"nowrap", marginLeft: 8 }}>
-                          {ag.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div key={`livre-${linha.hora}`} style={{ display:"flex", gap: 12, alignItems:"center" }}>
-                  <div style={{ width: 44, fontSize: 11, color: theme.textSecondary, textAlign:"right", flexShrink: 0, fontWeight: 600 }}>{linha.hora}</div>
-                  <div
-                    className="slot-livre"
-                    onClick={() => abrirModalNovo(linha.hora)}
-                    style={{ flex: 1, minHeight: 44, borderRadius: 10, border: `1px dashed ${theme.border}`, background: "transparent", display:"flex", alignItems:"center", padding: "0 14px", gap: 6 }}
-                  >
-                    <span className="slot-plus" style={{ fontSize: 18, color: theme.border }}>+</span>
-                    <span style={{ fontSize: 12, color: theme.border }}>Clique para agendar</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          {!loadingInitial && linhasDoDia.length === 0 ? (
+            <EmptyState icon={<CalendarDays size={22} />} title="Dia sem horários" description="Use Novo agendamento para marcar fora dos horários de sempre." />
+          ) : (
+            <ol className="agd-linhas">
+              {linhasDoDia.map((linha) => (
+                <li key={linha.tipo === "ag" ? `ag-${linha.ag.id}` : `livre-${linha.hora}`} className="agd-linha">
+                  <span className="agd-hora">{linha.hora}</span>
+                  {linha.tipo === "ag" ? (
+                    <button type="button" className={`agd-ag agd-tom--${tomDe(linha.ag.status)}`}
+                      aria-label={`Ver o agendamento de ${nomeProprio(linha.ag.nome)} às ${linha.ag.hora_inicio}`}
+                      onClick={() => ver(linha.ag)}>
+                      <span className="agd-ag__texto">
+                        <b>{nomeProprio(linha.ag.nome)}</b>
+                        {resumoDe(linha.ag) && <small>{resumoDe(linha.ag)}</small>}
+                        <small className="agd-ag__horario"><Clock size={12} aria-hidden="true" />{linha.ag.hora_inicio} – {calcHoraFim(linha.ag.hora_inicio, linha.ag.duracao)} · {linha.ag.duracao}</small>
+                      </span>
+                      <Badge tone={tomDe(linha.ag.status)}>{linha.ag.status}</Badge>
+                    </button>
+                  ) : (
+                    <button type="button" className="agd-livre" aria-label={`Agendar às ${linha.hora}`} onClick={() => abrirModalNovo(linha.hora)}>
+                      <Plus size={15} aria-hidden="true" />Livre · agendar
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       </div>
 
-      {/* MODAL */}
-      {showModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(40,22,18,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
-          <div style={{ background: theme.mainBg, borderRadius: 20, padding: isMobile ? 18 : 24, width: "90%", maxWidth: 480, border: `1px solid ${theme.border}`, maxHeight: "90vh", overflowY: "auto" }}>
-
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: 20 }}>
-              <h3 style={{ margin: 0, color: theme.text, fontSize: 16, fontWeight: 700 }}>
-                {modalType === "add" ? "Novo Agendamento" : "Editar Agendamento"}
-                {formData.hora_inicio ? ` · ${formData.hora_inicio}` : ""}
-              </h3>
-              <X size={20} color={theme.textSecondary} style={{ cursor:"pointer" }} onClick={() => setShowModal(false)} />
+      {/* ---- Ver: o desenho do detalhe de Encomendas ---- */}
+      <Modal
+        open={Boolean(vendo)}
+        onClose={() => setVendo(null)}
+        title="Detalhes do agendamento"
+        size="lg"
+        footer={vendo && (
+          <div className="app-modal__acoes">
+            <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => { const id = vendo.id; setVendo(null); handleDelete(id); }}>Excluir</Button>
+            <Button variant="primary" iconLeft={<Pencil size={15} />} onClick={editarVendo}>Editar</Button>
+          </div>
+        )}
+      >
+        {vendo && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <Iniciais nome={vendo.nome} grande />
+              <div className="app-modal__quem">
+                <strong>{nomeProprio(vendo.nome)}</strong>
+                <small>{formatDataExtenso(vendo.data)} · {vendo.hora_inicio} – {calcHoraFim(vendo.hora_inicio, vendo.duracao)}</small>
+                <span className="app-modal__selos">
+                  <Badge tone={tomDe(vendo.status)}>{vendo.status}</Badge>
+                  <Badge tone="neutral">{vendo.tipo}</Badge>
+                </span>
+              </div>
             </div>
 
-            <div style={{ display:"flex", flexDirection:"column", gap: 14 }}>
-
-              {/* Tipo */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Tipo de Reunião</label>
-                <select
-                  value={formData.tipo}
-                  onChange={e => setFormData(prev => ({ ...prev, tipo: e.target.value, id_unidade: "", id_morador: "", nome: "", telefone: "" }))}
-                  style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                >
-                  {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-
-              {/* Unidade (somente Morador) */}
-              {formData.tipo === "Morador" && (
-                <div ref={dropdownRef} style={{ position:"relative" }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Unidade</label>
-                  <div
-                    onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                    style={{ padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                  >
-                    <span>{formData.id_unidade ? getUnitLabel(formData.id_unidade) : "Selecione a unidade..."}</span>
-                    <ChevronDown size={16} color={theme.textSecondary} />
-                  </div>
-                  {showUnitDropdown && (
-                    <div style={{ position:"absolute", top:"100%", left:0, width:"100%", background: theme.mainBg, border: `1px solid ${theme.border}`, borderRadius: 8, zIndex:1200, boxShadow:"0 8px 16px rgba(0,0,0,0.2)", marginTop: 4, overflow:"hidden" }}>
-                      <div style={{ padding: 8 }}>
-                        <input
-                          autoFocus
-                          value={unitSearch}
-                          onChange={e => setUnitSearch(e.target.value)}
-                          placeholder="Bloco ou unidade..."
-                          style={{ width:"100%", padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, boxSizing:"border-box", outline:"none", fontSize: 13 }}
-                        />
-                      </div>
-                      <div style={{ maxHeight: 180, overflowY:"auto" }}>
-                        {unidadesFiltradas.map(u => (
-                          <div
-                            key={u.id}
-                            onClick={() => handleUnidadeSelect(u.id)}
-                            style={{ padding: "9px 14px", cursor:"pointer", fontSize: 13, color: theme.text, borderBottom: `1px solid ${theme.border}` }}
-                            onMouseEnter={e => e.currentTarget.style.background = theme.bg}
-                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                          >
-                            BLOCO {u.bloco} - UNIDADE {u.unidade}
-                          </div>
-                        ))}
-                        {unidadesFiltradas.length === 0 && (
-                          <div style={{ padding: 12, textAlign:"center", fontSize: 12, color: theme.textSecondary }}>Nenhuma unidade encontrada</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Dropdown morador (quando há 2+) */}
-              {formData.tipo === "Morador" && formData.id_unidade && moradoresDaUnidade.length > 1 && (
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Morador</label>
-                  <select
-                    value={formData.id_morador || ""}
-                    onChange={e => handleMoradorSelect(e.target.value)}
-                    style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                  >
-                    <option value="">Avulso / Outro</option>
-                    {moradoresDaUnidade.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {/* Nome + Telefone */}
-              <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Nome</label>
-                  <input
-                    value={formData.nome}
-                    readOnly={formData.tipo === "Morador" && !!formData.id_morador}
-                    onChange={e => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                    style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: formData.tipo === "Morador" && formData.id_morador ? theme.mainBg : theme.bg, color: theme.text, fontSize: 13, outline:"none", opacity: formData.tipo === "Morador" && formData.id_morador ? 0.7 : 1 }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Telefone</label>
-                  <input
-                    value={formData.telefone}
-                    onChange={e => setFormData(prev => ({ ...prev, telefone: maskPhone(e.target.value) }))}
-                    placeholder="(11)99999-0000"
-                    style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                  />
+            <div className="app-detalhe">
+              {/* O horário em letra grande: é o que se confere antes de receber a pessoa. */}
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Quando</p>
+                <div className="app-cartao">
+                  <p className="app-cartao__rotulo">{formatDataExtenso(vendo.data)}</p>
+                  <p className="app-cartao__grande">{vendo.hora_inicio} – {calcHoraFim(vendo.hora_inicio, vendo.duracao)}</p>
+                  <p className="app-cartao__sub">{vendo.duracao}{vendo.tipo === "Morador" && rotuloUnidade(vendo.id_unidade) ? ` · ${rotuloUnidade(vendo.id_unidade)}` : ""}</p>
                 </div>
               </div>
 
-              {/* Data + Hora + Duração */}
-              <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Data</label>
-                  <input
-                    type="date"
-                    value={formData.data}
-                    onChange={e => { setFormData(prev => ({ ...prev, data: e.target.value })); setConflitError(""); }}
-                    style={{ width:"100%", padding: "9px 8px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Hora Início</label>
-                  <input
-                    type="time"
-                    value={formData.hora_inicio}
-                    min="10:00"
-                    max="17:00"
-                    step="300"
-                    onChange={e => { setFormData(prev => ({ ...prev, hora_inicio: e.target.value })); setConflitError(""); }}
-                    style={{ width:"100%", padding: "9px 8px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Duração</label>
-                  <select
-                    value={formData.duracao}
-                    onChange={e => { setFormData(prev => ({ ...prev, duracao: e.target.value })); setConflitError(""); }}
-                    style={{ width:"100%", padding: "9px 8px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                  >
-                    {DURACOES.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Assunto */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Assunto / Motivo</label>
-                <input
-                  value={formData.assunto}
-                  onChange={e => setFormData(prev => ({ ...prev, assunto: e.target.value }))}
-                  placeholder="Ex: Cobrança, problema na unidade..."
-                  style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                />
-              </div>
-
-              {/* Observações */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Observações</label>
-                <textarea
-                  value={formData.obs}
-                  onChange={e => setFormData(prev => ({ ...prev, obs: e.target.value }))}
-                  rows={2}
-                  style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none", resize:"vertical" }}
-                />
-              </div>
-
-              {/* Status */}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform:"uppercase", color: "var(--fg-muted)", display:"block", marginBottom: 5 }}>Status</label>
-                <select
-                  value={formData.status}
-                  onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  style={{ width:"100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline:"none" }}
-                >
-                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-
-              {/* Aviso de conflito */}
-              {conflitError && (
-                <div style={{ background: "#B8203F20", border: "1px solid #B8203F", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#D9607A", display:"flex", alignItems:"center", gap: 6 }}>
-                  <AlertCircle size={14} color="#B8203F" /> {conflitError}
-                </div>
-              )}
-
-              {/* Botões */}
-              <div style={{ display:"flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-                {modalType === "edit" && (
-                  <button
-                    onClick={() => handleDelete(formData.id)}
-                    style={{ background: "#B8203F20", color: "#B8203F", border: "1px solid #B8203F", padding: "10px 14px", borderRadius: 10, fontSize: 13, cursor:"pointer", display:"flex", alignItems:"center", gap: 6 }}
-                  >
-                    <Trash2 size={14} /> Excluir
-                  </button>
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Quando" itens={[
+                  ["Data", dataBR(vendo.data) || "—"],
+                  ["Horário", `${vendo.hora_inicio} – ${calcHoraFim(vendo.hora_inicio, vendo.duracao)}`],
+                  ["Duração", vendo.duracao],
+                ]} />
+                <Ficha titulo="Quem" itens={[
+                  ["Tipo", vendo.tipo],
+                  vendo.tipo === "Morador" && ["Unidade", rotuloUnidade(vendo.id_unidade) || "Não informada", true],
+                  ["Telefone", vendo.telefone ? maskPhone(vendo.telefone) : "Não informado"],
+                ]} />
+                {(vendo.assunto || vendo.obs) && (
+                  <section className="app-ficha">
+                    <h3 className="app-ficha__titulo">Assunto</h3>
+                    {vendo.assunto && <p className="mud-obs">{vendo.assunto}</p>}
+                    {vendo.obs && <p className="mud-obs">{vendo.obs}</p>}
+                  </section>
                 )}
-                <button
-                  onClick={() => setShowModal(false)}
-                  style={{ background: theme.bg, color: theme.textSecondary, border: `1px solid ${theme.border}`, padding: "10px 14px", borderRadius: 10, fontSize: 13, cursor:"pointer" }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  style={{ flex: 1, background: "#E35A3A", color: "white", border: "none", padding: 10, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor:"pointer" }}
-                >
-                  {modalType === "add" ? "Salvar Agendamento" : "Salvar Alterações"}
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+
+      {/* ---- Criar e editar ---- */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={modalType === "add" ? "Novo agendamento" : "Editar agendamento"}
+        size="md"
+        footer={
+          <div className="app-modal__acoes">
+            {modalType === "edit"
+              ? <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => handleDelete(formData.id)}>Excluir</Button>
+              : <span />}
+            <Button variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Button>
+            <Button variant="primary" type="submit" form="form-agendamento" loading={loadingGlobal}>Salvar</Button>
+          </div>
+        }
+      >
+        <form id="form-agendamento" className="mud-form" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+          <Field label="Tipo de reunião">
+            <Opcoes rotulo="Tipo de reunião" valor={formData.tipo}
+              onMudar={(tipo) => setFormData((f) => ({ ...f, tipo, id_unidade: "", id_morador: "", nome: "", telefone: "" }))}
+              opcoes={[["Morador", "Morador"], ["Prestador de Serviço", "Prestador"], ["Administradora", "Administradora"], ["Funcionário", "Funcionário"]]} />
+          </Field>
+
+          {formData.tipo === "Morador" && (
+            <Field label="Unidade" required>
+              <BuscaUnidade unidades={unidades} valor={unidadePorId.get(String(formData.id_unidade)) ?? null}
+                onEscolher={(u) => handleUnidadeSelect(u?.id ?? "")} />
+            </Field>
+          )}
+          {formData.tipo === "Morador" && formData.id_unidade && moradoresDaUnidade.length > 1 && (
+            <Field label="Morador">
+              <Select value={formData.id_morador || ""} onChange={(e) => handleMoradorSelect(e.target.value)}>
+                <option value="">Avulso / outro</option>
+                {moradoresDaUnidade.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+              </Select>
+            </Field>
+          )}
+
+          <div className="mud-form__par">
+            <Field label="Nome" required>
+              <Input value={formData.nome} readOnly={formData.tipo === "Morador" && Boolean(formData.id_morador)}
+                onChange={(e) => mudar("nome")(e.target.value)}
+                onBlur={(e) => mudar("nome")(nomeProprio(e.target.value))} />
+            </Field>
+            <Field label="Telefone">
+              <Input value={formData.telefone} inputMode="tel" placeholder="(21) 99999-0000"
+                onChange={(e) => mudar("telefone")(maskTelefone(e.target.value))} />
+            </Field>
+          </div>
+
+          <div className="mud-form__par">
+            <Field label="Data" required>
+              <Input type="date" value={formData.data} onChange={(e) => marcarHorario("data")(e.target.value)} />
+            </Field>
+            <Field label="Hora de início" required help="Das 10h às 17h">
+              <Input type="time" value={formData.hora_inicio} min="10:00" max="17:00" step="300"
+                onChange={(e) => marcarHorario("hora_inicio")(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Duração">
+            <Opcoes rotulo="Duração" valor={formData.duracao} onMudar={marcarHorario("duracao")} opcoes={DURACOES} />
+          </Field>
+
+          <Field label="Assunto">
+            <Input value={formData.assunto} placeholder="Ex.: cobrança, problema na unidade"
+              onChange={(e) => mudar("assunto")(e.target.value)} />
+          </Field>
+          <Field label="Observações">
+            <Textarea rows={2} value={formData.obs} onChange={(e) => mudar("obs")(e.target.value)} />
+          </Field>
+          <Field label="Situação">
+            <Opcoes rotulo="Situação" valor={formData.status} onMudar={mudar("status")} opcoes={STATUS_OPTIONS} />
+          </Field>
+
+          {conflitError && (
+            <p className="conf-alerta" role="alert"><AlertCircle size={16} aria-hidden="true" />{conflitError}</p>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 }

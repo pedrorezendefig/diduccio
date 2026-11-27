@@ -46,7 +46,7 @@
   right: 0;
   bottom: 0;
   height: 120px;
-  background: linear-gradient(to top, rgba(15, 36, 20, .92), rgba(15, 36, 20, 0) 78%);
+  background: linear-gradient(to top, rgba(36, 18, 15, .92), rgba(36, 18, 15, 0) 78%);
   pointer-events: none;
 }
 

@@ -228,6 +228,16 @@
 @media (max-width: 768px) {
   .vag-bloco { padding: var(--space-4) var(--space-5) var(--space-5); }
 }
+/* Lista: "🚗 Carro  🏍 Moto" lado a lado, placas uma embaixo da outra. */
+.vag-veiculos { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
+.vag-veiculos > span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.vag-placas { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.vag-nada { color: var(--fg-muted); }
+
+/* Os veículos da unidade no ver, um cartão embaixo do outro. */
+.vag-cartoes { display: flex; flex-direction: column; gap: var(--space-5); }
+
+
 .vag-bloco__titulo {
   display: flex;
   align-items: center;
@@ -388,3 +398,17 @@
   .res-filtros__divisor { display: none; }
   .res-filtros__rolagem { width: 100%; }
 }
+
+/* ======================= UNIDADES ======================= */
+
+/* A dívida em aberto na lista: terracota, porque é estado negativo real. */
+.uni-divida { color: var(--fg-danger); font-weight: 600; }
+.uni-nada { color: var(--fg-muted); }
+
+/* ======================= USUÁRIOS ======================= */
+.usu-nome { font-weight: 600; }
+.usu-nunca { color: var(--fg-muted); }
+
+/* ======================= CALENDÁRIO ======================= */
+/* Os atalhos para as telas de cada reserva, embaixo do aviso. */
+.cal-atalhos { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4); }

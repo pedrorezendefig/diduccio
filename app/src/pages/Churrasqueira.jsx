@@ -1,24 +1,20 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom"; // Se ainda não tiver
-import { 
-  Calendar, Search, Plus, Edit2, Trash2, X, Loader2, 
-  ChevronLeft, ChevronRight, MoreVertical, Eye, DollarSign,
-  FileText, Download, RotateCcw, CheckCircle2, AlertCircle, User, Paperclip, UploadCloud, ChevronDown
-} from "lucide-react";
-import { useTheme } from "../theme/useTheme";
+import { CheckCircle2, Circle, Download, FileText } from "lucide-react";
 
 // Bibliotecas para exportação
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { DriveImage, MiniaturaAnexo, abrirArquivoDrive } from "../components/DriveImage";
 import { listar, criar, editar, remover } from "../api/db";
-import { enviarAnexo, urlDoAnexo, removerAnexo, removerAnexosDoRegistro } from "../api/anexos";
-import { maskCPF, maskRG, maskPhone, maskCPFPrivacy, maskRGPrivacy, formatCurrency, dataParaMs , dataBR} from "../lib/format";
-import { converterUrlDrive, extrairIdDrive, sanitizarCelula, validarAnexo } from "../lib/drive";
-import { useToast, useConfirm, Ocupado, Input, Button, PageHeader, Modal, Gaveta, Badge } from "../ui";
+import { supabase } from "../api/supabase";
+import { can } from "../auth/permissions";
+import { enviarAnexo, urlsDosAnexos, removerAnexo, removerAnexosDoRegistro, arquivoDoApp } from "../api/anexos";
+import { maskCPFPrivacy, maskRGPrivacy, formatCurrency, dataParaMs, dataBR, nomeProprio } from "../lib/format";
+import { sanitizarCelula, validarAnexo } from "../lib/drive";
+import { useToast, useConfirm, Button, Modal } from "../ui";
+import TelaDeReservas from "../components/reservas/TelaDeReservas";
 
 // `churrasqueira` é administrativo pelas políticas do 0015: porteiro e
 // conselheiro não gravam. A mensagem crua do Postgres fala de row-level
@@ -35,64 +31,21 @@ const mensagemErro = (msg) => {
 };
 
 // --- ESTILOS ---
-const pageContainer = { padding: "20px", maxWidth: "1200px", margin: "0 auto" };
-const btnNew = { color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' };
-const searchContainer = { display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px', borderRadius: '8px', border: '1px solid' };
-const tableCard = { borderRadius: '16px', border: '1px solid', overflow: 'hidden' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const thStyle = { textAlign: 'left', padding: '16px 24px', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' };
-const thRow = { borderBottom: '1px solid' };
-const tdStyle = { padding: '16px 24px', fontSize: '14px' };
-const trStyle = { transition: '0.2s' };
-const badgeGreen = { backgroundColor: '#FEE4DC', color: '#B33320', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const badgeRed = { backgroundColor: '#F9DEE3', color: '#8F1530', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const paginationFooter = { padding: '15px 24px', borderTop: '1px solid', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(40, 22, 18, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
-const modalContent = { padding: '24px', borderRadius: '20px', width: '90%' };
-const modalHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' };
-const labelStyle = { fontSize: '11px', fontWeight: '700', marginBottom: '5px', display: 'block', textTransform: 'uppercase', color: 'var(--fg-muted)' };
-const selectStyle = { padding: '10px', borderRadius: '8px', border: '1px solid', outline: 'none', fontSize: '14px' };
-const viewBox = { padding: '12px', borderRadius: '12px', fontSize: '13px', border: '1px solid', lineHeight: '1.6' };
 
-/** Iniciais para o avatar da gaveta: primeiro e último nome. */
-function iniciaisDe(nome) {
-  const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
-  if (partes.length === 0) return "?";
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
 
-/** A planilha grava "Sim"/"Não", mas já apareceu "S" e "sim". */
-const pagoSim = (v) => String(v ?? "").trim().toLowerCase().startsWith("s");
 
-/** Linha rótulo/valor da gaveta de detalhe, igual à de Moradores. */
-function Dado({ rotulo, valor, mono }) {
-  const vazio = valor === null || valor === undefined || valor === "";
-  return (
-    <div className="vit-dado">
-      <span className="vit-dado__rotulo">{rotulo}</span>
-      <p className={
-        "vit-dado__valor" +
-        (mono ? " vit-dado__valor--mono" : "") +
-        (vazio ? " vit-dado__valor--vazio" : "")
-      }>
-        {vazio ? "-" : valor}
-      </p>
-    </div>
-  );
-}
 
-export default function Festas({ user }) {
+/** Status provisorio de tela; morre com o lancamento do app do morador. */
+const FALTA_PAGAMENTO = "Falta Pagamento";
+
+export default function Festas({ user } = {}) {
   const toast = useToast();
   const confirmar = useConfirm();
-  const { theme } = useTheme();
+  // O porteiro vê, só leitura (0120): os dados vêm da `churrasqueira_da_portaria`,
+  // sem CPF, RG, telefone, valor e comprovantes. Sem `user` (testes antigos),
+  // a tela segue como sempre foi.
+  const somenteLeitura = Boolean(user) && !can(user, "editarChurrasqueira");
 
-  const abrirUrlSegura = (url) => {
-    if (!url) return;
-    const s = url.toString().trim();
-    if (!/^https?:\/\//i.test(s)) { toast.error("Este link não é válido nem seguro."); return; }
-    window.open(s, "_blank", "noopener,noreferrer");
-  };
 
   const [festas, setFestas] = useState([]);
   const [unidades, setUnidades] = useState([]);
@@ -100,26 +53,20 @@ export default function Festas({ user }) {
   const [uploads, setUploads] = useState([]); // Guardar os uploads brutos
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ nome: "Sistema" });
   
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedFesta, setSelectedFesta] = useState(null);
   const [modalType, setModalType] = useState("add");
-  const [showMenuId, setShowMenuId] = useState(null);
-  const menuRef = useRef(null);
   // Guarda o timer que solta a tela depois do carregamento, para cancelá-lo se
   // a pessoa sair antes dele disparar.
   const timerCarregando = useRef(null);
   useEffect(() => () => clearTimeout(timerCarregando.current), []);
   const location = useLocation();
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterDivergencia, setFilterDivergencia] = useState("Todos");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [isMoradorCadastrado, setIsMoradorCadastrado] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -131,37 +78,15 @@ export default function Festas({ user }) {
 
   const [filterPeriodo, setFilterPeriodo] = useState({ inicio: "", fim: "" });
   const [filterPago, setFilterPago] = useState("Todos");
+  const [filterBloco, setFilterBloco] = useState("Todos");
 
-  const btnSaveStyles = {
-    ...btnNew,
-    backgroundColor: 'var(--btn-primary-bg)',
-    color: '#ffffff',
-    width: '100%',
-    justifyContent: 'center',
-    marginTop: '10px',
-    border: theme.isDark ? '1px solid #EF7A5C' : 'none'
-  };
 
   
 const [sortConfig, setSortConfig] = useState([{ key: 'data_reserva', direction: 'asc' }]);
   // Funções de Máscara
 
-const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-const [unitSearch, setUnitSearch] = useState("");
-const dropdownRef = useRef(null);
 
-// Função para exibir o texto da unidade selecionada no seletor
-const getUnitLabel = (id) => {
-  if (id === null || id === undefined || id === "") return "Selecione a Unidade...";
-  const u = unidades.find(unit => String(unit.id) === String(id));
-  return u ? `BLOCO ${u.bloco} - UNIDADE ${u.unidade}` : "Selecione a Unidade...";
-};
 
-// Filtro da lista de unidades baseado no que o usuário digita
-const unidadesFiltradas = unidades.filter(u =>
-  String(u.bloco ?? "").toLowerCase().includes(unitSearch.toLowerCase()) ||
-  String(u.unidade ?? "").toLowerCase().includes(unitSearch.toLowerCase())
-);
 
 const verificarEAtualizarStatus = async (listaFestas) => {
   const agora = new Date();
@@ -199,7 +124,6 @@ const verificarEAtualizarStatus = async (listaFestas) => {
 
 const [filterChurrasqueira, setFilterChurrasqueira] = useState("Todos");
 
-const fileInputRef = useRef(null); // Adicione isso logo abaixo dos outros useStates
 
 // Converte a data do banco (DD/MM/YYYY HH:mm) para o formato do input (YYYY-MM-DDTHH:mm)
 const formatDateTimeForInput = (dateTimeStr) => {
@@ -217,26 +141,6 @@ const formatDateTimeForInput = (dateTimeStr) => {
 
   useEffect(() => {
     fetchData();
-  
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-  
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenuId(null);
-      }
-  
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowUnitDropdown(false);
-      }
-    };
-  
-    document.addEventListener("mousedown", handleClickOutside);
-  
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
   }, []);
 
   useEffect(() => {
@@ -264,7 +168,22 @@ const formatDateTimeForInput = (dateTimeStr) => {
  const fetchData = async () => {
   try {
     setLoadingInitial(true);
-    
+
+    if (somenteLeitura) {
+      const [{ data, error }, resUnidades] = await Promise.all([
+        supabase.rpc("churrasqueira_da_portaria"),
+        listar("UNIDADES"),
+      ]);
+      if (error) toast.error("Não foi possível carregar as reservas da churrasqueira.");
+      setFestas(Array.isArray(data) ? data : []);
+      setUploads([]);
+      setMoradores([]);
+      setUnidades(Array.isArray(resUnidades) ? [...resUnidades].sort((a, b) =>
+        String(a.bloco).localeCompare(String(b.bloco), undefined, { numeric: true })
+        || String(a.unidade).localeCompare(String(b.unidade), undefined, { numeric: true })) : []);
+      return;
+    }
+
     const [resFestas, resUnidades, resMoradores, resUploads] = await Promise.all([
       listar("CHURRASQUEIRA"),
       listar("UNIDADES"),
@@ -277,12 +196,14 @@ const formatDateTimeForInput = (dateTimeStr) => {
     // Anexo novo vive no bucket; os antigos ficaram no Drive. Resolver aqui,
     // uma vez, deixa todos os pontos que exibem arquivo nesta tela lendo
     // `url_drive` como sempre leram, sem nenhum deles saber a diferença.
-    const listaUploads = await Promise.all(
-      (Array.isArray(resUploads) ? resUploads : []).map(async (up) => ({
-        ...up,
-        url_drive: (await urlDoAnexo(up)) ?? up.url_drive,
-      }))
-    );
+    // Em lote (urlsDosAnexos): um link por arquivo, todos juntos, esgotava
+    // as conexões do banco no plano grátis (544 DatabaseTimeout, 23/11).
+    const brutos = Array.isArray(resUploads) ? resUploads : [];
+    const links = await urlsDosAnexos(brutos.map((up) => up.caminho_storage));
+    const listaUploads = brutos.map((up) => ({
+      ...up,
+      url_drive: (up.caminho_storage && links.get(up.caminho_storage)) || up.url_drive,
+    }));
 
     setUploads(listaUploads);
 
@@ -322,7 +243,41 @@ const formatDateTimeForInput = (dateTimeStr) => {
 };
 
   
-  const gerarContratoPDF = (f) => {
+  /**
+   * O contrato so sai com o comprovante de pagamento anexado.
+   *
+   * Por enquanto a trava e da tela, e o comprovante e qualquer anexo ligado a
+   * reserva: e assim que a administracao trabalha hoje, antes do app do
+   * morador. A trava fica aqui dentro, e nao so no botao, para valer em todo
+   * lugar que gera o contrato (o menu da tabela e o do cartao no celular).
+   */
+  // Só leitura: o banco diz se há comprovante (o arquivo não vem).
+  const temComprovante = (reservaId) => somenteLeitura
+    ? Boolean(festas.find((f) => String(f.id) === String(reservaId))?.tem_comprovante)
+    : uploads.some((up) => String(up.id_festa ?? up.ID_FESTA ?? up.Id_Festa ?? "") === String(reservaId));
+
+  /**
+   * "Falta Pagamento": Pendente ou Agendado ainda sem comprovante anexado.
+   *
+   * PROVISORIO, ate o app do morador ser lancado — la o pagamento tem fluxo
+   * proprio (0056) e este status morre. Por isso ele e so de TELA: calculado
+   * aqui, nunca gravado no banco. Para tirar, basta esta funcao devolver
+   * `f.status` e sair a pilula do filtro; nao sobra dado para limpar.
+   */
+  const statusNaTela = (f) =>
+    (f.status === "Pendente" || f.status === "Agendado") && !temComprovante(f.id)
+      ? FALTA_PAGAMENTO
+      : f.status;
+
+  /**
+   * `documento`: "rg" ou "cpf", escolhido por quem gera o contrato. Por enquanto
+   * a administração escolhe na hora; com o app do morador, o dado vem de lá.
+   */
+  const gerarContratoPDF = (f, documento = "rg") => {
+    if (!temComprovante(f.id)) {
+      toast.error("Anexe o comprovante de pagamento para gerar o contrato.");
+      return;
+    }
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -373,7 +328,7 @@ const formatDateTimeForInput = (dateTimeStr) => {
     try {
         doc.addImage('/logo.png', 'PNG', pageWidth / 2 - 25, currentY, 50, 25);
         currentY += 35;
-    } catch (e) { currentY += 10; }
+    } catch { currentY += 10; }
 
     // 2. CABEÇALHO
     doc.setFont("helvetica", "bold");
@@ -401,8 +356,8 @@ const formatDateTimeForInput = (dateTimeStr) => {
     escreverFluxoMisto([
         { t: "Eu ", b: false },
         { t: f.morador.toUpperCase(), b: true },
-        { t: ", portador do RG ", b: false },
-        { t: f.rg || "__________", b: true },
+        { t: documento === "cpf" ? ", portador do CPF " : ", portador do RG ", b: false },
+        { t: (documento === "cpf" ? f.cpf : f.rg) || "__________", b: true },
         { t: " morador do bloco ", b: false },
         { t: bloco, b: true },
         { t: " apartamento ", b: false },
@@ -552,7 +507,7 @@ const gerarContratoVazio = () => {
     try {
         doc.addImage('/logo.png', 'PNG', pageWidth / 2 - 25, currentY, 50, 25);
         currentY += 35;
-    } catch (e) { currentY += 10; }
+    } catch { currentY += 10; }
 
     // 2. CABEÇALHO
     doc.setFont("helvetica", "bold");
@@ -574,7 +529,7 @@ const gerarContratoVazio = () => {
     escreverFluxoMisto([
         { t: "Eu ", b: false },
         { t: "___________________________________________", b: true },
-        { t: ", portador do RG ", b: false },
+        { t: ", portador do RG/CPF ", b: false },
         { t: "_________________", b: true },
         { t: " morador do bloco ", b: false },
         { t: "____", b: true },
@@ -676,48 +631,6 @@ currentY += (linesChaves.length * 6) + 12;
     doc.save(`Contrato_Modelo_Vazio.pdf`);
 };
 
-const getChurrasqueiraBadge = (valor) => {
-    // Transforma em texto, limpa espaços e coloca em maiúsculo (Ex: "ch-a " vira "CH-A")
-    const v = String(valor || "").trim().toUpperCase();
-
-    const estiloBase = {
-      padding: '4px 12px',
-      borderRadius: '20px',
-      fontSize: '11px',
-      fontWeight: '800',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minWidth: '60px',
-      border: '1px solid'
-    };
-
-    if (v === "CH-A") {
-      return {
-        ...estiloBase,
-        backgroundColor: 'var(--brand-100)',
-        color: 'var(--brand-700)',
-        borderColor: 'var(--brand-200)'
-      };
-    } 
-    
-    if (v === "CH-B") {
-      return {
-        ...estiloBase,
-        backgroundColor: 'var(--alert-50)',
-        color: 'var(--alert-700)',
-        borderColor: 'var(--alert-400)'
-      };
-    }
-
-    // Cor padrão caso venha outro valor
-    return { 
-      ...estiloBase, 
-      backgroundColor: theme?.isDark ? 'var(--border-strong)' : 'var(--surface-3)', 
-      color: theme?.text || '#000',
-      borderColor: theme?.border || '#ccc' 
-    };
-  };
 
 const [showExportModal, setShowExportModal] = useState(false);
 const [selectedColumns, setSelectedColumns] = useState([
@@ -771,7 +684,7 @@ else if (col.id === 'churrasqueira') {
       else {
         // Para as demais colunas (contato, pago, status, etc)
         // Usa o label que você definiu no estado selectedColumns
-        linha[col.label] = sanitizarCelula(f[col.id] || "");
+        linha[col.label] = sanitizarCelula((col.id === "status" ? statusNaTela(f) : f[col.id]) || "");
       }
     });
 
@@ -796,14 +709,6 @@ const exportToPDF = () => {
   const img = new Image(); 
   img.src = "/logo.png"; 
 
-  // Função interna para a máscara (pode declarar fora se preferir)
-  const maskCPFPrivacy = (cpf) => {
-    if (cpf === null || cpf === undefined || cpf === "") return "";
-    const cpfStr = String(cpf);
-    const clean = cpfStr.replace(/\D/g, "");
-    if (clean.length < 11) return cpfStr;
-    return `${clean.substring(0, 3)}.***.***-${clean.substring(9)}`;
-  };
   
 
   const colsParaExportar = selectedColumns.filter(c => c.selected);
@@ -929,7 +834,9 @@ const handleDeleteImage = async (uploadId) => {
 
     // A linha primeiro, o arquivo depois: na ordem inversa, uma falha ao apagar
     // a linha deixaria um anexo listado apontando para arquivo inexistente.
-    if (anexo?.caminho_storage) {
+    // Comprovante enviado pelo app: sai da reserva, mas o arquivo fica (é o
+    // recibo do morador, o mesmo que o app e Confirmações mostram).
+    if (anexo?.caminho_storage && !arquivoDoApp(anexo.caminho_storage)) {
       const rm = await removerAnexo(anexo.caminho_storage);
       if (!rm.success) {
         console.warn("Anexo removido da lista, mas não do bucket:", anexo.caminho_storage, rm.message);
@@ -945,16 +852,6 @@ const handleDeleteImage = async (uploadId) => {
   }
 };
 
-const getFotosFestaInterno = (festaId, listaDeUploads) => {
-  if (!festaId || !listaDeUploads) return [];
-  
-  return listaDeUploads
-    .filter(up => {
-      const idVinculo = up.id_festa || up.ID_FESTA || up.Id_Festa;
-      return idVinculo?.toString() === festaId?.toString();
-    })
-    .map(up => up.url_drive || up.URL_DRIVE || up.url);
-};
 
   const handleSave = async () => {
   // 1. VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
@@ -1027,7 +924,7 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
   const dados = {
     data_reserva: formData.data_reserva ? String(formData.data_reserva).split("T")[0] : null,
     unidade_id: formData.unidade_id ? Number(formData.unidade_id) : null,
-    morador: formData.morador || null,
+    morador: nomeProprio(formData.morador) || null,
     status: formData.status || "Pendente",
     cpf: formData.cpf || null,
     rg: formData.rg || null,
@@ -1126,7 +1023,7 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
 
         await fetchData();
         setLoadingGlobal(false);
-        if (typeof setShowMenuId === "function") setShowMenuId(null);
+        setShowViewModal(false);
 
       } catch (error) {
         console.error("Erro ao excluir:", error);
@@ -1161,7 +1058,7 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
         f.morador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         f.unidade_id?.toString().includes(searchTerm);
     
-    const matchesStatus = filterStatus === "Todos" || f.status === filterStatus;
+    const matchesStatus = filterStatus === "Todos" || statusNaTela(f) === filterStatus;
     const matchesPago = filterPago === "Todos" || f.pago === filterPago;
 
     const matchesChurrasqueira = filterChurrasqueira === "Todos" || f.churrasqueira === filterChurrasqueira;
@@ -1169,6 +1066,9 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
     // Normaliza o valor de divergencia_local para comparar com Sim/Não
     const valorDivergencia = (f.divergencia_local === true || f.divergencia_local === "Sim") ? "Sim" : "Não";
     const matchesDivergencia = filterDivergencia === "Todos" || valorDivergencia === filterDivergencia;
+
+    const matchesBloco = filterBloco === "Todos"
+      || String(unidades.find((u) => String(u.id) === String(f.unidade_id))?.bloco) === filterBloco;
 
     let matchesData = true;
     if (filterPeriodo.inicio || filterPeriodo.fim) {
@@ -1178,7 +1078,7 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
         if (filterPeriodo.inicio && dataFesta < dataParaMs(filterPeriodo.inicio)) matchesData = false;
         if (filterPeriodo.fim && dataFesta > dataParaMs(`${filterPeriodo.fim} 23:59`)) matchesData = false;
     }
-    return matchesSearch && matchesStatus && matchesPago && matchesData && matchesDivergencia && matchesChurrasqueira;
+    return matchesSearch && matchesStatus && matchesPago && matchesData && matchesDivergencia && matchesBloco && matchesChurrasqueira;
   });
 
   // --- APLICA A NOVA ORDENAÇÃO ---
@@ -1191,7 +1091,12 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
         if (key === 'data_reserva') {
           valA = dataParaMs(valA);
           valB = dataParaMs(valB);
-        } else if (key === 'valor_taxa' || key === 'unidade_id') {
+        } else if (key === 'unidade_id') {
+          // Pela ordem do prédio (bloco, depois apartamento), e não pelo id.
+          const pesoDe = (id) => { const u = unidades.find((x) => String(x.id) === String(id)); return u ? Number(u.bloco) * 100000 + Number(u.unidade) : 0; };
+          valA = pesoDe(valA);
+          valB = pesoDe(valB);
+        } else if (key === 'valor_taxa') {
           valA = Number(valA) || 0;
           valB = Number(valB) || 0;
         } else {
@@ -1208,91 +1113,79 @@ const getFotosFestaInterno = (festaId, listaDeUploads) => {
   return resultado;
 
   
-}, [festas, searchTerm, filterStatus, filterPago, filterPeriodo, sortConfig, filterDivergencia, filterChurrasqueira]);
+}, [festas, uploads, searchTerm, filterStatus, filterPago, filterPeriodo, sortConfig, filterDivergencia, filterChurrasqueira, unidades, filterBloco]);
 
-// --- 3. RE-DECLARAÇÃO DAS VARIÁVEIS DE PAGINAÇÃO (Resolve os erros de undefined) ---
-const totalPages = Math.ceil(dadosFiltrados.length / (itemsPerPage === "Todos" ? dadosFiltrados.length : itemsPerPage));
 
-const handleSort = (key, isShiftPressed) => {
-  setSortConfig(prev => {
-    let newConfig = [...prev];
-    const index = newConfig.findIndex(c => c.key === key);
-
-    if (index > -1) {
-      if (newConfig[index].direction === 'asc') {
-        newConfig[index] = { key, direction: 'desc' };
-      } else {
-        newConfig.splice(index, 1);
-      }
-    } else {
-      const newItem = { key, direction: 'asc' };
-      newConfig = isShiftPressed ? [...newConfig, newItem] : [newItem];
-    }
-    return newConfig;
-  });
+const handleSort = (key) => {
+  // Clicar na coluna: a primeira vez ordena crescente; de novo, inverte.
+  setSortConfig(([atual]) => [{ key, direction: atual?.key === key && atual.direction === "asc" ? "desc" : "asc" }]);
 };
 
-const itensExibidos = React.useMemo(() => {
-  if (itemsPerPage === "Todos") return dadosFiltrados;
-  const start = (currentPage - 1) * itemsPerPage;
-  return dadosFiltrados.slice(start, start + itemsPerPage);
-}, [dadosFiltrados, currentPage, itemsPerPage]);
+
+  // ---- A tela ----
+  // O desenho é o mesmo de Festas e Churrasqueira (TelaDeReservas, no padrão
+  // do guia de marca). Aqui ficam só os dados e as ações desta tabela.
+  const FORM_VAZIO = {
+    unidade_id: "", morador: "", contato: "", data_reserva: "", valor_taxa: "", pago: "Não",
+    status: "Pendente", cpf: "", rg: "", convidados: "", foto: "", divergencia_local: false, obs: "", churrasqueira: "",
+  };
+  const abrirNova = () => {
+    setModalType("add");
+    setIsMoradorCadastrado(false);
+    setFormData({ ...FORM_VAZIO });
+    setShowViewModal(false);
+    setShowModal(true);
+  };
+  const abrirEdicao = (f) => {
+    setModalType("edit");
+    setIsMoradorCadastrado(false);
+    setFormData({ ...f, foto: getFotoFesta(f.id), data_reserva: formatDateTimeForInput(f.data_reserva) });
+    setShowViewModal(false);
+    setShowModal(true);
+  };
 
   return (
-    
-    <div style={{...pageContainer, padding: isMobile ? "20px 12px" : "20px", paddingTop: isMobile ? "60px" : "20px"}}>
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .action-menu { 
-    position: absolute; 
-    right: 30px; 
-    background: ${theme.mainBg}; 
-    border: 1px solid ${theme.border}; 
-    border-radius: 10px; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-    z-index: 100;
-    width: 180px; /* <--- Aumente aqui */
-    max-width: calc(100vw - 24px);
-    padding: 5px;
-}
-    .column-select-item {
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  padding: 12px; 
-  border-radius: 10px; 
-  border: 1px solid ${theme.border}; 
-  cursor: pointer; 
-  transition: 0.2s; 
-}
-.column-select-item:hover {
-  background: ${theme.bg};
-}
-.column-select-item.active { 
-  border-color: var(--brand-500); 
-  background: var(--bg-active); 
-}
-
-/* Evita que o texto pule linha e garante alinhamento */
-.menu-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    padding: 10px 12px; 
-    font-size: 13px; 
-    cursor: pointer; 
-    border-radius: 6px; 
-    color: ${theme.text}; 
-    white-space: nowrap; /* <--- ADICIONE ISSO: impede de pular linha */
-}
-        .menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; border-radius: 6px; color: ${theme.text}; }
-        .menu-item:hover { background: ${theme.bg}; }
-        .pagination-btn { background: none; border: 1px solid ${theme.border}; color: ${theme.text}; padding: 5px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; }
-        .pagination-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-      `}</style>
-
-            <Modal
+    <TelaDeReservas
+      titulo="Churrasqueira"
+      somenteLeitura={somenteLeitura}
+      espaco={{ campo: "churrasqueira", rotulo: "Churrasqueira", opcoes: ["CH-A", "CH-B"] }}
+      falta={FALTA_PAGAMENTO}
+      reservas={festas}
+      lista={dadosFiltrados}
+      unidades={unidades}
+      moradores={moradores}
+      uploads={uploads}
+      carregando={loadingInitial}
+      salvando={loadingGlobal}
+      filtros={{
+        busca: searchTerm, setBusca: setSearchTerm, status: filterStatus, setStatus: setFilterStatus,
+        pago: filterPago, setPago: setFilterPago, divergencia: filterDivergencia, setDivergencia: setFilterDivergencia,
+        bloco: filterBloco, setBloco: setFilterBloco,
+        periodo: filterPeriodo, setPeriodo: setFilterPeriodo, espaco: filterChurrasqueira, setEspaco: setFilterChurrasqueira,
+      }}
+      ordenacao={sortConfig[0] && { chave: sortConfig[0].key, direcao: sortConfig[0].direction }}
+      onOrdenar={handleSort}
+      statusNaTela={statusNaTela}
+      temComprovante={temComprovante}
+      ver={{
+        aberto: showViewModal, reserva: selectedFesta,
+        abrir: (f) => { setSelectedFesta(f); setShowViewModal(true); },
+        fechar: () => setShowViewModal(false),
+      }}
+      form={{
+        aberto: showModal, fechar: () => setShowModal(false), modo: modalType,
+        dados: formData, setDados: setFormData, moradorCadastrado: isMoradorCadastrado,
+      }}
+      acoes={{
+        nova: abrirNova, editar: abrirEdicao, salvar: handleSave, excluir: handleDelete,
+        excluirAnexo: handleDeleteImage, escolherArquivos: handleFileChange,
+        escolherMorador: handleMoradorSelect, alternarMoradorCadastrado: toggleMoradorCadastrado,
+        gerarContrato: gerarContratoPDF, contratoVazio: gerarContratoVazio,
+        exportar: () => setShowExportModal(true),
+      }}
+    >
+      {/* ---- Exportação: a mesma de antes ---- */}
+      <Modal
         open={showExportModal}
         onClose={() => setShowExportModal(false)}
         title="Exportar reservas"
@@ -1305,13 +1198,13 @@ const itensExibidos = React.useMemo(() => {
           </>
         }
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-6)" }}>
+        <p className="vit-modal__desc mud-exporta">
           {dadosFiltrados.length === festas.length
             ? `Serão exportados os ${dadosFiltrados.length} reservas.`
             : `Serão exportados os ${dadosFiltrados.length} reservas que passam nos filtros atuais, de ${festas.length} no total.`}
         </p>
 
-        <p className="vit-field__label" style={{ marginBottom: "var(--space-4)" }}>
+        <p className="vit-field__label mud-exporta">
           Colunas do PDF
         </p>
         <div className="exp-colunas">
@@ -1329,986 +1222,6 @@ const itensExibidos = React.useMemo(() => {
           ))}
         </div>
       </Modal>
-
-      <Ocupado
-        open={loadingInitial || loadingGlobal}
-        mensagem={loadingInitial ? "Carregando reservas..." : "Salvando..."}
-      />
-
-      <PageHeader
-        title="Churrasqueira"
-        meta={
-          loadingInitial
-            ? "Carregando reservas"
-            : `${dadosFiltrados.length} de ${festas.length} reservas`
-        }
-        actions={
-          <>
-            <Button onClick={gerarContratoVazio} iconLeft={<FileText size={15} />}>
-              Contrato
-            </Button>
-            <Button onClick={() => setShowExportModal(true)} iconLeft={<FileText size={15} />}>
-              Exportar
-            </Button>
-            <Button
-              variant="ghost"
-              iconLeft={<RotateCcw size={15} />}
-              onClick={() => {
-                setSearchTerm("");
-                setFilterStatus("Todos");
-                setFilterPago("Todos");
-                setFilterChurrasqueira("Todos");
-                setFilterPeriodo({ inicio: "", fim: "" });
-                setFilterDivergencia("Todos");
-                setCurrentPage(1);
-              }}
-            >
-              Redefinir
-            </Button>
-            <Button
-              variant="primary"
-              iconLeft={<Plus size={16} />}
-              onClick={() => {
-                setModalType("add");
-                setIsMoradorCadastrado(false);
-                setShowModal(true);
-              }}
-            >
-              Nova reserva
-            </Button>
-          </>
-        }
-      />
-
-      <div className="res-filtros">
-    <div style={{ display: "contents" }}>
-        
-        {/* LINHA 1: BUSCA E STATUS */}
-        <div className="res-filtros__linha">
-            <div className="cad-filtros__busca">
-                <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar unidade ou morador..."
-                  aria-label="Buscar unidade ou morador..."
-                />
-            </div>
-            
-            <div className="res-filtros__rolagem">
-                {["Todos", "Pendente", "Agendado", "Realizado", "Cancelado"].map(s => (
-                    <button key={s} className={`filter-pill ${filterStatus === s ? 'active' : ''}`} onClick={() => setFilterStatus(s)}>{s}</button>
-                ))}
-            </div>
-        </div>
-
-        {/* LINHA 2: PAGO E PERÍODO */}
-        <div className="res-filtros__linha">
-            
-            {/* Filtro Pago (Estilo Pill) */}
-            <div className="res-filtros__rolagem">
-                {["Todos", "Sim", "Não"].map(p => (
-                    <button 
-                        key={p} 
-                        className={`filter-pill ${filterPago === p ? 'active' : ''}`} 
-                        onClick={() => setFilterPago(p)}
-                    >
-                        {p === "Todos" ? "Pagamento: Todos" : p === "Sim" ? "Pago" : "Não Pago"}
-                    </button>
-                ))}
-            </div>
-
-            {/* Filtro Churrasqueira (Estilo Pill - Igual ao solicitado) */}
-<div style={{ display: 'flex', gap: '8px' }}>
-  {["Todos", "CH-A", "CH-B"].map(c => (
-    <button 
-      key={c} 
-      className={`filter-pill ${filterChurrasqueira === c ? 'active' : ''}`} 
-      onClick={() => setFilterChurrasqueira(c)}
-    >
-      {c === "Todos" ? "Churrasqueira: Todas" : c}
-    </button>
-  ))}
-</div>
-
-  {/* Grupo Divergência */}
-  <div className="res-filtros__rolagem">
-    {["Todos", "Sim", "Não"].map(d => (
-      <button 
-        key={d} 
-        className={`filter-pill ${d !== 'Todos' ? 'filter-pill--alerta' : ''} ${filterDivergencia === d ? 'active' : ''}`} 
-        onClick={() => setFilterDivergencia(d)}
-      >
-        {d === "Todos" ? "Divergência: Todas" : d}
-      </button>
-    ))}
-  </div>
-
-        {/* Filtro Período */}
-<div style={{
-    display: 'flex', 
-    alignItems: 'center', // Centraliza verticalmente (o "até" fica no meio da altura das caixas)
-    gap: '10px', 
-    flex: 1,
-    justifyContent: isMobile ? 'center' : 'flex-end',
-    flexWrap: 'wrap' // Permite quebrar de linha no mobile para não estourar
-}}>
-    {/* Caixa 1 */}
-    <div style={{
-        ...searchContainer, 
-        backgroundColor: theme.bg, 
-        borderColor: theme.border, 
-        padding: '5px 10px', 
-        minWidth: isMobile ? '120px' : '150px', 
-        display: 'flex',
-        alignItems: 'center',
-        gap: '5px'
-    }}>
-        <Calendar size={14} color={theme.textSecondary} />
-        <input 
-            type="date" 
-            style={{
-                background:'none', 
-                border:'none', 
-                color: theme.text, 
-                fontSize:'12px', 
-                outline:'none',
-                width: '100%'
-            }} 
-            value={filterPeriodo.inicio} 
-            onChange={e => setFilterPeriodo({...filterPeriodo, inicio: e.target.value})}
-        />
-    </div>
-
-    {/* Texto "até" Centralizado */}
-    <span style={{
-        color: theme.textSecondary, 
-        fontSize: '12px', 
-        whiteSpace: 'nowrap',
-        alignSelf: 'center' // Garante o alinhamento no meio
-    }}>
-        até
-    </span>
-
-    {/* Caixa 2 */}
-    <div style={{
-        ...searchContainer, 
-        backgroundColor: theme.bg, 
-        borderColor: theme.border, 
-        padding: '5px 10px', 
-        minWidth: isMobile ? '120px' : '150px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '5px'
-    }}>
-        <Calendar size={14} color={theme.textSecondary} />
-        <input 
-            type="date" 
-            style={{
-                background:'none', 
-                border:'none', 
-                color: theme.text, 
-                fontSize:'12px', 
-                outline:'none',
-                width: '100%'
-            }} 
-            value={filterPeriodo.fim} 
-            onChange={e => setFilterPeriodo({...filterPeriodo, fim: e.target.value})}
-        />
-    </div>
-
-    {/* Botão Reset */}
-    {(filterPeriodo.inicio || filterPeriodo.fim) && (
-        <RotateCcw 
-            size={16} 
-            cursor="pointer" 
-            color={theme.textSecondary} 
-            onClick={() => setFilterPeriodo({inicio: "", fim: ""})} 
-        />
-    )}
-</div>
-        </div>
-    </div>
-</div>
-
-      <div style={{...tableCard, backgroundColor: theme.mainBg, borderColor: theme.border}}>
-        {!isMobile && (
-        <div style={{ overflowX: 'auto' }}>
-            <table style={{...tableStyle, minWidth: '800px'}}>
-                <thead>
-                    <tr style={{...thRow, borderBottomColor: theme.border, backgroundColor: theme.isDark ? 'var(--fg-default)' : 'var(--surface-2)'}}>
-    {[
-      { label: "Unidade", key: "unidade_id" },
-      { label: "Churrasqueira", key: "churrasqueira" },
-      { label: "Morador", key: "morador" },
-      { label: "Data", key: "data_reserva" },
-      { label: "Valor", key: "valor_taxa" },
-      { label: "Pago", key: "pago" },
-      { label: "Status", key: "status" }
-    ].map((col) => {
-      const config = sortConfig.find(c => c.key === col.key);
-      return (
-        <th 
-          key={col.key}
-          style={{...thStyle, color: theme.textSecondary, cursor: 'pointer', userSelect: 'none'}}
-          onClick={(e) => handleSort(col.key, e.shiftKey)}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {col.label}
-            {config && (config.direction === 'asc' ? " ↑" : " ↓")}
-          </div>
-        </th>
-      );
-    })}
-    <th style={{...thStyle, textAlign: 'right', color: theme.textSecondary}}>Ações</th>
-  </tr>
-</thead>
-                <tbody>
-  {itensExibidos.map((f) => {
-    const unit = unidades.find(u => u.id?.toString() === f.unidade_id?.toString());
-    return (
-      <tr key={f.id} style={{ ...trStyle, borderBottom: `1px solid ${theme.border}` }}>
-        {/* Coluna Unidade */}
-        <td style={{ ...tdStyle, color: theme.text, textAlign: 'left' }}>
-          <strong>{unit ? `B${unit.bloco} - ${unit.unidade}` : f.unidade_id}</strong>
-        </td>
-
-        {/* Coluna Churrasqueira */}
-        <td style={{ ...tdStyle, textAlign: 'left' }}>
-          <span style={getChurrasqueiraBadge(f.churrasqueira)}>
-            {f.churrasqueira}
-          </span>
-        </td>
-
-        {/* Coluna Morador */}
-        <td style={{ ...tdStyle, color: theme.text }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: '600' }}>{f.morador}</span>
-            {f.cpf && (
-              <span style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '2px' }}>
-                {maskCPFPrivacy(f.cpf)}
-              </span>
-            )}
-          </div>
-        </td>
-
-        {/* Coluna Data */}
-        <td style={tdStyle}>
-          {dataBR(f.data_reserva)}
-        </td>
-
-        {/* Coluna Valor */}
-        <td style={{ ...tdStyle, color: theme.text }}>
-          {formatCurrency(f.valor_taxa)}
-        </td>
-
-        {/* Coluna Pago */}
-        <td style={tdStyle}>
-          <span style={f.pago === "Sim" ? badgeGreen : badgeRed}>
-            {f.pago === "Sim" ? "Sim" : "Não"}
-          </span>
-        </td>
-
-        {/* Coluna Status */}
-        <td style={tdStyle}>
-          <span style={{
-            ...badgeGreen, 
-            backgroundColor: f.status === 'Cancelado' ? '#F9DEE3' : f.status === 'Realizado' ? '#FEE4DC' : f.status === 'Pendente' ? 'var(--surface-3)' : '#FEE4DC',
-            color: f.status === 'Cancelado' ? '#8F1530' : f.status === 'Realizado' ? '#B33320' : f.status === 'Pendente' ? 'var(--fg-secondary)' : '#B33320'
-          }}>
-            {f.status}
-          </span>
-        </td>
-
-        {/* --- COLUNA AÇÕES --- */}
-        <td style={{ ...tdStyle, textAlign: 'right', position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-            
-            {/* Container do Olho + Asterisco */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button
-                type="button"
-                aria-label={`Ver reserva de ${f.morador || "sem responsável"}`}
-                onClick={() => { setSelectedFesta(f); setShowViewModal(true); }}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}
-              >
-                {/* Era um <Eye> com onClick: um SVG não recebe foco nem abre pelo
-                    teclado, e para um leitor de tela não existia. */}
-                <Eye size={18} color={theme.brand} />
-              </button>
-              
-              {/* Asterisco */}
-              {((f.divergencia_local === "Sim" || f.divergencia_local === true) || (f.obs && f.obs.trim() !== "")) && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-8px',
-                  color: '#B8203F',
-                  fontWeight: 'bold',
-                  fontSize: '20px',
-                  pointerEvents: 'none'
-                }}>
-                  *
-                </span>
-              )}
-            </div>
-
-            {/* Menu de Opções */}
-            <button 
-              aria-label={`Ações da reserva de ${f.morador || "sem responsável"}`} onClick={() => setShowMenuId(showMenuId === f.id ? null : f.id)} 
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
-            >
-              <MoreVertical size={20} color={theme.textSecondary} />
-            </button>
-          </div>
-                                    {showMenuId === f.id && (
-    <div ref={menuRef} className="action-menu" style={{ right: '10px', top: '40px' }}>
-        {/* BOTÃO GERAR CONTRATO */}
-        <div className="menu-item" onClick={() => { 
-            gerarContratoPDF(f); 
-            setShowMenuId(null); 
-        }}>
-            <FileText size={14} color={theme.brand} /> Gerar Contrato
-        </div>
-
-        <div style={{ height: '1px', backgroundColor: theme.border, margin: '4px 0' }} />
-
-        <div className="menu-item" onClick={() => { 
-            setModalType("edit"); 
-            
-            // Formatando a data antes de enviar para o formulário
-            setFormData({
-                ...f, 
-                foto: getFotoFesta(f.id),
-                data_reserva: formatDateTimeForInput(f.data_reserva) 
-            }); 
-            
-            setShowModal(true); 
-            setShowMenuId(null); 
-        }}>
-            <Edit2 size={14} /> Editar
-        </div>
-        
-        <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
-            <Trash2 size={14} /> Excluir
-        </div>
-    </div>
-)}
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
-        )}
-
-        {isMobile && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px' }}>
-            {itensExibidos.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '28px 0', color: theme.textSecondary }}>Nenhuma reserva encontrada.</div>
-            ) : itensExibidos.map((f) => {
-              const unit = unidades.find(u => u.id?.toString() === f.unidade_id?.toString());
-              const temAlerta = (f.divergencia_local === "Sim" || f.divergencia_local === true) || (f.obs && f.obs.trim() !== "");
-              return (
-                <div key={f.id} style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}`, borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: '15px', color: theme.text }}>{unit ? `B${unit.bloco} - ${unit.unidade}` : f.unidade_id}</div>
-                      <div style={{ marginTop: '4px' }}><span style={getChurrasqueiraBadge(f.churrasqueira)}>{f.churrasqueira}</span></div>
-                    </div>
-                    <span style={{ ...badgeGreen, flexShrink: 0, backgroundColor: f.status === 'Cancelado' ? '#F9DEE3' : f.status === 'Realizado' ? '#FEE4DC' : f.status === 'Pendente' ? 'var(--surface-3)' : '#FEE4DC', color: f.status === 'Cancelado' ? '#8F1530' : f.status === 'Realizado' ? '#B33320' : f.status === 'Pendente' ? 'var(--fg-secondary)' : '#B33320' }}>{f.status}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: `1px solid ${theme.border}`, paddingTop: '8px' }}>
-                    <span style={{ fontWeight: 600, color: theme.text, display: 'flex', alignItems: 'center', gap: '6px' }}>{f.morador}{temAlerta && <span style={{ color: '#B8203F', fontWeight: 'bold' }}>*</span>}</span>
-                    {f.cpf && <span style={{ fontSize: '12px', color: theme.textSecondary }}>{maskCPFPrivacy(f.cpf)}</span>}
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '13px' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: theme.textSecondary, textTransform: 'uppercase', fontWeight: 600 }}>Data</div>
-                      <div style={{ color: theme.text }}>{dataBR(f.data_reserva) || "—"}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: theme.textSecondary, textTransform: 'uppercase', fontWeight: 600 }}>Valor</div>
-                      <div style={{ color: theme.text }}>{formatCurrency(f.valor_taxa)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: theme.textSecondary, textTransform: 'uppercase', fontWeight: 600 }}>Pago</div>
-                      <span style={f.pago === "Sim" ? badgeGreen : badgeRed}>{f.pago === "Sim" ? "Sim" : "Não"}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', borderTop: `1px solid ${theme.border}`, paddingTop: '10px' }}>
-                    <button onClick={() => { setSelectedFesta(f); setShowViewModal(true); }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: 'none', color: 'var(--fg-brand)', fontWeight: 700, cursor: 'pointer' }}><Eye size={16} /> Ver</button>
-                    <div style={{ position: 'relative' }}>
-                      <button aria-label={`Ações da reserva de ${f.morador || "sem responsável"}`} onClick={() => setShowMenuId(showMenuId === f.id ? null : f.id)} style={{ padding: '10px 14px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: 'none', color: theme.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center' }}><MoreVertical size={18} /></button>
-                      {showMenuId === f.id && (
-                        <div ref={menuRef} className="action-menu" style={{ right: 0, top: '46px' }}>
-                          <div className="menu-item" onClick={() => { gerarContratoPDF(f); setShowMenuId(null); }}><FileText size={14} color={theme.brand} /> Gerar Contrato</div>
-                          <div style={{ height: '1px', backgroundColor: theme.border, margin: '4px 0' }} />
-                          <div className="menu-item" onClick={() => { setModalType("edit"); setFormData({ ...f, foto: getFotoFesta(f.id), data_reserva: formatDateTimeForInput(f.data_reserva) }); setShowModal(true); setShowMenuId(null); }}><Edit2 size={14} /> Editar</div>
-                          <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}><Trash2 size={14} /> Excluir</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div style={{
-  ...paginationFooter,
-  borderTopColor: theme.border,
-  backgroundColor: theme.mainBg,
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "12px",
-  justifyContent: "space-between",
-  alignItems: "center"
-}}>
-
-  {/* ESQUERDA: Exibir + Contador */}
-  <div style={{
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "12px 20px"
-  }}>
-    
-    {/* Seletor Exibir */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <span style={{ fontSize: '13px', color: theme.textSecondary }}>
-        Exibir:
-      </span>
-      <select 
-        value={itemsPerPage} 
-        onChange={(e) => {
-          const val = e.target.value;
-          setItemsPerPage(val === "Todos" ? "Todos" : Number(val));
-          setCurrentPage(1);
-        }}
-        style={{
-          padding: '4px 8px',
-          borderRadius: '6px',
-          border: '1px solid ' + theme.border,
-          backgroundColor: theme.bg,
-          color: theme.text,
-          fontSize: '13px',
-          outline: 'none',
-          cursor: 'pointer'
-        }}
-      >
-        <option value={10}>10</option>
-        <option value={20}>20</option>
-        <option value={50}>50</option>
-        <option value={100}>100</option>
-        <option value="Todos">Todos</option>
-      </select>
-    </div>
-
-    {/* Contador */}
-    <div style={{ fontSize: '13px', color: theme.textSecondary }}>
-      Exibindo <strong>{itensExibidos.length}</strong> de{" "}
-      <strong>{dadosFiltrados.length}</strong> registros
-    </div>
-
-  </div>
-
-  {/* DIREITA: Paginação */}
-  {itemsPerPage !== "Todos" && (
-    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-      <button 
-        className="pagination-btn" 
-        disabled={currentPage === 1} 
-        onClick={() => setCurrentPage(c => c - 1)}
-      >
-        <ChevronLeft size={18}/>
-      </button>
-
-      <span style={{fontSize:'13px', color: theme.text}}>
-        {currentPage} / {totalPages || 1}
-      </span>
-
-      <button 
-        className="pagination-btn" 
-        disabled={currentPage === totalPages || totalPages === 0} 
-        onClick={() => setCurrentPage(c => c + 1)}
-      >
-        <ChevronRight size={18}/>
-      </button>
-    </div>
-  )}
-
-</div>
-
-        </div>
-
-    {showModal && (
-  <div style={modalOverlay}>
-      <div style={{ ...modalContent, backgroundColor: theme.mainBg, color: theme.text, maxWidth: '500px', width: isMobile ? 'calc(100% - 24px)' : '90%', maxHeight: '90vh', overflowY: 'auto', padding: isMobile ? '16px' : '24px' }}>
-        <div style={modalHeader}>
-          <h3 style={{ margin: 0 }}>{modalType === "add" ? "Nova Reserva" : "Editar Mudança"}</h3>
-          <X size={20} cursor="pointer" onClick={() => setShowModal(false)} />
-        </div>
-  
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '70vh', overflowY: 'auto', padding: '5px' }}>
-  
-          {/* Campo Unidade com Busca Flutuante */}
-          <div style={{ position: 'relative' }} ref={dropdownRef}>
-            <label style={labelStyle}>Unidade</label>
-            <div
-              style={{
-                ...selectStyle,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: 'pointer',
-                backgroundColor: theme.bg,
-                color: theme.text,
-                borderColor: theme.border
-              }}
-              onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-            >
-              <span>{formData.unidade_id ? getUnitLabel(formData.unidade_id) : "Selecione a unidade..."}</span>
-              <ChevronDown size={16} />
-            </div>
-  
-            {showUnitDropdown && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, width: '100%',
-                backgroundColor: theme.mainBg, border: `1px solid ${theme.border}`,
-                borderRadius: '8px', zIndex: 1200, boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-                marginTop: '4px', overflow: 'hidden'
-              }}>
-                <div style={{ padding: '8px' }}>
-                  <input
-                    style={{
-                      width: '100%', padding: '8px', borderRadius: '6px',
-                      border: `1px solid ${theme.border}`, backgroundColor: theme.bg,
-                      color: theme.text, boxSizing: 'border-box', outline: 'none'
-                    }}
-                    placeholder="Digite o bloco ou apto..."
-                    autoFocus
-                    value={unitSearch}
-                    onChange={(e) => setUnitSearch(e.target.value)}
-                  />
-                </div>
-                <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                  {unidadesFiltradas.length > 0 ? (
-                    unidadesFiltradas.map(u => (
-                      <div
-                        key={u.id}
-                        style={{
-                          padding: '10px 15px', cursor: 'pointer', fontSize: '14px',
-                          borderBottom: `1px solid ${theme.border}`
-                        }}
-                        onClick={() => {
-                          setFormData({ ...formData, unidade_id: u.id });
-                          setShowUnitDropdown(false);
-                          setUnitSearch("");
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = theme.bg}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                      >
-                        BLOCO {u.bloco} - UNIDADE {u.unidade}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: '15px', textAlign: 'center', fontSize: '12px', opacity: 0.7 }}>
-                      Nenhuma unidade encontrada
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-        {/* Checkbox Morador */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', borderRadius: '8px', backgroundColor: theme.bg }}>
-          <input type="checkbox" id="checkMorador" checked={isMoradorCadastrado} onChange={e => toggleMoradorCadastrado(e.target.checked)} />
-          <label htmlFor="checkMorador" style={{ fontSize: '13px', cursor: 'pointer' }}>Morador Cadastrado?</label>
-        </div>
-
-        {isMoradorCadastrado && (
-          <div>
-            <label style={labelStyle}>Selecionar Morador</label>
-            <select style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-                    onChange={e => handleMoradorSelect(e.target.value)}>
-              <option value="">Escolha...</option>
-              {moradores.filter(m => m.id_unidade?.toString() === formData.unidade_id?.toString())
-                        .map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Nome e CPF */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>Nome do Responsável</label>
-            <input 
-              style={{...selectStyle, width:'100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1}} 
-              value={formData.morador} 
-              readOnly={isMoradorCadastrado}
-              onChange={e => setFormData({...formData, morador: e.target.value})} 
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>CPF</label>
-            <input 
-              style={{...selectStyle, width:'100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1}} 
-              value={formData.cpf} 
-              readOnly={isMoradorCadastrado}
-              /* APLICANDO MÁSCARA CPF */
-              onChange={e => setFormData({...formData, cpf: maskCPF(e.target.value)})} 
-            />
-          </div>
-        </div>
-
-        <div style={{ flex: 1 }}>
-  <label style={labelStyle}>RG</label>
- <input 
-  style={{
-    ...selectStyle,
-    width: '100%', 
-    backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, 
-    color: theme.text, 
-    borderColor: theme.border, 
-    opacity: isMoradorCadastrado ? 0.7 : 1,
-    cursor: isMoradorCadastrado ? 'not-allowed' : 'text'
-  }} 
-  value={formData.rg || ""} 
-  readOnly={isMoradorCadastrado}
-  placeholder="00.000.000-00"
-  // CORREÇÃO AQUI: Aplica a máscara ao digitar
-  onChange={e => setFormData({...formData, rg: maskRG(e.target.value)})} 
-/>
-</div>
-
-       {/* Data e Telefone */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>Data</label>
-            <input
-  type="date"
-  style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}}
-  value={formData.data_reserva ? formData.data_reserva.split('T')[0] : ""}
-  onChange={(e) => setFormData({...formData, data_reserva: e.target.value})}
-/>
-          </div>
-          <div>
-            <label style={labelStyle}>Telefone Contato</label>
-            <input 
-              style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-              value={formData.contato} 
-              /* APLICANDO MÁSCARA TELEFONE */
-              onChange={e => setFormData({...formData, contato: maskPhone(e.target.value)})} 
-            />
-          </div>
-        </div>
-
-        {/* Taxa e Convidados */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>Taxa (R$)</label>
-            <input type="number" style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} value={formData.valor_taxa} onChange={e => setFormData({...formData, valor_taxa: e.target.value})} />
-          </div>
-          <div>
-            <label style={labelStyle}>Convidados (Qtd)</label>
-            <input type="number" style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} value={formData.convidados} onChange={e => setFormData({...formData, convidados: e.target.value})} />
-          </div>
-        </div>
-
-        {/* Pago e Status */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>Pago?</label>
-            <select style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} value={formData.pago} onChange={e => setFormData({...formData, pago: e.target.value})}>
-              <option value="Não">Não</option>
-              <option value="Sim">Sim</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Status</label>
-            <select style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-              <option value="Pendente">Pendente</option>
-              <option value="Agendado">Agendado</option>
-              <option value="Realizado">Realizado</option>
-              <option value="Cancelado">Cancelado</option>
-            </select>
-          </div>
-        </div>
-
-        {/* NOVA SEÇÃO: CHURRASQUEIRA (ABAIXO DE PAGO) */}
-<div style={{marginTop: '5px'}}>
-  <label style={labelStyle}>Churrasqueira</label>
-  <select 
-    style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-    value={formData.churrasqueira} 
-    onChange={e => setFormData({...formData, churrasqueira: e.target.value})}
-  >
-    <option value="">Selecione a Churrasqueira...</option>
-    <option value="CH-A">CH-A</option>
-    <option value="CH-B">CH-B</option>
-  </select>
-</div>
-
-        {/* SEÇÃO DE ANEXOS / IMAGENS */}
-        <div style={{ marginTop: '10px' }}>
-          <label style={labelStyle}>Arquivos / Comprovantes</label>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '10px', marginBottom: '10px' }}>
-            
-            {/* Fotos Salvas */}
-            {uploads
-              .filter(up => (up.id_festa || up.ID_FESTA)?.toString() === formData.id?.toString())
-              .map((f, idx) => (
-                <div key={`saved-${idx}`} style={{ position: 'relative' }}>
-                  <MiniaturaAnexo
-                    source={f.url_drive || f.url}
-                    nome={f.nome_arquivo}
-                    style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: `1px solid ${theme.border}` }}
-                    alt="Comprovante"
-                  />
-                  <button 
-                    onClick={() => handleDeleteImage(f.id || f.ID)}
-                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#B8203F', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
-                  >
-                    <X size={12} />
-                  </button>
-                  <div style={{ position: 'absolute', bottom: 0, width: '100%', fontSize: '10px', background: 'rgba(0,0,0,0.6)', color: 'white', textAlign: 'center', borderRadius: '0 0 10px 10px' }}>Salvo</div>
-                </div>
-              ))}
-
-            {/* Fotos Novas (Preview antes de salvar) */}
-            {formData.fotosNovas?.map((base64, idx) => (
-              <div key={`new-${idx}`} style={{ position: 'relative' }}>
-                <MiniaturaAnexo
-                  localSrc={base64}
-                  alt="Anexo a enviar"
-                  style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '2px solid var(--brand-500)' }}
-                />
-                <button 
-                  onClick={() => setFormData(prev => ({ ...prev, fotosNovas: prev.fotosNovas.filter((_, i) => i !== idx) }))}
-                  style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#B8203F', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ border: `2px dashed ${theme.border}`, padding: '15px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.bg }}>
-            <label htmlFor="file-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-  <UploadCloud size={24} color={theme.textSecondary} />
-  <span style={{ fontSize: '12px', color: theme.textSecondary, fontWeight: '600' }}>
-    Adicionar arquivos
-  </span>
-    <input
-    type="file"
-    multiple
-    accept="image/*,application/pdf"
-    onChange={handleFileChange}
-    style={{ display: 'none' }}
-    id="file-upload"  /* O id deve ser exatamente igual ao htmlFor do label */
-  />
-</label>
-          </div>
-        </div>
-
-{/* Renderiza apenas se estiver editando uma reserva existente */}
-{modalType === 'edit' && (
-  <>
-    {/* Divergência */}
-    <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-      <input 
-        type="checkbox" 
-        id="divergencia_local"
-        checked={formData.divergencia_local || false}
-        onChange={(e) => setFormData({ ...formData, divergencia_local: e.target.checked })}
-        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-      />
-      <label htmlFor="divergencia_local" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
-        Divergência
-      </label>
-    </div>
-
-    {/* Observação */}
-    <div style={{ marginBottom: '15px' }}>
-      <label style={labelStyle}>Observações</label>
-      <textarea 
-        style={{
-          ...selectStyle, 
-          width:'100%', 
-          backgroundColor: theme.bg, 
-          color: theme.text, 
-          borderColor: theme.border,
-          minHeight: '80px',
-          fontFamily: 'inherit',
-          padding: '10px',
-          borderRadius: '8px',
-          resize: 'vertical'
-        }} 
-        placeholder="Alguma observação importante sobre a festa..."
-        value={formData.obs || ""} 
-        onChange={e => setFormData({...formData, obs: e.target.value})}
-      />
-    </div>
-  </>
-)}
-
-        <button 
-          style={{
-            backgroundColor: 'var(--btn-primary-bg)', color: 'white', border: 'none', padding: '12px', 
-            borderRadius: '10px', fontWeight: '700', cursor: 'pointer', marginTop: '10px'
-          }} 
-          onClick={handleSave}
-        >
-          {loadingGlobal ? <Loader2 className="animate-spin" size={18}/> : "Salvar Mudanças"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-      {/* MODAL VER MAIS - CORRIGIDO E ESTRUTURADO */}
-      {/* Detalhe: mesma gaveta do Moradores. A lista continua visivel atras,
-          entao da para conferir uma reserva e abrir a seguinte sem se perder. */}
-      <Gaveta
-        open={showViewModal && Boolean(selectedFesta)}
-        onClose={() => setShowViewModal(false)}
-        sigla={iniciaisDe(selectedFesta?.morador)}
-        titulo={selectedFesta?.morador || "Reserva"}
-        meta={selectedFesta?.data_reserva
-          ? `Reserva para ${dataBR(selectedFesta.data_reserva)}`
-          : undefined}
-        fitas={selectedFesta && (
-          <>
-            <Badge tone="brand">{getUnitLabel(selectedFesta.unidade_id)}</Badge>
-            <Badge tone={String(selectedFesta.status) === "Cancelado" ? "danger" : "positive"}>
-              {selectedFesta.status || "Sem status"}
-            </Badge>
-            <Badge tone={pagoSim(selectedFesta.pago) ? "positive" : "neutral"}>
-              {pagoSim(selectedFesta.pago) ? "Pago" : "Não pago"}
-            </Badge>
-            {selectedFesta.divergencia_local === "Sim" && (
-              <Badge tone="danger">Divergência</Badge>
-            )}
-          </>
-        )}
-        footer={
-          <Button variant="ghost" onClick={() => setShowViewModal(false)}>Fechar</Button>
-        }
-      >
-        {selectedFesta && (
-          <>
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Responsável</p>
-              <Dado rotulo="Nome" valor={selectedFesta.morador} />
-              <Dado rotulo="CPF" valor={selectedFesta.cpf ? maskCPFPrivacy(selectedFesta.cpf) : ""} mono />
-              <Dado rotulo="RG" valor={selectedFesta.rg ? maskRGPrivacy(selectedFesta.rg) : ""} mono />
-              <Dado rotulo="Contato" valor={selectedFesta.contato} mono />
-            </section>
-
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Reserva</p>
-              <Dado
-                rotulo="Data"
-                valor={dataBR(selectedFesta.data_reserva)}
-              />
-              <Dado rotulo="Churrasqueira" valor={selectedFesta.churrasqueira} mono />
-              <Dado rotulo="Convidados" valor={selectedFesta.convidados} mono />
-              <Dado rotulo="Valor da taxa" valor={formatCurrency(selectedFesta.valor_taxa)} mono />
-            </section>
-
-            {selectedFesta.obs && (
-              <section className="vit-grupo">
-                <p className="vit-grupo__titulo">Observações</p>
-                <p className="vit-dado__valor" style={{ textAlign: "left", paddingTop: "var(--space-5)" }}>
-                  {selectedFesta.obs}
-                </p>
-              </section>
-            )}
-
-            <section className="vit-grupo">
-              <p className="vit-grupo__titulo">Comprovantes</p>
-{/* SEÇÃO DE ANEXOS / COMPROVANTES */}
-              <div style={{...viewBox, backgroundColor: theme.bg, borderColor: theme.border}}>
-                <p style={{fontSize:'11px', fontWeight:'700', marginBottom:'10px', textTransform: 'uppercase'}}>
-                  Anexos / Comprovantes:
-                </p>
-
-                {uploads.filter(up => (up.id_festa || up.ID_FESTA)?.toString() === selectedFesta.id?.toString()).length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
-                    {uploads
-                      .filter(up => (up.id_festa || up.ID_FESTA)?.toString() === selectedFesta.id?.toString())
-                      .map((file, idx) => {
-  const urlOriginal = file.url_drive || file.url || "";
-
-  return (
-    <div key={idx} style={{ textAlign: 'center' }}>
-      <div
-        onClick={() => abrirArquivoDrive(urlOriginal)}
-        style={{
-          width: '100%', 
-          height: '100px', 
-          borderRadius: '8px', 
-          border: `1px solid ${theme.border}`,
-          backgroundColor: theme.bgSecondary || 'var(--surface-3)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          overflow: 'hidden',
-          position: 'relative'
-        }}
-      >
-        {/* ÍCONE DE FUNDO: Aparece se for PDF ou enquanto a imagem carrega */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center',
-          color: theme.textSecondary 
-        }}>
-          <FileText size={24} />
-          <span style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>
-            VER ARQUIVO
-          </span>
-        </div>
-
-        {/* IMAGEM (via getFoto autenticado): fica por cima do ícone quando carregar.
-            PDFs ficam no placeholder transparente — o ícone VER ARQUIVO permanece. */}
-        <DriveImage
-          source={urlOriginal}
-          alt="Anexo"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover'
-          }}
-        />
-      </div>
-    </div>
-  );
-})
-                    }
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '10px', opacity: 0.6 }}>
-                    <Paperclip size={18} style={{marginBottom: '5px'}} />
-                    <p style={{fontSize: '11px', margin: 0}}>Nenhum comprovante anexado</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          </>
-        )}
-      </Gaveta>
-    </div>
+    </TelaDeReservas>
   );
 }

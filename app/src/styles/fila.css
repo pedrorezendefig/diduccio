@@ -196,20 +196,28 @@
 
 /* ======================= PORTARIA: TIPOS DE ENTRADA ======================= */
 
-/* O tipo vem antes de tudo porque decide o resto do formulario. Em fila
-   rolavel no celular: cinco opcoes empilhadas comeriam meia tela antes do
-   primeiro campo. */
+/* O tipo vem antes de tudo porque decide o resto do formulario.
+   No computador todas as opcoes ficam a vista: se nao cabem numa linha
+   (tela de 1280 a 1500 px, como o monitor de 32" da portaria com zoom),
+   quebram em duas, sem rolar para o lado. Em fila rolavel so no celular:
+   cinco opcoes empilhadas comeriam meia tela antes do primeiro campo. */
 .ent-tipos {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: var(--space-3);
-  overflow-x: auto;
-  padding-bottom: var(--space-2);
   margin-bottom: var(--space-6);
-  scrollbar-width: thin;
+}
+@media (max-width: 768px) {
+  .ent-tipos {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+    scrollbar-width: thin;
+  }
+  .ent-tipos .ent-tipo { flex: 1 0 auto; min-width: 118px; }
 }
 .ent-tipo {
-  flex: 1 0 auto;
-  min-width: 118px;
+  min-width: 0;
   display: grid;
   gap: 2px;
   padding: var(--space-4) var(--space-5);
@@ -395,14 +403,11 @@
   .ent-prazo-linha > * { width: 100%; }
 }
 
+/* A chave deslizante (a mesma do App do morador) já é um cartão: o bloco só
+   a posiciona. */
 .ent-interno {
   display: grid;
-  gap: var(--space-2);
-  padding: var(--space-5);
   margin-bottom: var(--space-6);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
 }
 .ent-interno__nota {
   font-size: var(--text-sm);
@@ -480,26 +485,7 @@
 
 /* ---- Filtros do histórico ---- */
 
-/* Fora da tabela e antes dela: o recorte muda o que a lista significa, e uma
-   lista que já apareceu com outro conteúdo faz quem olha ler o número errado
-   antes de perceber que havia filtro. */
-.ent-filtros { margin-bottom: var(--space-6); }
-
-.ent-filtros__grade {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-5);
-}
-@media (max-width: 768px) {
-  /* Duas colunas, e não uma: os campos de data vêm em par ("de" e "até"), e
-     empilhados um por linha o par se perde na rolagem. */
-  .ent-filtros__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-  /* Os dois campos de busca (texto e unidade) inteiros, em cima; os pares de
-     data continuam lado a lado logo abaixo. */
-  .ent-filtros__grade > *:first-child,
-  .ent-filtros__grade > *:nth-child(2) { grid-column: 1 / -1; }
-}
-
+/* A contagem do recorte fica logo abaixo da barra de filtros. */
 .ent-filtros__rodape {
   display: flex;
   align-items: center;
@@ -543,3 +529,216 @@
   color: var(--fg-danger);
 }
 .ent-stat-alerta svg { flex-shrink: 0; }
+
+/* ======================= PORTARIA: FICHA E CRACHÁ ======================= */
+
+/* A ficha à esquerda e o crachá à direita. No celular o crachá desce para o
+   fim, depois do último campo, que é onde o dedo já está. */
+.ent-registro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--space-7);
+  align-items: start;
+  margin-bottom: var(--space-8);
+}
+@media (max-width: 1024px) {
+  .ent-registro { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ent-ficha {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.ent-ficha > .ent-form__titulo { margin: 0; padding: var(--space-6) var(--space-7); }
+
+/* Cada grupo é uma linha: o nome à esquerda, os campos à direita. */
+.ent-ficha__secao {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-7);
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 768px) {
+  .ent-ficha__secao { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); padding: var(--space-6); }
+}
+.ent-ficha__rotulo b {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-display);
+  font-weight: 650;
+  color: var(--fg-heading);
+}
+.ent-ficha__rotulo b svg { color: var(--fg-brand); }
+.ent-ficha__rotulo small { display: block; margin-top: 2px; color: var(--fg-muted); font-size: var(--text-xs); }
+.ent-ficha__corpo { min-width: 0; display: grid; gap: var(--space-5); }
+.ent-ficha__corpo .ent-tipos { margin-bottom: 0; }
+.ent-ficha__corpo .ent-interno { margin: 0; }
+
+.ent-ficha__campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+.ent-ficha__campos--3 { grid-template-columns: 160px 150px minmax(0, 1fr); }
+.ent-ficha__campos--1 { grid-template-columns: minmax(0, 1fr); }
+/* Na ficha a unidade divide a linha com "liberado por". */
+.ent-ficha__campos .ent-form__unidade { grid-column: auto; }
+@media (max-width: 768px) {
+  .ent-ficha__campos, .ent-ficha__campos--3 { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+}
+.ent-ficha__sem { margin: 0; color: var(--fg-secondary); font-size: var(--text-sm); align-self: center; }
+
+/* ---- O crachá ---- */
+.ent-cracha {
+  position: sticky;
+  top: var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+@media (max-width: 1024px) { .ent-cracha { position: static; } }
+.ent-cracha__faixa {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  background: var(--brand-700);
+  color: #fff;
+  font: 600 12px var(--font-mono);
+  letter-spacing: .08em;
+}
+.ent-cracha__corpo { display: grid; gap: var(--space-5); padding: var(--space-6); }
+.ent-cracha__corpo p { margin: 0; }
+.ent-cracha__nome {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--fg-heading);
+  overflow-wrap: anywhere;
+}
+.ent-cracha__nome--vazio { color: var(--fg-muted); font-weight: 500; }
+.ent-cracha__tipo { color: var(--fg-secondary); font-size: var(--text-sm); }
+.ent-cracha__destino {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+}
+.ent-cracha__destino small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.ent-cracha__destino b {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--fg-brand);
+}
+.ent-cracha__linha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+}
+.ent-cracha__linha b { color: var(--fg-default); font-weight: 600; }
+
+/* A placa no desenho Mercosul, a mesma da tela do App do morador. */
+.ent-cracha__placa {
+  justify-self: center;
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 140px;
+  border: 2px solid #1d1d1d;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+.ent-cracha__placa i {
+  padding: 3px 6px;
+  background: #1e3a8a;
+  color: #fff;
+  font: 700 8px/1 var(--font-sans, inherit);
+  font-style: normal;
+  letter-spacing: .12em;
+  text-align: center;
+}
+.ent-cracha__placa b {
+  padding: 3px 10px;
+  color: #111;
+  font: 700 22px/1.2 var(--font-mono);
+  letter-spacing: .1em;
+  text-align: center;
+}
+.ent-cracha__tempo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  font: 600 13px var(--font-mono);
+  color: var(--fg-default);
+}
+.ent-cracha__corpo > .vit-btn { width: 100%; justify-content: center; }
+.ent-cracha__falta { text-align: center; color: var(--fg-muted); font-size: var(--text-xs); }
+.ent-cracha__falta--ok { color: var(--fg-brand); font-weight: 600; }
+
+/* ---- Entradas e Saídas no padrão do guia ---- */
+
+/* A linha que o pino do mapa apontou. */
+.conf-linha[data-destacada="sim"] { background: var(--bg-active); box-shadow: inset 3px 0 0 var(--brand-600); }
+
+/* Janela de cadastrados: busca com respiro e o nome ocupando a linha. */
+.ent-cadastro__busca { margin-bottom: var(--space-6); }
+.ent-cadastro__quem { flex: 1; min-width: 0; }
+
+/* O crachá no detalhe da entrada (app-detalhe): parado, sem a sombra grande. */
+.app-detalhe__visual .ent-cracha { position: static; box-shadow: var(--shadow-md); }
+
+/* ======================= TEMPORADA (0091) =======================
+   A janela das liberações (modelo B, 05/11/2026) e o aviso na chegada. */
+.tem-botao__conta {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: var(--radius-full); background: var(--brand-600); color: var(--fg-on-brand);
+  font: 600 var(--text-xs) var(--font-mono);
+}
+.tem-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); flex-wrap: wrap; margin-bottom: var(--space-5); }
+.tem-topo__meta { margin: 0; color: var(--fg-secondary); font-size: var(--text-sm); }
+.tem-dono { margin: 0; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: var(--bg-active); color: var(--fg-default); font-size: var(--text-sm); }
+.tem-sem-carro { color: var(--fg-muted); font-size: var(--text-sm); }
+.tem-acompanhante { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; }
+.tem-veiculos { display: grid; gap: var(--space-3); }
+.tem-veiculo { display: grid; grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; }
+.tem-veiculo__placa.vit-input { font-family: var(--font-mono); font-weight: 700; letter-spacing: .04em; }
+.tem-veiculos__mais.vit-btn { justify-self: start; }
+@media (max-width: 560px) { .tem-veiculo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+
+.tem-aviso { display: grid; gap: var(--space-5); }
+.tem-aviso__caixa { display: grid; gap: var(--space-4); padding: var(--space-5) var(--space-6); border-radius: var(--radius-lg); border: 1px solid; }
+.tem-aviso__caixa--ok { background: var(--bg-active); border-color: var(--brand-300); }
+.tem-aviso__caixa--nao { background: var(--alert-100); border-color: var(--alert-600); }
+.tem-aviso__titulo { margin: 0; display: flex; align-items: center; gap: var(--space-3); font: 700 var(--text-md) var(--font-display); }
+.tem-aviso__caixa--ok .tem-aviso__titulo { color: var(--fg-brand); }
+.tem-aviso__caixa--nao .tem-aviso__titulo { color: var(--fg-danger); }
+.tem-aviso__dados { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-6); }
+.tem-aviso__dados dt { font-size: var(--text-xs); color: var(--fg-secondary); }
+.tem-aviso__dados dd { margin: 0; font-weight: 600; color: var(--fg-heading); }
+.tem-aviso__obs, .tem-aviso__texto { margin: 0; font-size: var(--text-sm); color: var(--fg-default); }
+.tem-aviso__caixa .vit-btn { justify-self: start; }
+.tem-aviso__lista { display: grid; gap: var(--space-3); }
+.tem-aviso__lista ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-3); }
+.tem-escolha { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); }
+.tem-aviso__vazio { margin: 0; color: var(--fg-secondary); font-size: var(--text-sm); }

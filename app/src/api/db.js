@@ -7,7 +7,7 @@
 import { MODO_DEMO } from "./config";
 import { supabase } from "./supabase";
 import { atender } from "../demo/servidor";
-import { RESPONSAVEIS_DEMO } from "../demo/dados";
+import { RESPONSAVEIS_DEMO, ULTIMOS_ACESSOS_DEMO } from "../demo/dados";
 
 const URL_DEMO = "https://demo.vit.local/exec";
 const nome = (tabela) => String(tabela).toLowerCase();
@@ -122,6 +122,24 @@ export async function listarResponsaveis() {
   );
   if (sessaoAcabou) throw new Error(SESSAO_EXPIRADA);
   if (error) throw new Error(`Não consegui ler os responsáveis: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Quando cada usuário acessou o sistema pela última vez: [{ id, ultimo_acesso }].
+ *
+ * Vem da função `ultimos_acessos()` do 0078, porque a data mora na conta de
+ * login (`auth.users`), que a API não expõe. Só o desenvolvedor recebe
+ * linhas, o mesmo de quem lê a `usuarios`.
+ */
+export async function listarUltimosAcessos() {
+  if (MODO_DEMO) return ULTIMOS_ACESSOS_DEMO.map((a) => ({ ...a }));
+
+  const { data, error, sessaoAcabou } = await comSessaoValida(() =>
+    supabase.rpc("ultimos_acessos")
+  );
+  if (sessaoAcabou) throw new Error(SESSAO_EXPIRADA);
+  if (error) throw new Error(`Não consegui ler os últimos acessos: ${error.message}`);
   return data ?? [];
 }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { Button, Field, Gaveta, Textarea, useConfirm } from "../ui";
+import { Button, Field, Modal, Textarea, useConfirm } from "../ui";
 import { linhasDasNotas } from "../lib/notas";
 import { horaEmBrasilia } from "../lib/tarefas";
 
@@ -311,31 +311,29 @@ export default function BlocoDeNotas({
     : "";
 
   return (
-    <Gaveta
+    <Modal
       open
       onClose={() => sair(onFechar)}
-      titulo="Bloco de notas"
-      meta={
-        <>
+      title="Bloco de notas"
+      size="md"
+      footer={
+        <div className="app-modal__acoes">
+          <Button variant="ghost" onClick={limpar} disabled={saindo || !texto.trim()}>
+            Limpar bloco
+          </Button>
+          <Button variant="primary" onClick={virarTodas} disabled={saindo || n === 0}>
+            {n === 1 ? "Virar 1 em tarefa" : `Virar as ${n} em tarefas`}
+          </Button>
+        </div>
+      }
+    >
+      <div className="tar-notas">
+        <p className="tar-modal__meta">
           Uma ideia por linha. <span className="tar-notas__estado">{frase}</span>
           {/* Existe desde o início, vazia: região viva criada junto com o
               texto não é anunciada por todo leitor de tela. */}
           <span className="tar-anuncio" aria-live="polite">{anuncio}</span>
-        </>
-      }
-      footer={
-        <>
-          <Button variant="ghost" onClick={limpar} disabled={saindo || !texto.trim()}>
-            Limpar bloco
-          </Button>
-          <span className="tar-gaveta__espaco" />
-          <Button variant="primary" onClick={virarTodas} disabled={saindo || n === 0}>
-            {n === 1 ? "Virar 1 em tarefa" : `Virar as ${n} em tarefas`}
-          </Button>
-        </>
-      }
-    >
-      <div className="tar-notas">
+        </p>
         <Field label="Anotações">
           <Textarea
             rows={8}
@@ -372,6 +370,6 @@ export default function BlocoDeNotas({
           )}
         </section>
       </div>
-    </Gaveta>
+    </Modal>
   );
 }

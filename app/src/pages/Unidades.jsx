@@ -1,17 +1,22 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  Search, Plus, Edit2, Trash2, Download, FileText, Building2,
-  ChevronLeft, ChevronRight, RotateCcw,
-} from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Download, FileText, Building2, Eye } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { sanitizarCelula } from "../lib/drive";
 import { listar, criar, editar, remover } from "../api/db";
 import {
-  Button, Badge, Table, Modal, Field, Input, Select, Checkbox,
+  Button, Badge, Modal, Field, Input, Checkbox,
   PageHeader, EmptyState, useToast, useConfirm,
 } from "../ui";
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import { Ficha, Filtros, MaisFiltros, Opcoes, PainelDeFiltros } from "../components/app/pecas";
+
+/** Quantas linhas a lista mostra de cada vez; "Mostrar mais" soma outras tantas. */
+const LOTE = 30;
+
+/** "B5-206", o rótulo curto de todo o sistema. */
+const rotulo = (u) => `B${u.bloco}-${u.unidade}`;
 
 // Verde da marca em RGB, para o jsPDF, que não aceita hex.
 const VERDE_PDF = [227, 90, 58];
@@ -59,6 +64,7 @@ export default function Unidades() {
   const [modalAberto, setModalAberto] = useState(false);
   const [modalExport, setModalExport] = useState(false);
   const [modo, setModo] = useState("add");
+  const [vendo, setVendo] = useState(null);
   const [form, setForm] = useState(FORM_VAZIO);
   const [erroForm, setErroForm] = useState({});
 
@@ -66,9 +72,9 @@ export default function Unidades() {
   const [fBloco, setFBloco] = useState("Todos");
   const [fOcupado, setFOcupado] = useState("Todos");
   const [fStatus, setFStatus] = useState("Todos");
-  const [sort, setSort] = useState({ key: "bloco", dir: "asc" });
-  const [pagina, setPagina] = useState(1);
-  const [porPagina, setPorPagina] = useState(50);
+  const [ordem, setOrdem] = useState({ chave: "unidade", direcao: "asc" });
+  const [limite, setLimite] = useState(LOTE);
+  const [maisFiltros, setMaisFiltros] = useState(false);
 
   const [colunasExport, setColunasExport] = useState(
     COLUNAS_EXPORT.map((c) => ({ ...c, selected: true }))
@@ -93,43 +99,52 @@ export default function Unidades() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const linhas = useMemo(() => {
-    const filtradas = unidades.filter((u) => {
-      const casaBusca =
-        !busca ||
-        u.unidade?.toString().includes(busca) ||
-        u.bloco?.toString().includes(busca);
+  // Busca e painel, sem a situação: as pílulas contam em cima disto.
+  const semFiltroDeSituacao = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const digitos = termo.replace(/\D/g, "");
+    return unidades.filter((u) => {
+      // "5206", "206", "5" ou "B5-206": a mesma regra das outras buscas de unidade.
+      const casaBusca = !termo ||
+        rotulo(u).toLowerCase().includes(termo) ||
+        (digitos !== "" && `${u.bloco ?? ""}${u.unidade ?? ""}`.includes(digitos)) ||
+        u.unidade?.toString().includes(termo) ||
+        u.bloco?.toString().toLowerCase() === termo;
       const casaBloco = fBloco === "Todos" || u.bloco?.toString() === fBloco;
       const casaOcupado = fOcupado === "Todos" || u.ocupado === fOcupado;
-      const casaStatus = fStatus === "Todos" || u.status === fStatus;
-      return casaBusca && casaBloco && casaOcupado && casaStatus;
+      return casaBusca && casaBloco && casaOcupado;
     });
+  }, [unidades, busca, fBloco, fOcupado]);
 
-    if (sort.key) {
-      filtradas.sort((a, b) => {
-        let x = a[sort.key];
-        let y = b[sort.key];
-        if (!isNaN(x) && !isNaN(y)) { x = Number(x); y = Number(y); }
-        if (x < y) return sort.dir === "asc" ? -1 : 1;
-        if (x > y) return sort.dir === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return filtradas;
-  }, [unidades, busca, fBloco, fOcupado, fStatus, sort]);
+  const contagem = useMemo(() => ({
+    Todos: semFiltroDeSituacao.length,
+    Adimplente: semFiltroDeSituacao.filter((u) => u.status !== "Inadimplente").length,
+    Inadimplente: semFiltroDeSituacao.filter((u) => u.status === "Inadimplente").length,
+  }), [semFiltroDeSituacao]);
 
-  const totalPaginas = porPagina === "Todos" ? 1 : Math.max(1, Math.ceil(linhas.length / porPagina));
-  const paginaSegura = Math.min(pagina, totalPaginas);
-  const exibidas = porPagina === "Todos"
-    ? linhas
-    : linhas.slice((paginaSegura - 1) * porPagina, paginaSegura * porPagina);
+  const linhas = useMemo(() => {
+    const filtradas = semFiltroDeSituacao.filter((u) =>
+      fStatus === "Todos" || (fStatus === "Inadimplente" ? u.status === "Inadimplente" : u.status !== "Inadimplente"));
+    const valor = (u) => {
+      // Unidade na ordem do prédio: bloco, depois apartamento.
+      if (ordem.chave === "unidade") return `${String(u.bloco).padStart(4, "0")}-${String(u.unidade).padStart(6, "0")}`;
+      if (ordem.chave === "valor") return parseFloat(u.valor) || 0;
+      return String(u[ordem.chave] ?? "");
+    };
+    const sinal = ordem.direcao === "asc" ? 1 : -1;
+    return [...filtradas].sort((a, b) => {
+      const x = valor(a), y = valor(b);
+      return x < y ? -sinal : x > y ? sinal : 0;
+    });
+  }, [semFiltroDeSituacao, fStatus, ordem]);
 
-  useEffect(() => { setPagina(1); }, [busca, fBloco, fOcupado, fStatus, porPagina]);
+  const ordenar = (chave) =>
+    setOrdem((o) => ({ chave, direcao: o.chave === chave && o.direcao === "asc" ? "desc" : "asc" }));
 
-  const temFiltro = busca || fBloco !== "Todos" || fOcupado !== "Todos" || fStatus !== "Todos";
-  const limparFiltros = () => {
-    setBusca(""); setFBloco("Todos"); setFOcupado("Todos"); setFStatus("Todos");
-  };
+  const filtrosDoPainel = [fBloco, fOcupado].filter((f) => f !== "Todos").length;
+  const temFiltro = busca || fStatus !== "Todos" || filtrosDoPainel > 0;
+  const limparPainel = () => { setFBloco("Todos"); setFOcupado("Todos"); setLimite(LOTE); };
+  const limparFiltros = () => { setBusca(""); setFStatus("Todos"); limparPainel(); };
 
   const blocos = useMemo(
     () => ["Todos", ...new Set(unidades.map((u) => u.bloco?.toString()).filter(Boolean))].sort(),
@@ -247,6 +262,8 @@ export default function Unidades() {
         return;
       }
       await buscarUnidades();
+      setVendo(null);
+      setModalAberto(false);
       toast.success(`Unidade ${u.bloco}-${u.unidade} excluída`);
     } finally {
       setSalvando(false);
@@ -316,27 +333,7 @@ export default function Unidades() {
     toast.success(`Planilha gerada com ${linhas.length} unidade(s)`);
   };
 
-  /* ---------------- tabela ---------------- */
-
-  const colunas = [
-    { key: "bloco", label: "Bloco", sortable: true, width: 96,
-      render: (u) => <span className="vit-table__id">{u.bloco}</span> },
-    { key: "unidade", label: "Unidade", tipo: "id", sortable: true, width: 116 },
-    { key: "ocupado", label: "Ocupação", sortable: true,
-      render: (u) => (
-        <Badge tone={u.ocupado === "Sim" ? "positive" : "neutral"}>
-          {u.ocupado === "Sim" ? "Ocupada" : "Vazia"}
-        </Badge>
-      ) },
-    { key: "status", label: "Situação", sortable: true,
-      render: (u) => (
-        <Badge tone={u.status === "Inadimplente" ? "danger" : "positive"}>
-          {u.status}
-        </Badge>
-      ) },
-    { key: "valor", label: "Dívida", tipo: "num", sortable: true,
-      render: (u) => (parseFloat(u.valor) > 0 ? fmtMoeda(u.valor) : null) },
-  ];
+  /* ---------------- lista ---------------- */
 
   const meta = carregando
     ? "Carregando unidades"
@@ -346,6 +343,9 @@ export default function Unidades() {
         resumo.inad ? `${resumo.inad} inadimplentes` : null,
         resumo.divida > 0 ? `${fmtMoeda(resumo.divida)} em aberto` : null,
       ].filter(Boolean).join(" · ");
+
+  const u = vendo;
+  const deve = (x) => parseFloat(x?.valor) > 0;
 
   return (
     <div>
@@ -364,183 +364,217 @@ export default function Unidades() {
         }
       />
 
-      {/* ---- Filtros ---- */}
-      <div className="cad-filtros">
-        <div className="cad-filtros__busca">
-          <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por bloco ou unidade"
-            aria-label="Buscar por bloco ou unidade"
-          />
-        </div>
-        <Select value={fBloco} onChange={(e) => setFBloco(e.target.value)} aria-label="Filtrar por bloco">
-          {blocos.map((b) => (
-            <option key={b} value={b}>{b === "Todos" ? "Todos os blocos" : `Bloco ${b}`}</option>
-          ))}
-        </Select>
-        <Select value={fOcupado} onChange={(e) => setFOcupado(e.target.value)} aria-label="Filtrar por ocupação">
-          <option value="Todos">Ocupada ou vazia</option>
-          <option value="Sim">Só ocupadas</option>
-          <option value="Não">Só vazias</option>
-        </Select>
-        <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filtrar por situação">
-          <option value="Todos">Qualquer situação</option>
-          <option value="Adimplente">Adimplente</option>
-          <option value="Inadimplente">Inadimplente</option>
-        </Select>
-        {temFiltro && (
-          <Button variant="ghost" onClick={limparFiltros} iconLeft={<RotateCcw size={14} />}>
-            Limpar
-          </Button>
-        )}
-      </div>
-
-      <Table
-        columns={colunas}
-        rows={exibidas}
-        loading={carregando}
-        sort={sort}
-        onSort={setSort}
-        getRowKey={(u) => u.id ?? `${u.bloco}-${u.unidade}`}
-        rowActions={(u) => (
-          <>
-            <Button size="sm" variant="ghost" aria-label={`Editar unidade ${u.bloco}-${u.unidade}`}
-                    onClick={() => abrirEdicao(u)} iconLeft={<Edit2 size={14} />} />
-            <Button size="sm" variant="ghost" aria-label={`Excluir unidade ${u.bloco}-${u.unidade}`}
-                    onClick={() => excluir(u)} iconLeft={<Trash2 size={14} />} />
-          </>
-        )}
-        empty={
-          temFiltro ? (
-            <EmptyState
-              icon={<Search size={20} />}
-              title="Nenhuma unidade com esses filtros"
-              description="Ajuste a busca ou limpe os filtros para ver todas as unidades."
-              action={<Button onClick={limparFiltros}>Limpar filtros</Button>}
-            />
-          ) : (
-            <EmptyState
-              icon={<Building2 size={20} />}
-              title="Nenhuma unidade cadastrada"
-              description="Cadastre a primeira unidade do condomínio para começar."
-              action={
-                <Button variant="primary" onClick={abrirNova} iconLeft={<Plus size={16} />}>
-                  Nova unidade
-                </Button>
-              }
-            />
-          )
+      <Filtros
+        busca={busca}
+        onBusca={(x) => { setBusca(x); setLimite(LOTE); }}
+        placeholder="Bloco ou unidade (ex.: 5206)"
+        filtro={fStatus}
+        onFiltro={(x) => { setFStatus(x); setLimite(LOTE); }}
+        filtros={[
+          ["Todos", "Todas", contagem.Todos],
+          ["Adimplente", "Adimplentes", contagem.Adimplente],
+          ["Inadimplente", "Inadimplentes", contagem.Inadimplente],
+        ]}
+        painel={
+          <PainelDeFiltros aberto={maisFiltros}>
+            <Field label="Bloco">
+              <Opcoes rotulo="Bloco" valor={fBloco} onMudar={(x) => { setFBloco(x); setLimite(LOTE); }}
+                opcoes={blocos.map((b) => [b, b === "Todos" ? "Todos" : `Bloco ${b}`])} />
+            </Field>
+            <Field label="Ocupação">
+              <Opcoes rotulo="Ocupação" valor={fOcupado} onMudar={(x) => { setFOcupado(x); setLimite(LOTE); }}
+                opcoes={[["Todos", "Todas"], ["Sim", "Ocupadas"], ["Não", "Vazias"]]} />
+            </Field>
+          </PainelDeFiltros>
         }
-      />
+      >
+        <MaisFiltros aberto={maisFiltros} onAlternar={() => setMaisFiltros((a) => !a)}
+          ativos={filtrosDoPainel} onLimpar={limparPainel} />
+      </Filtros>
 
-      {/* ---- Paginação ---- */}
-      {!carregando && linhas.length > 0 && (
-        <div className="cad-paginacao">
-          <span className="cad-paginacao__info">
-            {porPagina === "Todos"
-              ? `${linhas.length} unidade(s)`
-              : `${(paginaSegura - 1) * porPagina + 1} a ${Math.min(paginaSegura * porPagina, linhas.length)} de ${linhas.length}`}
-          </span>
-
-          <div className="cad-paginacao__controles">
-            <Select
-              value={porPagina}
-              onChange={(e) =>
-                setPorPagina(e.target.value === "Todos" ? "Todos" : Number(e.target.value))
-              }
-              aria-label="Unidades por página"
-              className="cad-paginacao__tamanho"
-            >
-              <option value={25}>25 por página</option>
-              <option value={50}>50 por página</option>
-              <option value={100}>100 por página</option>
-              <option value="Todos">Mostrar todas</option>
-            </Select>
-
-            {totalPaginas > 1 && (
-              <>
-                <Button size="sm" aria-label="Página anterior"
-                        disabled={paginaSegura <= 1}
-                        onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                        iconLeft={<ChevronLeft size={15} />} />
-                <span className="cad-paginacao__pagina">
-                  {paginaSegura} de {totalPaginas}
-                </span>
-                <Button size="sm" aria-label="Próxima página"
-                        disabled={paginaSegura >= totalPaginas}
-                        onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                        iconLeft={<ChevronRight size={15} />} />
-              </>
-            )}
-          </div>
+      {!carregando && linhas.length === 0 ? (
+        temFiltro ? (
+          <EmptyState
+            icon={<Search size={20} />}
+            title="Nenhuma unidade com esses filtros"
+            description="Ajuste a busca ou limpe os filtros para ver todas as unidades."
+            action={<Button onClick={limparFiltros}>Limpar filtros</Button>}
+          />
+        ) : (
+          <EmptyState
+            icon={<Building2 size={20} />}
+            title="Nenhuma unidade cadastrada"
+            description="Cadastre a primeira unidade do condomínio para começar."
+            action={
+              <Button variant="primary" onClick={abrirNova} iconLeft={<Plus size={16} />}>
+                Nova unidade
+              </Button>
+            }
+          />
+        )
+      ) : (
+        <ListaQueAbre
+          colunas={[
+            { rotulo: "Unidade", largura: "minmax(0, 1fr)", ordem: "unidade" },
+            { rotulo: "Ocupação", largura: "minmax(0, 1fr)", ordem: "ocupado" },
+            { rotulo: "Situação", largura: "minmax(0, 1fr)", ordem: "status" },
+            { rotulo: "Em aberto", largura: "minmax(0, 1fr)", ordem: "valor" },
+          ]}
+          ordenacao={ordem}
+          onOrdenar={ordenar}
+          larguraAcoes="96px"
+          itens={linhas.slice(0, limite)}
+          carregando={carregando}
+          chave={(x) => x.id ?? `${x.bloco}-${x.unidade}`}
+          onAbrir={setVendo}
+          rotuloDaLinha={(x) => `Abrir a unidade ${rotulo(x)}`}
+          celulas={(x) => [
+            <span key="u" className="mud-quem">
+              <b className="conf-dado__mono">{rotulo(x)}</b>
+              <small>Bloco {x.bloco} · apto {x.unidade}</small>
+            </span>,
+            <Badge key="o" tone={x.ocupado === "Sim" ? "positive" : "muted"}>
+              {x.ocupado === "Sim" ? "Ocupada" : "Vazia"}
+            </Badge>,
+            <Badge key="s" tone={x.status === "Inadimplente" ? "danger" : "positive"}>{x.status}</Badge>,
+            <span key="v" className={deve(x) ? "conf-dado__mono uni-divida" : "uni-nada"}>
+              {deve(x) ? fmtMoeda(x.valor) : "—"}
+            </span>,
+          ]}
+          acoes={(x) => (
+            <>
+              <Button size="sm" variant="ghost" aria-label={`Ver a unidade ${rotulo(x)}`}
+                      onClick={() => setVendo(x)}><Eye size={16} /></Button>
+              <Button size="sm" variant="ghost" aria-label={`Editar a unidade ${rotulo(x)}`}
+                      onClick={() => abrirEdicao(x)}><Pencil size={16} /></Button>
+            </>
+          )}
+        />
+      )}
+      {linhas.length > limite && (
+        <div className="mud-mais">
+          <Button variant="ghost" onClick={() => setLimite((n) => n + LOTE)}>
+            Mostrar mais ({linhas.length - limite} restantes)
+          </Button>
         </div>
       )}
 
-      {/* ---- Modal de cadastro e edição ---- */}
+      {/* ---- Ver: o desenho do detalhe de Encomendas ---- */}
+      <Modal
+        open={Boolean(u)}
+        onClose={() => setVendo(null)}
+        title="Detalhes da unidade"
+        size="lg"
+        footer={u && (
+          <div className="app-modal__acoes">
+            <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(u)}>Excluir</Button>
+            <Button variant="primary" iconLeft={<Pencil size={15} />}
+                    onClick={() => { setVendo(null); abrirEdicao(u); }}>
+              Editar
+            </Button>
+          </div>
+        )}
+      >
+        {u && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <span className="app-veiculo__ic" aria-hidden="true"><Building2 size={22} /></span>
+              <div className="app-modal__quem">
+                <strong>Unidade {rotulo(u)}</strong>
+                <small>Bloco {u.bloco} · apartamento {u.unidade}</small>
+                <span className="app-modal__selos">
+                  <Badge tone={u.ocupado === "Sim" ? "positive" : "muted"}>{u.ocupado === "Sim" ? "Ocupada" : "Vazia"}</Badge>
+                  <Badge tone={u.status === "Inadimplente" ? "danger" : "positive"}>{u.status}</Badge>
+                </span>
+              </div>
+            </div>
+
+            <div className="app-detalhe">
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Unidade</p>
+                <div className="app-cartao">
+                  <p className="app-cartao__rotulo">Bloco {u.bloco} · apto {u.unidade}</p>
+                  <p className="app-cartao__grande">{rotulo(u)}</p>
+                  <div className="app-cartao__selos">
+                    <Badge tone={u.ocupado === "Sim" ? "positive" : "muted"}>{u.ocupado === "Sim" ? "Ocupada" : "Vazia"}</Badge>
+                    <Badge tone={u.status === "Inadimplente" ? "danger" : "positive"}>{u.status}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Situação" itens={[
+                  ["Ocupação", u.ocupado === "Sim" ? "Ocupada" : "Vazia"],
+                  ["Condomínio", u.status],
+                  ["Valor em aberto", deve(u) ? fmtMoeda(u.valor) : "Nada em aberto", true],
+                ]} />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ---- Cadastro e edição ---- */}
       <Modal
         open={modalAberto}
         onClose={() => setModalAberto(false)}
-        title={modo === "add" ? "Nova unidade" : `Editar unidade ${form.bloco}-${form.unidade}`}
+        title={modo === "add" ? "Nova unidade" : "Editar unidade"}
+        size="md"
         footer={
-          <>
+          <div className="app-modal__acoes">
+            {modo === "edit"
+              ? <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(form)}>Excluir</Button>
+              : <span />}
             <Button variant="ghost" onClick={() => setModalAberto(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={salvar} loading={salvando}>
+            <Button variant="primary" type="submit" form="form-unidade" loading={salvando}>
               {modo === "add" ? "Cadastrar" : "Salvar"}
             </Button>
-          </>
+          </div>
         }
       >
-        <div className="cad-form">
-          <Field label="Bloco" required error={erroForm.bloco}>
-            <Input
-              value={form.bloco}
-              onChange={(e) => setForm({ ...form, bloco: e.target.value })}
-              disabled={modo === "edit"}
-            />
-          </Field>
-          <Field label="Unidade" required error={erroForm.unidade}>
-            <Input
-              value={form.unidade}
-              onChange={(e) => setForm({ ...form, unidade: e.target.value })}
-              disabled={modo === "edit"}
-            />
-          </Field>
+        <form id="form-unidade" className="mud-form" noValidate onSubmit={(e) => { e.preventDefault(); salvar(); }}>
+          <div className="mud-form__par">
+            <Field label="Bloco" required error={erroForm.bloco}
+                   help={modo === "edit" ? "Não muda: é o que identifica a unidade" : undefined}>
+              <Input
+                value={form.bloco}
+                onChange={(e) => setForm({ ...form, bloco: e.target.value })}
+                disabled={modo === "edit"}
+              />
+            </Field>
+            <Field label="Unidade" required error={erroForm.unidade}>
+              <Input
+                value={form.unidade}
+                inputMode="numeric"
+                onChange={(e) => setForm({ ...form, unidade: e.target.value })}
+                disabled={modo === "edit"}
+              />
+            </Field>
+          </div>
           <Field label="Ocupação">
-            <Select value={form.ocupado} onChange={(e) => setForm({ ...form, ocupado: e.target.value })}>
-              <option value="Não">Vazia</option>
-              <option value="Sim">Ocupada</option>
-            </Select>
+            <Opcoes rotulo="Ocupação" valor={form.ocupado}
+                    onMudar={(x) => setForm({ ...form, ocupado: x })}
+                    opcoes={[["Não", "Vazia"], ["Sim", "Ocupada"]]} />
           </Field>
           <Field label="Situação">
-            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Adimplente">Adimplente</option>
-              <option value="Inadimplente">Inadimplente</option>
-            </Select>
+            <Opcoes rotulo="Situação" valor={form.status}
+                    onMudar={(x) => setForm({ ...form, status: x })}
+                    opcoes={["Adimplente", "Inadimplente"]} />
           </Field>
           {form.status === "Inadimplente" && (
-            <Field
-              label="Valor em aberto"
-              help="Use vírgula para os centavos, por exemplo 1.240,50"
-              className="cad-form__largo"
-            >
+            <Field label="Valor em aberto" help="Use vírgula para os centavos, por exemplo 1.240,50">
               <Input
                 value={form.valor}
                 inputMode="decimal"
+                placeholder="0,00"
                 onChange={(e) => setForm({ ...form, valor: e.target.value })}
               />
             </Field>
           )}
-        </div>
-        {modo === "edit" && (
-          <p className="cad-form__nota">
-            Bloco e unidade não podem ser alterados porque formam o identificador do registro.
-          </p>
-        )}
+        </form>
       </Modal>
 
-      {/* ---- Modal de exportação ---- */}
+      {/* ---- Exportação ---- */}
       <Modal
         open={modalExport}
         onClose={() => setModalExport(false)}
@@ -554,15 +588,13 @@ export default function Unidades() {
           </>
         }
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-6)" }}>
+        <p className="vit-modal__desc app-export__texto">
           {linhas.length === unidades.length
             ? `Serão exportadas as ${linhas.length} unidades.`
             : `Serão exportadas as ${linhas.length} unidades que passam nos filtros atuais, de ${unidades.length} no total.`}
         </p>
-        <p className="vit-field__label" style={{ marginBottom: "var(--space-4)" }}>
-          Colunas do PDF
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <p className="vit-field__label app-export__titulo">Colunas do PDF</p>
+        <div className="app-export__colunas">
           {colunasExport.map((c) => (
             <Checkbox
               key={c.id}

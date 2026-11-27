@@ -3,7 +3,8 @@ import {
   Plus, Edit2, Trash2, KeyRound, LogOut, Eye, EyeOff, Copy, Check, UsersRound,
 } from "lucide-react";
 import { clearSessionToken } from "../auth/session";
-import { listar } from "../api/db";
+import { listar, listarUltimosAcessos } from "../api/db";
+import { dataHoraBR } from "../lib/format";
 import { chamarEdgeFunction } from "../api/edge";
 import { problemaDaSenha } from "../lib/senha";
 import {
@@ -54,8 +55,15 @@ export default function Usuarios({ user, onLogout }) {
   const buscarUsuarios = useCallback(async () => {
     try {
       setCarregando(true);
-      const dados = await listar("usuarios");
-      setUsuarios(dados);
+      // O último acesso vem à parte (0078): mora na conta de login, e não na
+      // `usuarios`. Se só ele falhar, a lista aparece mesmo assim, sem a data.
+      const [dados, acessos] = await Promise.all([
+        listar("usuarios"),
+        listarUltimosAcessos().catch(() => null),
+      ]);
+      const porId = new Map((acessos ?? []).map((a) => [String(a.id), a.ultimo_acesso]));
+      setUsuarios(dados.map((u) => ({ ...u, ultimo_acesso: porId.get(String(u.id)) ?? null })));
+      if (!acessos) toast.error("Não foi possível carregar o último acesso dos usuários.");
     } catch {
       toast.error("Não foi possível carregar os usuários.");
     } finally {
@@ -348,12 +356,18 @@ export default function Usuarios({ user, onLogout }) {
   const colunas = [
     {
       key: "nome", label: "Nome", sortable: false,
-      render: (u) => <span style={{ fontWeight: 600 }}>{u.nome}</span>,
+      render: (u) => <span className="usu-nome">{u.nome}</span>,
     },
     { key: "email", label: "Email" },
     {
       key: "cargo", label: "Cargo",
       render: (u) => <Badge tone={TOM_CARGO[u.cargo] ?? "neutral"}>{u.cargo}</Badge>,
+    },
+    {
+      key: "ultimo_acesso", label: "Último acesso",
+      render: (u) => u.ultimo_acesso
+        ? dataHoraBR(u.ultimo_acesso, { comSegundos: false })
+        : <span className="usu-nunca">Nunca acessou</span>,
     },
   ];
 

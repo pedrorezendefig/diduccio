@@ -1,0 +1,106 @@
+/* ======================= CARTEIRINHA DA PISCINA (cart-) =======================
+   Modelo "Clássico renovado" (05/11/2026). Papel impresso, não superfície do
+   sistema: as cores são FIXAS e não seguem o tema, porque o cartão vira
+   imagem baixada. Desenhado em 1011×639 e encolhido por transform. */
+
+.cart-moldura {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1011 / 639;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(77, 21, 11, .18);
+}
+
+.cart {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1011px;
+  height: 639px;
+  overflow: hidden;
+  transform-origin: top left;
+  background: #F5F9FB;
+  color: #2B1E1C;
+  font-family: "Barlow", "Instrument Sans", sans-serif;
+}
+.cart__fundo { position: absolute; inset: 0; }
+
+.cart__logo { position: absolute; left: 32px; top: 30px; width: 210px; }
+.cart__titulo,
+.cart__rotulo,
+.cart__rodape { font-family: "Barlow Condensed", "Barlow", sans-serif; }
+.cart__titulo {
+  position: absolute;
+  left: 330px;
+  top: 44px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #4D150B;
+}
+
+.cart__foto {
+  position: absolute;
+  left: 66px;
+  top: 168px;
+  width: 270px;
+  height: 270px;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1.5px solid #AB8983;
+  border-radius: 50%;
+}
+.cart__foto-dentro {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #E8DEDC;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.cart__foto-dentro img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.cart__foto-vazia { color: #BAA19D; margin-bottom: 20px; }
+
+.cart__dados {
+  position: absolute;
+  left: 388px;
+  right: 60px;
+  top: 178px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.cart__rotulo { font-size: 20px; font-weight: 600; letter-spacing: .08em; color: #636363; }
+.cart__nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.cart__grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
+.cart__valor { font-size: 32px; font-weight: 700; }
+.cart__valor--verde { color: #4D150B; }
+.cart__qr {
+  width: 104px;
+  height: 104px;
+  border: 1.5px solid #E3D7D5;
+  border-radius: 8px;
+  background: #FFFFFF;
+}
+
+.cart__rodape {
+  position: absolute;
+  right: 60px;
+  bottom: 36px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  color: #454545;
+}

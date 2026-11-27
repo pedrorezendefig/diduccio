@@ -114,6 +114,20 @@
   padding-top: var(--space-6);
 }
 
+/* ---- Vídeo do guia ---- */
+
+.proc-video { margin: 0; display: grid; gap: var(--space-3); }
+.proc-video__player {
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  background: #5E180D;
+}
+.proc-video__legenda { font-size: var(--text-sm); color: var(--fg-muted); }
+.proc-video--em-pe .proc-video__player { aspect-ratio: 9 / 16; max-width: 420px; }
+
 /* ---- Passos numerados ---- */
 
 .proc-passos {
@@ -345,3 +359,8 @@
 @media (max-width: 560px) {
   .pis-doc__cartao, .pis-doc__dados { padding: var(--space-6); }
 }
+
+/* O título de cada guia só carrega o botão: sem a margem do h3. */
+.proc-guia__titulo { margin: 0; }
+/* Nome e texto do campo ao lado do ícone, encolhendo com a linha. */
+.proc-campo__corpo { min-width: 0; }

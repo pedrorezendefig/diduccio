@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, ListTodo, Building2, Users, Car, Waves, Megaphone, Package,
-  ArrowLeftRight, BadgeCheck, BookOpen, Gavel, PartyPopper, Flame, Truck,
-  CalendarDays, FileText, UsersRound, Palette,
-  LogOut, Moon, Sun, Menu, ChevronDown, ChevronUp,
+  House, LayoutGrid, SquareCheckBig, Building2, Users, CarFront, Waves, Megaphone,
+  PackageOpen, ArrowRightLeft, UserCheck, Vote, PartyPopper, Flame,
+  Truck, CalendarClock, CalendarDays, UserCog, Palette, ShieldAlert, Smartphone, Banknote,
+  BookOpen, LogOut, Moon, Sun, Menu, ChevronDown, ChevronUp, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { useTheme } from "../theme/useTheme";
 import Logo from "../brand/Logo";
+
 // Quem vê cada item mora em src/auth/menu.js, a mesma tabela que o Manual lê.
-import { TELAS_DO_MENU, podeVerTela } from "../auth/menu";
+import { TELAS_DO_MENU as PERMISSIONS } from "../auth/menu";
 
 // Nome exibido quando difere da chave de permissão.
 //
@@ -23,29 +24,76 @@ import { TELAS_DO_MENU, podeVerTela } from "../auth/menu";
 // com a rota `/entregas`, que já está em favorito de quem usa o sistema. Nome
 // de tela é para quem lê; chave é para o código.
 const APELIDOS = {
+  Inicio: "Início",
   Entregas: "Entradas e Saídas",
   Festas: "Salão de Festas",
   Usuarios: "Usuários",
+  "Confirmação": "Confirmações",
+  App: "Moradores no app",
+  Cotas: "Cotas extras",
+  Calendario: "Agenda",
   Vitrine: "Design system",
 };
 
-// Agrupamento IDÊNTICO ao anterior. A spec lista a categorização atual como
-// item a preservar: ela já faz sentido para o domínio, e reagrupar quebraria
-// a memória muscular de quem usa o sistema todo dia.
+// Seis áreas no lugar da "Principal" de 12 itens, que misturava portaria,
+// cadastro e comunicação numa lista só. Cada área responde a uma pergunta de
+// quem usa ("chegou alguma coisa?", "quem mora no 304?"), e o modo encolhido
+// separa uma da outra por um filete. Só muda onde o item aparece: chave,
+// rota e permissão continuam as mesmas.
 const CATEGORIAS = [
   {
-    titulo: "Principal",
+    titulo: "Início",
     itens: [
-      ["Dashboard", LayoutDashboard],
-      ["Tarefas", ListTodo],
+      ["Inicio", House],
+      ["Dashboard", LayoutGrid],
+      ["Tarefas", SquareCheckBig],
+    ],
+  },
+  {
+    // A fila do dia do porteiro inteira numa área só, no alto do menu.
+    titulo: "Portaria",
+    itens: [
+      ["Encomendas", PackageOpen],
+      ["Entregas", ArrowRightLeft],
+      ["Vagas", CarFront],
+    ],
+  },
+  {
+    // Piscina mora aqui porque a tela é o cadastro das carteirinhas, não uma
+    // reserva de horário.
+    titulo: "Cadastros",
+    itens: [
       ["Unidades", Building2],
       ["Moradores", Users],
-      ["Vagas", Car],
       ["Piscina", Waves],
+    ],
+  },
+  {
+    // Tudo o que entra ou sai do app do morador numa área só: aprovar o
+    // cadastro, ver quem já usa, e o que se publica lá (notícias, agenda, cotas).
+    titulo: "Aplicativo do morador",
+    itens: [
+      ["Confirmação", UserCheck],
+      ["App", Smartphone],
       ["Comunicado", Megaphone],
-      ["Encomendas", Package],
-      ["Entregas", ArrowLeftRight],
-      ["Confirmação", BadgeCheck],
+      ["Calendario", CalendarDays],
+      ["Cotas", Banknote],
+    ],
+  },
+  {
+    titulo: "Comunicação",
+    itens: [
+      ["Notificações", ShieldAlert],
+      ["Assembleia", Vote],
+    ],
+  },
+  {
+    titulo: "Reservas",
+    itens: [
+      ["Festas", PartyPopper],
+      ["Churrasqueira", Flame],
+      ["Mudanças", Truck],
+      ["Agendamento", CalendarClock],
     ],
   },
   {
@@ -53,22 +101,9 @@ const CATEGORIAS = [
     itens: [["Manual", BookOpen]],
   },
   {
-    titulo: "Assembleia",
-    itens: [["Assembleia", Gavel]],
-  },
-  {
-    titulo: "Agendamentos",
+    titulo: "Sistema",
     itens: [
-      ["Festas", PartyPopper],
-      ["Churrasqueira", Flame],
-      ["Mudanças", Truck],
-      ["Agendamento", CalendarDays],
-    ],
-  },
-  {
-    titulo: "Administração",
-    itens: [
-      ["Usuarios", UsersRound],
+      ["Usuarios", UserCog],
       ["Vitrine", Palette],
     ],
   },
@@ -86,6 +121,17 @@ function lerFechadas() {
     return new Set(Array.isArray(dados) ? dados : []);
   } catch {
     return new Set();
+  }
+}
+
+/** Menu encolhido só com ícones: mesma lógica, fica como a pessoa deixou. */
+const CHAVE_ENCOLHIDO = "vit:menuEncolhido";
+
+function lerEncolhido() {
+  try {
+    return localStorage.getItem(CHAVE_ENCOLHIDO) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -112,18 +158,24 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
   const [menuAberto, setMenuAberto] = useState(false);
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const [fechadas, setFechadas] = useState(lerFechadas);
+  const [encolhida, setEncolhida] = useState(lerEncolhido);
+  // Encolhido, o nome da tela some: o tooltip devolve. Fica em position:
+  // fixed porque a lista rola e cortaria qualquer coisa ancorada nela.
+  const [dica, setDica] = useState(null);
+  const timerDica = useRef(null);
   const perfilRef = useRef(null);
   const gavetaRef = useRef(null);
   const botaoMenuRef = useRef(null);
 
-  const podeVer = (rotulo) => podeVerTela(user?.cargo, rotulo);
+  const podeVer = (rotulo) => (PERMISSIONS[rotulo] ?? []).includes(user?.cargo);
 
   // Mantém o item destacado em sincronia com a URL, inclusive após F5.
   useEffect(() => {
-    // Só o primeiro trecho: /manual/encomendas ainda é o item Manual.
-    const caminho = location.pathname.split("/")[1];
+    const caminho = location.pathname.slice(1);
     if (!caminho) return;
-    const casado = Object.keys(TELAS_DO_MENU).find((r) => paraRota(r) === caminho);
+    // O Modo foco abre pelo Início e não tem item próprio no menu.
+    if (caminho === "modo-foco") { setActive("Inicio"); return; }
+    const casado = Object.keys(PERMISSIONS).find((r) => paraRota(r) === caminho);
     setActive(casado ?? caminho.charAt(0).toUpperCase() + caminho.slice(1));
   }, [location, setActive]);
 
@@ -204,10 +256,47 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
     });
   };
 
+  const alternarEncolhida = () => {
+    setEncolhida((antes) => {
+      const proximo = !antes;
+      try {
+        localStorage.setItem(CHAVE_ENCOLHIDO, proximo ? "1" : "0");
+      } catch {
+        // Sem armazenamento o botão continua valendo até recarregar.
+      }
+      return proximo;
+    });
+    setMenuAberto(false);
+    esconderDica();
+  };
+
+  // Espera 80ms antes de mostrar: o cursor que só passa pela lista a caminho
+  // do conteúdo não acende uma fileira de tooltips.
+  const mostrarDica = (e, texto) => {
+    if (!encolhida) return;
+    const alvo = e.currentTarget.getBoundingClientRect();
+    clearTimeout(timerDica.current);
+    timerDica.current = setTimeout(() => {
+      setDica({ texto, top: alvo.top + alvo.height / 2, left: alvo.right + 12 });
+    }, 80);
+  };
+  const esconderDica = () => {
+    clearTimeout(timerDica.current);
+    setDica(null);
+  };
+  useEffect(() => () => clearTimeout(timerDica.current), []);
+
   const ir = (rotulo) => {
     setActive(rotulo);
     setGavetaAberta(false);
+    esconderDica();
     navigate(`/${paraRota(rotulo)}`);
+  };
+
+  // Aceita os dois sentidos para o controle Claro/Escuro: o provider só sabe
+  // alternar, então só alterna quando o pedido é diferente do atual.
+  const usarTema = (escuro) => {
+    if (theme.isDark !== escuro) toggleTheme();
   };
 
   const inicial = user?.nome ? user.nome.charAt(0).toUpperCase() : "U";
@@ -217,6 +306,7 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
     if (!podeVer(rotulo)) return null;
     const ativo = active === rotulo;
     const contador = contadores[rotulo];
+    const nome = APELIDOS[rotulo] ?? rotulo;
 
     return (
       <li key={rotulo}>
@@ -225,11 +315,21 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
           className="vit-navitem"
           aria-current={ativo ? "page" : undefined}
           onClick={() => ir(rotulo)}
+          onMouseEnter={(e) => mostrarDica(e, contador > 0 ? `${nome} · ${contador}` : nome)}
+          onMouseLeave={esconderDica}
+          onFocus={(e) => mostrarDica(e, nome)}
+          onBlur={esconderDica}
         >
-          <span className="vit-navitem__icone">
-            <Icone size={17} strokeWidth={ativo ? 2.4 : 2} aria-hidden="true" />
+          {/* Encolhido, o contador vira bolinha no canto do ícone. O número
+              sai do CSS (attr) para não duplicar o texto que o leitor de
+              tela já lê no contador ao lado do nome. */}
+          <span
+            className="vit-navitem__icone"
+            data-contador={contador > 0 ? (contador > 9 ? "9+" : contador) : undefined}
+          >
+            <Icone size={18} strokeWidth={ativo ? 2.25 : 1.75} aria-hidden="true" />
           </span>
-          <span className="vit-navitem__texto">{APELIDOS[rotulo] ?? rotulo}</span>
+          <span className="vit-navitem__texto">{nome}</span>
           {contador > 0 && (
             <span className="vit-navitem__contador">{contador}</span>
           )}
@@ -267,19 +367,42 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
 
       <aside
         ref={gavetaRef}
-        className={`vit-sidebar${gavetaAberta ? " vit-sidebar--aberta" : ""}`}
+        className={
+          "vit-sidebar" +
+          (gavetaAberta ? " vit-sidebar--aberta" : "") +
+          (encolhida ? " vit-sidebar--encolhida" : "")
+        }
         aria-label="Navegação principal"
       >
         <div className="vit-sidebar__marca">
-          <Logo variant="horizontal" />
+          <Logo variant="inverse" />
         </div>
+
+        {/* Alça na borda: fica no mesmo lugar aberta ou encolhida, então a
+            mão não precisa procurar o botão de volta. Some no celular, onde
+            a lateral é gaveta. */}
+        <button
+          type="button"
+          className="vit-sidebar__alca"
+          onClick={alternarEncolhida}
+          aria-label={encolhida ? "Expandir menu" : "Encolher menu"}
+          aria-expanded={!encolhida}
+          onMouseEnter={(e) => mostrarDica(e, "Expandir menu")}
+          onMouseLeave={esconderDica}
+        >
+          {encolhida
+            ? <PanelLeftOpen size={15} aria-hidden="true" />
+            : <PanelLeftClose size={15} aria-hidden="true" />}
+        </button>
 
         <nav className="vit-sidebar__nav">
           {CATEGORIAS.map(({ titulo, itens }) => {
             const visiveis = itens.filter(([rotulo]) => podeVer(rotulo));
             if (visiveis.length === 0) return null;
 
-            const fechada = fechadas.has(titulo);
+            // Encolhido não há título para clicar de volta: todas as seções
+            // aparecem, separadas por filete, e o recolher volta ao expandir.
+            const fechada = fechadas.has(titulo) && !encolhida;
             // Com a categoria fechada o item ativo some da vista. O título
             // assume o destaque para não perder a referência de onde se está.
             const escondeAtivo = fechada && visiveis.some(([r]) => r === active);
@@ -297,11 +420,12 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
                   onClick={() => alternarCategoria(titulo)}
                   aria-expanded={!fechada}
                   aria-controls={idLista}
-                  /* "Assembleia" é nome de categoria E de
+                  /* "Processos" e "Assembleia" são nome de categoria E de
                      item. Sem este prefixo o leitor de tela anuncia dois
                      botões idênticos e não dá para saber qual navega e qual
                      recolhe. O rótulo visível continua dentro do nome. */
                   aria-label={`Seção ${titulo}`}
+                  tabIndex={encolhida ? -1 : undefined}
                 >
                   <ChevronDown size={13} className="vit-sidebar__seta" aria-hidden="true" />
                   <span className="vit-sidebar__cat-texto">{titulo}</span>
@@ -315,6 +439,29 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
         </nav>
 
         <div className="vit-sidebar__perfil" ref={perfilRef}>
+          {/* Tema a um clique, sem abrir o menu do perfil. O item do menu
+              continua lá para quem está com o menu encolhido. */}
+          <div className="vit-tema" role="group" aria-label="Tema">
+            <button
+              type="button"
+              className="vit-tema__opcao"
+              aria-pressed={!theme.isDark}
+              onClick={() => usarTema(false)}
+            >
+              <Sun size={15} aria-hidden="true" />
+              Claro
+            </button>
+            <button
+              type="button"
+              className="vit-tema__opcao"
+              aria-pressed={theme.isDark}
+              onClick={() => usarTema(true)}
+            >
+              <Moon size={15} aria-hidden="true" />
+              Escuro
+            </button>
+          </div>
+
           {menuAberto && (
             <div className="vit-menu" role="menu">
               <button
@@ -347,6 +494,8 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
             onClick={() => setMenuAberto((v) => !v)}
             aria-expanded={menuAberto}
             aria-haspopup="menu"
+            onMouseEnter={(e) => mostrarDica(e, user?.nome ?? "Perfil")}
+            onMouseLeave={esconderDica}
           >
             <span className="vit-perfil__avatar" aria-hidden="true">{inicial}</span>
             <span className="vit-perfil__texto">
@@ -360,6 +509,16 @@ export default function Sidebar({ active, setActive, user, onLogout, contadores 
             </span>
           </button>
         </div>
+
+        {dica && (
+          <span
+            className="vit-dica"
+            role="tooltip"
+            style={{ top: dica.top, left: dica.left }}
+          >
+            {dica.texto}
+          </span>
+        )}
       </aside>
     </>
   );

@@ -25,9 +25,9 @@ function construirTema(isDark) {
 }
 
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(
-    () => localStorage.getItem("darkMode") === "true"
-  );
+  // Sempre abre no escuro (pedido de 2026-11-04). O botão Claro/Escuro continua
+  // trocando durante o uso, mas a escolha não volta na próxima abertura.
+  const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
     localStorage.setItem("darkMode", String(isDark));

@@ -1,50 +1,30 @@
- 
-/* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { 
-  Calendar, Search, Plus, Edit2, Trash2, X, Loader2, 
-  ChevronLeft, ChevronRight, MoreVertical, Eye, DollarSign,
-  FileText, Download, RotateCcw, CheckCircle2, AlertCircle, User, Paperclip, UploadCloud, ChevronDown
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CheckCircle2, Circle, Crop, Download, Eye, FileText, MessageSquareText, Paperclip, Pencil, Plus,
+  Trash2, Upload, User, Waves,
 } from "lucide-react";
-import { useTheme } from "../theme/useTheme";
 
 // Bibliotecas para exportação
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { toJpeg } from "html-to-image";
-import * as htmlToImage from "html-to-image";
 
-// Exibição de imagens/arquivos do Drive via backend autenticado (getFoto):
-// componente compartilhado — ver src/components/DriveImage.jsx.
-import { DriveImage, fetchFotoCached, prefetchFoto, extrairFileIdDrive, abrirArquivoDrive, carregarComoDataUrl } from "../components/DriveImage";
+import { DriveImage, prefetchFoto, abrirArquivoDrive, carregarComoDataUrl } from "../components/DriveImage";
 import { listar, criar, editar, remover } from "../api/db";
 import { entregarArquivo, nomeDeArquivo, BAIXADO } from "../lib/baixar";
-
-import { enviarAnexo, urlDoAnexo, removerAnexo, removerAnexosDoRegistro } from "../api/anexos";
-import { maskCPF, maskRG, maskPhone, maskCPFPrivacy, maskRGPrivacy, formatCurrency } from "../lib/format";
-import { converterUrlDrive, extrairIdDrive, sanitizarCelula, validarAnexo } from "../lib/drive";
-import { useToast, useConfirm, Ocupado, Input, Button, PageHeader, Modal } from "../ui";
-
-// --- ESTILOS ---
-const pageContainer = { padding: "20px", maxWidth: "1200px", margin: "0 auto" };
-const btnNew = { color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' };
-const searchContainer = { display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px', borderRadius: '8px', border: '1px solid' };
-const tableCard = { borderRadius: '16px', border: '1px solid', overflow: 'hidden' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const thStyle = { textAlign: 'left', padding: '16px 24px', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' };
-const thRow = { borderBottom: '1px solid' };
-const tdStyle = { padding: '16px 24px', fontSize: '14px' };
-const trStyle = { transition: '0.2s' };
-const badgeGreen = { backgroundColor: '#FEE4DC', color: '#B33320', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const badgeRed = { backgroundColor: '#F9DEE3', color: '#8F1530', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' };
-const paginationFooter = { padding: '15px 24px', borderTop: '1px solid', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(40, 22, 18, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
-const modalContent = { padding: '24px', borderRadius: '20px', width: '90%' };
-const modalHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' };
-const labelStyle = { fontSize: '11px', fontWeight: '700', marginBottom: '5px', display: 'block', textTransform: 'uppercase', color: 'var(--fg-muted)' };
-const selectStyle = { padding: '10px', borderRadius: '8px', border: '1px solid', outline: 'none', fontSize: '14px' };
-const viewBox = { padding: '12px', borderRadius: '12px', fontSize: '13px', border: '1px solid', lineHeight: '1.6' };
+import { enviarAnexo, urlsDosAnexos, removerAnexo, removerAnexosDoRegistro } from "../api/anexos";
+import { maskCPF, maskPhone, maskCPFPrivacy, dataBR, nomeProprio, soDigitos } from "../lib/format";
+import { sanitizarCelula, validarAnexo } from "../lib/drive";
+import { atestadoVencido, textoDaIdade } from "../lib/carteirinha";
+import {
+  useToast, useConfirm, Input, Button, PageHeader, Modal, Field, Select, Textarea, Badge, EmptyState,
+} from "../ui";
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import BuscaUnidade from "../components/BuscaUnidade";
+import Carteirinha from "../components/piscina/Carteirinha";
+import { imagemDaCarteirinha } from "../components/piscina/imagemDaCarteirinha";
+import RecorteDaFoto from "../components/piscina/RecorteDaFoto";
+import { Chave, Ficha, Filtros, Iniciais, MaisFiltros, Opcoes, PainelDeFiltros, Paginador } from "../components/app/pecas";
 
 // `piscina` é administrativo: pelas políticas do 0015, porteiro e conselheiro
 // não alcançam — é aqui que está o atestado médico. A mensagem do Postgres fala
@@ -54,970 +34,783 @@ const mensagemErro = (msg) => {
   if (/row-level security|permission denied|PGRST116|coerce the result/i.test(msg)) {
     return "Você não tem permissão para alterar cadastros da piscina.";
   }
+  // A coluna do recorte nasce no 0095 (era 0088, número repetido). Sem ele, o PostgREST recusa.
+  if (/caminho_foto_carteirinha/i.test(msg)) {
+    return "O banco ainda não guarda o recorte da foto. Aplique a migração 0095 no Supabase.";
+  }
   if (/failed to fetch|networkerror|load failed/i.test(msg)) {
     return "Sem conexão com o servidor. Tente de novo.";
   }
   return msg;
 };
 
+const SITUACOES = ["Ativo", "Inativo", "Vencido"];
+const TOM_SITUACAO = { Ativo: "positive", Inativo: "neutral", Vencido: "danger" };
+/** Quantos cadastros ativos uma unidade pode ter ao mesmo tempo. */
+const LIMITE_ATIVOS = 8;
+/** Cadastros por página (decisão do usuário, 23/11/2026). */
+const POR_PAGINA = 20;
+const FORM_VAZIO = {
+  id_unidade: "", id_morador: "", nome: "", cpf: "", nascimento: "", telefone: "",
+  validade: "", status: "Ativo", obs: "", fotoBase64: "", atestadoBase64: "",
+};
+
+/** "2026-02-27 00:00:00" ou "2026-02-27T…" → "2026-02-27" (o formato do <input type=date>). */
+function paraDataISO(valor) {
+  if (!valor) return "";
+  const s = String(valor).trim();
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return s.split(" ")[0].split("T")[0];
+}
+
+const COLUNAS_EXPORTACAO = [
+  { id: "id_unidade", label: "Unidade", selected: true },
+  { id: "nome", label: "Nome", selected: true },
+  { id: "nascimento", label: "Nascimento", selected: true },
+  { id: "idade", label: "Idade", selected: true },
+  { id: "telefone", label: "Telefone", selected: true },
+  { id: "validade", label: "Validade do atestado", selected: true },
+  { id: "cpf", label: "CPF", selected: true },
+  { id: "status", label: "Situação", selected: true },
+  { id: "obs", label: "Observações", selected: false },
+];
+
+/** A foto pequena do cadastro; sem foto, as iniciais. */
+function Foto({ c }) {
+  const foto = c.url_foto_carteirinha || c.url_foto;
+  return foto
+    ? <span className="pis-foto"><DriveImage source={foto} alt="" /></span>
+    : <Iniciais nome={c.nome} />;
+}
+
 export default function Piscina({ user }) {
   const toast = useToast();
   const confirmar = useConfirm();
-  const { theme } = useTheme();
 
-  const [isDownloading, setIsDownloading] = useState(false); // Sugestão: estado para o loader do botão
-  const [loading, setLoading] = useState(false);
-  const [festas, setFestas] = useState([]);
+  const [cadastros, setCadastros] = useState([]);
   const [unidades, setUnidades] = useState([]);
   const [moradores, setMoradores] = useState([]);
-  const [uploads, setUploads] = useState([]); // Guardar os uploads brutos
-  const [loadingInitial, setLoadingInitial] = useState(true);
-  const [loadingGlobal, setLoadingGlobal] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ nome: "Sistema" });
-  
-  const [showModal, setShowModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedFesta, setSelectedFesta] = useState(null);
-  const [modalType, setModalType] = useState("add");
-  const [showMenuId, setShowMenuId] = useState(null);
-  const menuRef = useRef(null);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
 
-  // A arte do template tem 1011px de largura. Todo tamanho do cartão é escrito
-  // nessa medida e multiplicado por `escala`, senão o texto — que estava em
-  // `rem`, portanto fixo em pixels — não encolhe junto com o cartão: no celular
-  // o nome descia em cima de Unidade e Validade. Também é o que faz a imagem
-  // baixada sair igual em qualquer tela.
-  const LARGURA_ARTE = 1011;
+  // Lista: busca, situação, mais filtros, ordem e quantas aparecem.
+  const [busca, setBusca] = useState("");
+  const [situacao, setSituacao] = useState("Todos");
+  const [maisFiltros, setMaisFiltros] = useState(false);
+  const [filtroAtestado, setFiltroAtestado] = useState("Todos");
+  const [periodo, setPeriodo] = useState({ inicio: "", fim: "" });
+  const [ordem, setOrdem] = useState({ chave: "nome", direcao: "asc" });
+  const [pagina, setPagina] = useState(1);
+
+  // Ver, editar, exportar.
+  const [vendo, setVendo] = useState(null);
+  const [form, setForm] = useState(null); // null = fechado
+  const [moradorCadastrado, setMoradorCadastrado] = useState(false);
+  const [exportando, setExportando] = useState(false);
+  const [colunas, setColunas] = useState(COLUNAS_EXPORTACAO);
+  const [baixando, setBaixando] = useState(false);
   const cartaoRef = useRef(null);
-  // Começa na proporção em que o cartão foi desenhado (500px de largura) e
-  // mede antes da pintura, senão o primeiro quadro sai com o texto no tamanho
-  // da arte inteira — letra gigante piscando dentro do modal.
-  const [escala, setEscala] = useState(500 / 1011);
-  const d = (n) => `${(n * escala).toFixed(2)}px`;
+  const [recortando, setRecortando] = useState(""); // a foto inteira, em data URL
+  const [salvandoRecorte, setSalvandoRecorte] = useState(false);
+  const [abrindoFoto, setAbrindoFoto] = useState(false);
+  const [avisoFoto, setAvisoFoto] = useState(false);
 
-  useLayoutEffect(() => {
-    if (!showViewModal) return;
-    const el = cartaoRef.current;
-    if (!el) return;
+  const unidadePorId = useMemo(() => new Map(unidades.map((u) => [String(u.id), u])), [unidades]);
+  /** "B5-206", o rótulo da unidade em toda a tela. */
+  const rotuloUnidade = (id) => {
+    const u = unidadePorId.get(String(id));
+    return u ? `B${u.bloco}-${u.unidade}` : String(id ?? "");
+  };
+  /** A ordem do prédio: bloco, depois apartamento. */
+  const ordemUnidade = (id) => {
+    const u = unidadePorId.get(String(id));
+    return u ? Number(u.bloco) * 10000 + Number(u.unidade) : Number(id) || 0;
+  };
 
-    const medir = () => {
-      const largura = el.offsetWidth;
-      if (largura > 0) setEscala(largura / LARGURA_ARTE);
-    };
-    medir();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", medir);
-      return () => window.removeEventListener("resize", medir);
+  // ---------- carregar ----------
+  const carregar = async () => {
+    try {
+      const [rPiscina, rUnidades, rMoradores] = await Promise.all([
+        listar("PISCINA"), listar("UNIDADES"), listar("MORADORES"),
+      ]);
+      // Cadastro novo guarda os arquivos no bucket (`caminho_foto`,
+      // `caminho_atestado`); os 204 antigos continuam no Drive, com `url_*`.
+      // A URL assinada é resolvida aqui, e o resto da tela só enxerga `url_*`.
+      // Os três links de cada cadastro saem juntos: em série, eram três idas e
+      // voltas por pessoa antes de a lista aparecer.
+      // Em lote (urlsDosAnexos): um link por arquivo, todos juntos, esgotava
+      // as conexões do banco no plano grátis (544 DatabaseTimeout, 23/11).
+      const brutos = Array.isArray(rPiscina) ? rPiscina : [];
+      const links = await urlsDosAnexos(brutos.flatMap((i) => [i.caminho_foto, i.caminho_atestado, i.caminho_foto_carteirinha]));
+      const link = (caminho, reserva) => (caminho ? (links.get(caminho) ?? null) : reserva);
+      const lista = brutos.map((item) => {
+        const url_foto = link(item.caminho_foto, item.url_foto);
+        const url_atestado = link(item.caminho_atestado, item.url_atestado);
+        const url_foto_carteirinha = link(item.caminho_foto_carteirinha, "");
+        return {
+        ...item,
+        url_foto,
+        url_atestado,
+        url_foto_carteirinha,
+        nascimento: paraDataISO(item.nascimento),
+        validade: paraDataISO(item.validade_atestado || item.validade),
+        cpf: item.cpf || "",
+        status: item.status || "Ativo",
+        obs: item.obs || "",
+        };
+      });
+      setCadastros(lista.filter((c) => c.nome || c.id));
+      setUnidades(Array.isArray(rUnidades) ? rUnidades : []);
+      setMoradores(Array.isArray(rMoradores) ? rMoradores : []);
+    } catch (erro) {
+      console.error("Piscina: erro ao carregar", erro);
+      toast.error("Não foi possível carregar os cadastros.");
+    } finally {
+      setCarregando(false);
     }
-    const observador = new ResizeObserver(medir);
-    observador.observe(el);
-    return () => observador.disconnect();
-  }, [showViewModal, selectedFesta?.id]);
+  };
+  useEffect(() => { carregar(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- filtrar, contar, ordenar ----------
+  const contagem = useMemo(() => {
+    const c = { Todos: cadastros.length };
+    for (const s of SITUACOES) c[s] = cadastros.filter((x) => x.status === s).length;
+    return c;
+  }, [cadastros]);
+  const vencidos = useMemo(() => cadastros.filter((c) => c.status === "Ativo" && atestadoVencido(c.validade)).length, [cadastros]);
+
+  const filtradas = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const digitos = soDigitos(busca);
+    const lista = cadastros.filter((c) => {
+      if (situacao !== "Todos" && c.status !== situacao) return false;
+      if (filtroAtestado === "Vencido" && !atestadoVencido(c.validade)) return false;
+      if (filtroAtestado === "Em dia" && (!c.validade || atestadoVencido(c.validade))) return false;
+      if (periodo.inicio && (!c.validade || c.validade < periodo.inicio)) return false;
+      if (periodo.fim && (!c.validade || c.validade > periodo.fim)) return false;
+      if (!termo) return true;
+      return String(c.nome || "").toLowerCase().includes(termo)
+        || rotuloUnidade(c.id_unidade).toLowerCase().includes(termo)
+        || (digitos.length >= 3 && soDigitos(c.cpf).includes(digitos));
+    });
+    const valor = (c) => {
+      if (ordem.chave === "id_unidade") return ordemUnidade(c.id_unidade);
+      if (ordem.chave === "nome") return String(c.nome || "").toLowerCase();
+      return String(c[ordem.chave] || "");
+    };
+    const sinal = ordem.direcao === "asc" ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      const va = valor(a), vb = valor(b);
+      return va < vb ? -sinal : va > vb ? sinal : 0;
+    });
+  }, [cadastros, busca, situacao, filtroAtestado, periodo, ordem, unidadePorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filtrosDoPainel = (filtroAtestado !== "Todos" ? 1 : 0) + (periodo.inicio ? 1 : 0) + (periodo.fim ? 1 : 0);
+  const limparFiltros = () => { setFiltroAtestado("Todos"); setPeriodo({ inicio: "", fim: "" }); setPagina(1); };
+  const ordenar = (chave) => setOrdem((o) => ({ chave, direcao: o.chave === chave && o.direcao === "asc" ? "desc" : "asc" }));
+
+  // ---------- ver ----------
+  const ver = (c) => { setVendo(c); prefetchFoto(c.url_foto); };
+
+  // O recorte salvo (0095) é a foto da carteirinha; sem ele, a foto inteira.
+  const fotoRecortada = vendo?.url_foto_carteirinha || "";
+
+  /** Abre a foto INTEIRA para a pessoa recortar. */
+  const recortarFoto = async () => {
+    setAvisoFoto(false);
+    setAbrindoFoto(true);
+    try {
+      const foto = await carregarComoDataUrl(vendo?.url_foto);
+      if (!foto) { toast.error("Não foi possível abrir a foto para recortar."); return; }
+      setRecortando(foto);
+    } finally {
+      setAbrindoFoto(false);
+    }
+  };
+  /**
+   * Salva o recorte para sempre: sobe como arquivo à parte na pasta da foto e
+   * o cadastro passa a apontar para ele. A foto original fica guardada.
+   */
+  const usarRecorte = async (foto) => {
+    if (!vendo || salvandoRecorte) return;
+    setSalvandoRecorte(true);
+    try {
+      const envio = await enviarAnexo("piscina", vendo.id, foto, "carteirinha.jpg");
+      if (!envio.success) { toast.error(`O recorte não foi salvo: ${mensagemErro(envio.message)}`); return; }
+      const r = await editar("PISCINA", vendo.id, { caminho_foto_carteirinha: envio.caminho });
+      if (!r.success) {
+        // Sem vínculo, o arquivo sobraria no bucket sem ninguém apontar.
+        await removerAnexo(envio.caminho);
+        toast.error(mensagemErro(r.message));
+        return;
+      }
+      if (vendo.caminho_foto_carteirinha) {
+        const rm = await removerAnexo(vendo.caminho_foto_carteirinha);
+        if (!rm.success) console.warn("Recorte antigo não removido:", rm.message);
+      }
+      // A tela já mostra o recorte (o data URL), sem esperar recarregar.
+      const atualizado = { ...vendo, caminho_foto_carteirinha: envio.caminho, url_foto_carteirinha: foto };
+      setVendo(atualizado);
+      setCadastros((cs) => cs.map((c) => (c.id === vendo.id ? atualizado : c)));
+      setRecortando("");
+      toast.success("Recorte salvo. A carteirinha usa esta foto a partir de agora.");
+    } finally {
+      setSalvandoRecorte(false);
+    }
+  };
+
+  /** Com foto ainda não recortada, pergunta antes; senão, baixa direto. */
+  const pedirCarteirinha = () => {
+    if (vendo?.url_foto && !fotoRecortada) setAvisoFoto(true);
+    else baixarCarteirinha();
+  };
 
   const baixarCarteirinha = async () => {
-    if (!selectedFesta || isDownloading) return;
-
-    const node = cartaoRef.current;
-    let restaurarFoto = () => {};
-    setIsDownloading(true);
-
+    if (!vendo || baixando) return;
+    setAvisoFoto(false);
+    setBaixando(true);
     try {
-      if (!node) throw new Error("A carteirinha não está na tela.");
-
-      // Os bytes da foto, em base64, venha ela de onde vier. Antes isto raspava
-      // um fileId de `url_foto` e chamava o getFoto. Depois da migração,
-      // `url_foto` das 204 fichas antigas é link assinado do bucket — a raspagem
-      // devolvia lixo, o getFoto negava, e a carteirinha parava de baixar para
-      // quem já existia. `carregarComoDataUrl` decide pelo endereço e embute o
-      // base64, que é o que o html-to-image precisa para não sujar o canvas.
-      const fotoBase64 = selectedFesta.url_foto
-        ? await carregarComoDataUrl(selectedFesta.url_foto)
-        : null;
-
-      // Sem foto o cadastro continua valendo, e o cartão sai com o ícone. Antes
-      // isto era `throw`: quem não tinha foto nunca conseguia baixar.
-      const imgNode = fotoBase64 ? node.querySelector("img") : null;
-      if (imgNode) {
-        const srcOriginal = imgNode.src;
-        restaurarFoto = () => { imgNode.src = srcOriginal; };
-        imgNode.src = fotoBase64;
-        await new Promise((resolve) => {
-          if (imgNode.complete) return resolve();
-          imgNode.onload = resolve;
-          imgNode.onerror = resolve;
-          setTimeout(resolve, 1500);
-        });
-      }
-
-      // O cartão mede larguras diferentes em cada tela; o pixelRatio compensa
-      // para o arquivo sair sempre com ~2022px de largura. Sem isto, a
-      // carteirinha baixada no celular saía com menos da metade da resolução da
-      // baixada no computador.
-      const largura = node.offsetWidth || LARGURA_ARTE;
-      const opcoes = {
-        pixelRatio: Math.min(8, Math.max(1, (LARGURA_ARTE * 2) / largura)),
-        skipAutoScale: true,
-        backgroundColor: "#ffffff",
-      };
-
-      // Duas passadas de propósito. O html-to-image desenha num <foreignObject>
-      // e o Safari — o do iPhone inclusive — devolve a primeira captura sem as
-      // imagens que ainda não estavam no cache dele. A segunda sai completa.
-      await htmlToImage.toBlob(node, opcoes);
-      const blob = await htmlToImage.toBlob(node, opcoes);
-      if (!blob) throw new Error("O navegador não conseguiu gerar a imagem.");
-
-      const destino = await entregarArquivo(
-        blob,
-        nomeDeArquivo(`Carteirinha ${selectedFesta.nome}`, "png"),
-      );
+      const blob = await imagemDaCarteirinha(cartaoRef.current, fotoRecortada || vendo.url_foto);
+      const destino = await entregarArquivo(blob, nomeDeArquivo(`Carteirinha ${vendo.nome}`, "png"));
       if (destino === BAIXADO) toast.success("Carteirinha baixada.");
-    } catch (err) {
-      console.error("Erro ao gerar a carteirinha:", err);
-      // A mensagem do erro vai junto: sem ela, "não foi possível" era tudo o que
-      // sobrava de um defeito que só acontece no celular de outra pessoa.
-      toast.error(`Não foi possível gerar a carteirinha. ${err?.message || ""}`.trim());
+    } catch (erro) {
+      console.error("Erro ao gerar a carteirinha:", erro);
+      // A mensagem vai junto: o defeito costuma aparecer só no celular de outra pessoa.
+      toast.error(`Não foi possível gerar a carteirinha. ${erro?.message || ""}`.trim());
     } finally {
-      restaurarFoto();
-      setIsDownloading(false);
+      setBaixando(false);
     }
   };
 
-  const formatarNomeCarteirinha = (nome = "") => {
-  const nomeCompleto = nome.trim();
-  if (!nomeCompleto) return "-";
+  const abrirAtestado = (c) => abrirArquivoDrive(
+    // Linha migrada tem `caminho_atestado` E `id_atestado_drive`: o bucket
+    // vem primeiro, porque o Drive não responde mais desde que o login saiu
+    // do Apps Script. `url_atestado` já chega como link assinado.
+    c.caminho_atestado ? c.url_atestado : c.id_atestado_drive || c.url_atestado,
+  );
 
-  const preposicoes = ["da", "de", "do", "das", "dos"];
+  // ---------- criar e editar ----------
+  const abrirNovo = () => { setMoradorCadastrado(false); setForm({ ...FORM_VAZIO }); };
+  const abrirEditar = (c) => {
+    setMoradorCadastrado(Boolean(c.id_morador && c.id_morador !== "AVULSO"));
+    setForm({ ...FORM_VAZIO, ...c, fotoBase64: "", atestadoBase64: "" });
+    setVendo(null);
+  };
+  const fecharForm = () => { if (!salvando) setForm(null); };
+  const mudar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }));
 
-  let partes = nomeCompleto.split(" ");
-
-  // Se couber, retorna tudo
-  if (nomeCompleto.length <= 22) return nomeCompleto;
-
-  // Sempre remove o último sobrenome primeiro
-  if (partes.length > 2) {
-    partes = partes.slice(0, -1);
-  }
-
-  // LIMPEZA FINAL INTELIGENTE
-  while (partes.length > 1) {
-    const ultimo = partes[partes.length - 1].toLowerCase();
-
-    // remove preposição
-    if (preposicoes.includes(ultimo)) {
-      partes.pop();
-      continue;
-    }
-
-    // remove palavras de 1 letra (tipo "d", "a", etc)
-    if (ultimo.length <= 1) {
-      partes.pop();
-      continue;
-    }
-
-    break;
-  }
-
-  return partes.join(" ");
-};
-
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("Todos");
-  const [filterDivergencia, setFilterDivergencia] = useState("Todos");
-  const [filterData, setFilterData] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [isMoradorCadastrado, setIsMoradorCadastrado] = useState(false);
-  
-  const [formData, setFormData] = useState({
-  id_unidade: "",
-  id_morador: "", // Pode ser vazio para "Avulso"
-  nome: "",
-  cpf: "", // Inicialize aqui
-  nascimento: "",
-  telefone: "",
-  validade: "",
-  status: "Ativo",
-  obs: "",
-  fotoBase64: "",    // Novo
-  atestadoBase64: "" // Novo
-});
-
-  const [filterPeriodo, setFilterPeriodo] = useState({ inicio: "", fim: "" });
-  const [filterPago, setFilterPago] = useState("Todos");
-  
-
-  const btnSaveStyles = {
-    ...btnNew,
-    backgroundColor: 'var(--btn-primary-bg)',
-    color: '#ffffff',
-    width: '100%',
-    justifyContent: 'center',
-    marginTop: '10px',
-    border: theme.isDark ? '1px solid #EF7A5C' : 'none'
+  const moradoresDaUnidade = useMemo(
+    () => (form?.id_unidade ? moradores.filter((m) => String(m.id_unidade) === String(form.id_unidade)) : []),
+    [moradores, form?.id_unidade],
+  );
+  const escolherMorador = (id) => {
+    const m = moradores.find((x) => String(x.id) === String(id));
+    setForm((f) => ({
+      ...f,
+      id_morador: m ? m.id : "",
+      nome: m ? nomeProprio(m.nome || "") : "",
+      cpf: m ? maskCPF(m.cpf || m.CPF || "") : "",
+      telefone: m ? maskPhone(String(m.telefone || m.celular || "")) : "",
+    }));
+  };
+  const alternarMorador = (ligado) => {
+    setMoradorCadastrado(ligado);
+    if (!ligado) setForm((f) => ({ ...f, id_morador: "", nome: "", cpf: "", telefone: "" }));
   };
 
-  
-const [sortConfig, setSortConfig] = useState([]); // Inicializa como array vazio
-  // Funções de Máscara
+  const lerArquivo = (e, campo) => {
+    const arquivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!arquivo) return;
+    const r = validarAnexo(arquivo);
+    if (!r.ok) { toast.error(r.motivo); return; }
+    const leitor = new FileReader();
+    leitor.onloadend = () => setForm((f) => ({ ...f, [campo]: leitor.result }));
+    leitor.readAsDataURL(arquivo);
+  };
 
-// Função para limpar o timestamp e mostrar apenas a data
-const formatarDataExibicao = (dateStr) => {
-  if (!dateStr) return "";
-  // Pega apenas a parte antes do espaço ou do "T"
-  const apenasData = dateStr.split(' ')[0].split('T')[0]; 
-  
-  // Se a data vier no formato YYYY-MM-DD, converte para DD/MM/YYYY
-  if (apenasData.includes('-')) {
-    const [year, month, day] = apenasData.split('-');
-    return `${day}/${month}/${year}`;
-  }
-  return apenasData; // Retorna DD/MM/YYYY se já estiver correto
-};
-
-const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-const [unitSearch, setUnitSearch] = useState("");
-const dropdownRef = useRef(null);
-
-// Função para exibir o texto da unidade selecionada no seletor
-const getUnitLabel = (id) => {
-  const u = unidades.find(unit => unit.id.toString() === id.toString());
-  return u ? `BLOCO ${u.bloco} - UNIDADE ${u.unidade}` : "Selecione a Unidade...";
-};
-
-// Filtro da lista de unidades baseado no que o usuário digita
-// Filtro e Ordenação da lista de unidades
-const unidadesFiltradas = unidades
-  .filter(u => 
-    u.bloco.toString().toLowerCase().includes(unitSearch.toLowerCase()) || 
-    u.unidade.toString().toLowerCase().includes(unitSearch.toLowerCase())
-  )
-  .sort((a, b) => {
-    // Primeiro ordena pelo Bloco
-    const compareBloco = a.bloco.toString().localeCompare(b.bloco.toString(), undefined, { numeric: true });
-    if (compareBloco !== 0) return compareBloco;
-    
-    // Se o bloco for igual, ordena pela Unidade
-    return a.unidade.toString().localeCompare(b.unidade.toString(), undefined, { numeric: true });
-  });
-
-const converterLinkDrive = (url) => {
-  if (!url) return null;
-
-  // Extrai o ID
-  const match = url.match(/[-\w]{25,}/);
-  const fileId = match ? match[0] : null;
-
-  if (fileId) {
-    // Usamos o thumbnail com sz=w400 (mais estável) 
-    // e adicionamos um timestamp para evitar cache travado
-    const timestamp = new Date().getTime();
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400&t=${timestamp}`;
-  }
-  
-  return url;
-};
-
-const [filterChurrasqueira, setFilterChurrasqueira] = useState("Todos");
-
-const fileInputRef = useRef(null); // Adicione isso logo abaixo dos outros useStates
-
-// Converte a data do banco (DD/MM/YYYY HH:mm) para o formato do input (YYYY-MM-DDTHH:mm)
-const formatDateTimeForInput = (dateTimeStr) => {
-  if (!dateTimeStr) return "";
-  // Se vier com espaço (ex: 15/10/2023 14:00) ou com T (ISO)
-  const separator = dateTimeStr.includes(' ') ? ' ' : 'T';
-  const [datePart] = dateTimeStr.split(separator);
-  
-  if (datePart.includes('/')) {
-    const [day, month, year] = datePart.split('/');
-    return `${year}-${month}-${day}`;
-  }
-  return datePart;
-};
-
-  useEffect(() => {
-    fetchData();
-  
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-  
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenuId(null);
+  const salvar = async () => {
+    if (!form.id_unidade || !form.nome.trim() || !form.validade) {
+      toast.error("Preencha a unidade, o nome e a validade do atestado.");
+      return;
+    }
+    const novo = !form.id;
+    if (novo && form.status === "Ativo") {
+      const ativos = cadastros.filter((c) => String(c.id_unidade) === String(form.id_unidade) && c.status === "Ativo").length;
+      if (ativos >= LIMITE_ATIVOS) {
+        toast.error(`A unidade ${rotuloUnidade(form.id_unidade)} já tem ${LIMITE_ATIVOS} cadastros ativos, que é o limite. Marque um antigo como inativo para cadastrar outro.`);
+        return;
       }
-  
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowUnitDropdown(false);
-      }
+    }
+
+    setSalvando(true);
+    // `nascimento` e `validade_atestado` são `date`: campo em branco vira null.
+    const dados = {
+      id_unidade: Number(form.id_unidade),
+      id_morador: form.id_morador || "AVULSO",
+      nome: nomeProprio(form.nome.trim()),
+      cpf: form.cpf || null,
+      nascimento: form.nascimento || null,
+      telefone: form.telefone || null,
+      validade_atestado: form.validade || null,
+      status: form.status || "Ativo",
+      obs: form.obs?.trim() || null,
     };
-  
-    document.addEventListener("mousedown", handleClickOutside);
-  
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+    try {
+      const r = novo
+        ? await criar("PISCINA", { ...dados, created_by: user?.nome || "Sistema" })
+        : await editar("PISCINA", form.id, dados);
+      if (!r.success) { toast.error(mensagemErro(r.message)); return; }
 
- const fetchData = async () => {
-  try {
-    setLoadingInitial(true);
-
-    const [resPiscina, resUnidades, resMoradores, resUploads] = await Promise.all([
-      listar("PISCINA"),
-      listar("UNIDADES"),
-      listar("MORADORES"),
-      listar("UPLOADS_PISCINA"),
-    ]);
-
-    // Cadastro novo guarda o arquivo no bucket e tem `caminho_foto`; os 204
-    // antigos continuam no Drive, com `url_foto`. Resolver a URL assinada aqui
-    // faz os seis pontos que exibem a foto funcionarem sem saber a diferença —
-    // eles só enxergam `url_foto`, como sempre enxergaram.
-    const listaRaw = await Promise.all(
-      (Array.isArray(resPiscina) ? resPiscina : []).map(async (item) => ({
-        ...item,
-        url_foto: item.caminho_foto
-          ? await urlDoAnexo({ caminho_storage: item.caminho_foto })
-          : item.url_foto,
-        url_atestado: item.caminho_atestado
-          ? await urlDoAnexo({ caminho_storage: item.caminho_atestado })
-          : item.url_atestado,
-      }))
-    );
-    
-    // Normalização para evitar problemas de Maiúsculas/Minúsculas
-const dadosFormatados = listaRaw.map(item => {
-  // Função interna para limpar "2026-02-27 00:00:00" para "2026-02-27"
-  const limparData = (valor) => {
-    if (!valor) return "";
-    return String(valor).split(' ')[0].split('T')[0];
-  };
-
-  return {
-    ...item,
-    id: item.id || item.ID,
-    nome: item.nome || item.Nome,
-    id_unidade: item.id_unidade || item.ID_UNIDADE,
-    nascimento: limparData(item.nascimento || item.NASCIMENTO),
-    // Garantindo que a validade pegue a coluna correta (Coluna G ou validade_atestado)
-    validade: limparData(item.validade_atestado || item.validade || item.VALIDADE_ATESTADO),
-    // Mapeando o novo campo CPF
-    cpf: item.cpf || item.CPF || "", 
-    status: item.status || item.Status || "Ativo",
-    obs: item.obs || item.OBS || ""
-  };
-}).filter(item => item.nome || item.id);
-
-    setFestas(dadosFormatados); 
-    setUnidades(Array.isArray(resUnidades) ? resUnidades : []);
-    setMoradores(Array.isArray(resMoradores) ? resMoradores : []);
-    
-  } catch (error) { 
-    console.error("ERRO CRÍTICO NO FETCH:", error); 
-  } finally { 
-    setLoadingInitial(false);
-  }
-};
-  
-
-const [showExportModal, setShowExportModal] = useState(false);
-const [selectedColumns, setSelectedColumns] = useState([
-  { id: 'id_unidade', label: 'Unidade', selected: true },
-  { id: 'nome', label: 'Nome', selected: true },
-  { id: 'nascimento', label: 'Nascimento', selected: true },
-  { id: 'telefone', label: 'Telefone', selected: true },
-  { id: 'validade_atestado', label: 'Validade Atestado', selected: true },
-  { id: 'data_cadastro', label: 'Data Cadastro', selected: true },
-  { id: 'obs', label: 'Obs', selected: true },
-  { id: 'cpf', label: 'CPF', selected: true },
-  { id: 'status', label: 'Status', selected: true }
-]);
-
-const exportToExcel = () => {
-  // 1. Filtra apenas as colunas marcadas como 'selected: true'
-  const colsAtivas = selectedColumns.filter(c => c.selected);
-
-  const dadosParaExportar = dadosFiltrados.map(f => {
-    const linha = {};
-
-    // 2. Monta o objeto dinamicamente
-    colsAtivas.forEach(col => {
-      if (col.id === 'id_unidade') {
-        // Pega o label "BLOCO 5 - UNIDADE 206" e transforma em "B5-206"
-        const labelCompleto = getUnitLabel(f.id_unidade);
-        linha["Unidade"] = sanitizarCelula(labelCompleto
-          .replace(/BLOCO\s*/gi, 'B')      // Troca BLOCO por B
-          .replace(/UNIDADE\s*/gi, '')    // Remove a palavra UNIDADE
-          .replace(/\s*-\s*/g, '-')       // Garante que o traço não tenha espaços
-          .trim());
-      }
-      else if (col.id === 'cpf') {
-        linha["CPF"] = maskCPFPrivacy(f.cpf);
-      } 
-      else if (['nascimento', 'validade_atestado', 'data_cadastro'].includes(col.id)) {
-        let valorData = f[col.id] || "-";
-        
-        // Se vier com data e hora (Timestamp), pega apenas a parte da data
-        if (typeof valorData === 'string' && valorData.includes(' ')) {
-          valorData = valorData.split(' ')[0];
-        }
-        
-        linha[col.label] = valorData;
-      }
-      else {
-        linha[col.label] = sanitizarCelula(f[col.id] || "");
-      }
-    });
-
-    return linha;
-  });
-
-  const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Piscina");
-  XLSX.writeFile(wb, "Relatorio_Piscina.xlsx");
-  if (typeof setShowExportModal === 'function') setShowExportModal(false);
-};
-
-const handleToggleColumn = (id) => {
-  setSelectedColumns(prev => prev.map(col => col.id === id ? { ...col, selected: !col.selected } : col));
-};
-
-const exportToPDF = () => {
-  const doc = new jsPDF('l', 'mm', 'a4'); 
-  const img = new Image(); 
-  img.src = "/logo.png"; 
-
-  const maskCPFPrivacy = (cpf) => {
-    if (!cpf) return "";
-    const clean = String(cpf).replace(/\D/g, "");
-    if (clean.length < 11) return cpf;
-    return `${clean.substring(0, 3)}.***.***-${clean.substring(9)}`;
-  };
-
-  const colsParaExportar = selectedColumns.filter(c => c.selected);
-  const headers = colsParaExportar.map(c => c.label);
-  
-  const body = dadosFiltrados.map(f => colsParaExportar.map(c => {
-    // 1. Tratamento para UNIDADE (Formato B5-206)
-    // Se o seu ID for 'id_unidade' ou 'unidade_id', ajuste aqui:
-    if(c.id === 'id_unidade' || c.id === 'unidade_id') {
-      const labelCompleto = getUnitLabel(f.id_unidade || f.unidade_id);
-      return sanitizarCelula(labelCompleto
-        .replace(/BLOCO\s*/gi, 'B')      // Troca BLOCO por B
-        .replace(/UNIDADE\s*/gi, '')    // Remove a palavra UNIDADE
-        .replace(/\s*-\s*/g, '-')       // Remove espaços no traço
-        .trim());
-    }
-
-    // 2. Tratamento para CPF (Máscara)
-    if(c.id === 'cpf') return maskCPFPrivacy(f[c.id]);
-
-    // 3. Tratamento para DATAS (Remove Timestamp / Horas)
-    // Verifica se é um dos campos de data da sua planilha
-    if(['data_cadastro', 'validade_atestado', 'nascimento', 'data_reserva'].includes(c.id)) {
-      const valorData = f[c.id];
-      if (!valorData) return "-";
-      // Corta no primeiro espaço para ignorar o horário
-      return valorData.toString().split(' ')[0];
-    }
-
-    return sanitizarCelula(f[c.id] || "");
-  }));
-
-  const gerarPDF = (incluirLogo = false) => {
-    doc.setDrawColor(34, 197, 94); 
-    doc.setLineWidth(1.5); 
-    doc.rect(5, 5, 287, 200);
-    if (incluirLogo) doc.addImage(img, 'PNG', 113, 12, 70, 25);
-    
-    doc.setFontSize(18); 
-    doc.setTextColor(30, 41, 59);
-    doc.text("Relatório de Cadastro - Piscina", 148, incluirLogo ? 45 : 25, { align: "center" });
-
-    autoTable(doc, {
-      startY: incluirLogo ? 55 : 35,
-      head: [headers],
-      body: body,
-      headStyles: { fillColor: [34, 197, 94], halign: 'center', textColor: [255, 255, 255] },
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 3 },
-      margin: { left: 10, right: 10 }
-    });
-
-    doc.save("Relatorio_Piscina.pdf");
-    setShowExportModal(false);
-  };
-
-  img.onload = () => gerarPDF(true); 
-  img.onerror = () => gerarPDF(false);
-};
-  // Função Robusta para buscar a foto (usada dentro e fora do fetchData)
-  const getFotoFestaInterno = (festaId, listaDeUploads) => {
-  if (!festaId || !listaDeUploads || !listaDeUploads.length) return null;
-  
-  const upload = listaDeUploads.find(up => {
-    const idVinculo = up.id_festa || up.ID_FESTA || up.Id_Festa;
-    return idVinculo?.toString() === festaId?.toString(); // O erro de digitação fesaId foi corrigido no bloco anterior, use festaId
-  });
-
-  if (!upload) return null;
-
-  const urlRaw = upload.url_drive || upload.URL_DRIVE || upload.url;
-  
-  // Se for link do Google Drive, tenta converter para link de visualização direta (thumbnail)
-  if (urlRaw && urlRaw.includes("drive.google.com")) {
-    const fileId = urlRaw.match(/[-\w]{25,}/); // Extrai o ID do arquivo da URL
-    return fileId ? `https://lh3.googleusercontent.com/u/0/d/${fileId}` : urlRaw;
-  }
-
-  return urlRaw;
-};
-
-  // Atalho para usar a função com o state atual de uploads
-  const getFotoFesta = (festaId) => getFotoFestaInterno(festaId, uploads);
-  // arquivoValido agora delega para lib/drive.validarAnexo, que devolve o
-  // motivo em vez de chamar alert(). Quem decide como mostrar é a página.
-  const arquivoValido = (file) => {
-    const r = validarAnexo(file);
-    if (!r.ok) toast.error(r.motivo);
-    return r.ok;
-  };
-
-  const handleFileChange = (e, campo) => {
-  const file = e.target.files[0];
-  if (!file || !arquivoValido(file)) { e.target.value = ""; return; }
-  if (file) {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData(prev => ({
-        ...prev,
-        [campo]: reader.result // Guarda o Base64 (data:image/jpeg;base64,...)
-      }));
-    };
-    reader.readAsDataURL(file);
-  }
-};
-
-const handleDeleteImage = async (uploadId) => {
-  const okRemover = await confirmar({
-    title: "Remover este anexo?",
-    description: "O anexo sai deste cadastro. Não dá para desfazer.",
-    confirmLabel: "Remover",
-    danger: true,
-  });
-  if (!okRemover) return;
-
-  setLoadingGlobal(true);
-
-  try {
-    // UPLOADS_PISCINA, não UPLOADS_CHURRASQUEIRA. Estava assim desde antes da
-    // migração: remover anexo aqui apagava da tabela da churrasqueira. Nunca
-    // removia o anexo certo, e com um id coincidente apagaria o anexo alheio.
-    const res = await remover("UPLOADS_PISCINA", uploadId);
-    if (!res.success) { toast.error(mensagemErro(res.message)); setLoadingGlobal(false); return; }
-
-    await fetchData();
-    setLoadingGlobal(false);
-
-  } catch (error) {
-    console.error("Erro ao excluir:", error);
-    setLoadingGlobal(false);
-  }
-};
-
-const getFotosFestaInterno = (festaId, listaDeUploads) => {
-  if (!festaId || !listaDeUploads) return [];
-  
-  return listaDeUploads
-    .filter(up => {
-      const idVinculo = up.id_festa || up.ID_FESTA || up.Id_Festa;
-      return idVinculo?.toString() === festaId?.toString();
-    })
-    .map(up => up.url_drive || up.URL_DRIVE || up.url);
-};
-const handleSave = async () => {
-  // 1. Validação de campos obrigatórios
-  if (!formData.id_unidade || !formData.nome || !formData.validade) {
-    toast.error("Preencha a unidade, o nome e a validade.");
-    return;
-  }
-
-  // --- NOVA TRAVA DE SEGURANÇA: LIMITE DE 5 ATIVOS POR UNIDADE ---
-  if (modalType === "add") {
-    // Filtra na lista atual quantos moradores desta unidade estão com status "Ativo"
-    const ativosNaUnidade = festas.filter(f => 
-      String(f.id_unidade) === String(formData.id_unidade) && 
-      f.status === "Ativo"
-    );
-
-    if (ativosNaUnidade.length >= 8) {
-      toast.error(
-        `A unidade ${formData.id_unidade} já tem 8 moradores ativos, que é o limite. ` +
-        `Para cadastrar outro, marque um morador antigo como inativo.`
-      );
-      return; // Interrompe o salvamento
-    }
-  }
-  // --------------------------------------------------------------
-
-  setLoadingGlobal(true);
-
-  // `nascimento` e `validade_atestado` são `date`: aceitam "AAAA-MM-DD" e
-  // recusam string vazia, então campo em branco vira null.
-  const dados = {
-    id_unidade: Number(formData.id_unidade),
-    id_morador: formData.id_morador || "AVULSO",
-    nome: formData.nome,
-    cpf: formData.cpf || null,
-    nascimento: formData.nascimento ? formData.nascimento.split("T")[0] : null,
-    telefone: formData.telefone || null,
-    validade_atestado: formData.validade ? formData.validade.split("T")[0] : null,
-    status: formData.status || "Ativo",
-    obs: formData.obs || null,
-  };
-
-  try {
-    const r = modalType === "add"
-      ? await criar("PISCINA", { ...dados, created_by: user?.nome || "Sistema" })
-      : await editar("PISCINA", formData.id, dados);
-
-    if (!r.success) { toast.error(mensagemErro(r.message)); setLoadingGlobal(false); return; }
-
-    // O id só existe depois do insert, e ele faz parte do caminho do arquivo
-    // no bucket — por isso o upload vem depois de gravar a linha.
-    const idRegistro = r.data?.id ?? formData.id;
-    const caminhos = {};
-    const substituidos = [];
-
-    // Pastas separadas de propósito: a permissão do bucket é decidida pela
-    // primeira pasta do caminho. Foto e atestado juntos ficariam presos à mesma
-    // regra para sempre, e atestado é dado de saúde — ele vai querer ser mais
-    // fechado que a foto um dia.
-    for (const [campo, base64, anterior, pasta] of [
-      ["caminho_foto", formData.fotoBase64, formData.caminho_foto, "piscina"],
-      ["caminho_atestado", formData.atestadoBase64, formData.caminho_atestado, "piscina-atestados"],
-    ]) {
-      if (!base64) continue;
-      const envio = await enviarAnexo(pasta, idRegistro, base64);
-      if (!envio.success) {
-        toast.error(`Arquivo não enviado: ${mensagemErro(envio.message)}`);
-        continue;
-      }
-      caminhos[campo] = envio.caminho;
-      // O arquivo que saiu de cena vira lixo no bucket — e lixo alcançável:
-      // quem gerar uma URL assinada para ele continua abrindo. Num cadastro de
-      // piscina isso é atestado médico de alguém.
-      if (anterior) substituidos.push(anterior);
-    }
-
-    // Segunda gravação só quando houve arquivo novo. Falhar aqui deixa o
-    // cadastro salvo e o arquivo no bucket sem vínculo — melhor que perder o
-    // cadastro inteiro por causa de uma foto.
-    if (Object.keys(caminhos).length > 0) {
-      const rv = await editar("PISCINA", idRegistro, caminhos);
-      if (!rv.success) toast.error("Cadastro salvo, mas o arquivo não ficou vinculado.");
-
-      // Só depois do vínculo trocar. Apagar antes e falhar a gravação deixaria
-      // o cadastro apontando para um arquivo que não existe mais.
-      if (rv.success) {
-        for (const caminho of substituidos) {
-          const rm = await removerAnexo(caminho);
-          // Pelas políticas do 0017 só o síndico apaga anexo. Um auxiliar
-          // trocando a foto deixa o arquivo velho para trás, e avisar não
-          // adianta nada para ele — quem precisa saber é o síndico.
-          if (!rm.success) console.warn("Anexo substituído não removido:", caminho, rm.message);
+      // O id só existe depois do insert, e ele entra no caminho do arquivo no
+      // bucket: por isso os arquivos sobem depois da linha. Foto e atestado
+      // moram em pastas separadas: atestado é dado de saúde (0019).
+      const idRegistro = r.data?.id ?? form.id;
+      const caminhos = {};
+      const substituidos = [];
+      for (const [campo, base64, anterior, pasta] of [
+        ["caminho_foto", form.fotoBase64, form.caminho_foto, "piscina"],
+        ["caminho_atestado", form.atestadoBase64, form.caminho_atestado, "piscina-atestados"],
+      ]) {
+        if (!base64) continue;
+        const envio = await enviarAnexo(pasta, idRegistro, base64);
+        if (!envio.success) { toast.error(`Arquivo não enviado: ${mensagemErro(envio.message)}`); continue; }
+        caminhos[campo] = envio.caminho;
+        if (anterior) substituidos.push(anterior);
+        // Foto nova: o recorte era da antiga e deixa de valer.
+        if (campo === "caminho_foto" && form.caminho_foto_carteirinha) {
+          caminhos.caminho_foto_carteirinha = null;
+          substituidos.push(form.caminho_foto_carteirinha);
         }
       }
+      if (Object.keys(caminhos).length) {
+        const rv = await editar("PISCINA", idRegistro, caminhos);
+        if (!rv.success) toast.error("Cadastro salvo, mas o arquivo não ficou vinculado.");
+        else {
+          // Só depois do vínculo trocar: apagar antes e falhar a gravação deixaria
+          // o cadastro apontando para um arquivo que não existe mais.
+          for (const caminho of substituidos) {
+            const rm = await removerAnexo(caminho);
+            if (!rm.success) console.warn("Anexo substituído não removido:", caminho, rm.message);
+          }
+        }
+      }
+      toast.success(novo ? "Cadastro criado" : "Cadastro atualizado");
+      setForm(null);
+      await carregar();
+    } catch (erro) {
+      console.error(erro);
+      toast.error("Não foi possível conectar ao servidor. Verifique a conexão.");
+    } finally {
+      setSalvando(false);
     }
+  };
 
-    setShowModal(false);
-    await fetchData();
-    setLoadingGlobal(false);
-
-  } catch (error) {
-    console.error(error);
-    toast.error("Não foi possível conectar ao servidor. Verifique a conexão.");
-    setLoadingGlobal(false);
-  }
-};
- const handleDelete = async (id) => {
-  const okExcluir = await confirmar({
-      title: "Excluir este cadastro?",
+  const excluir = async (c) => {
+    const ok = await confirmar({
+      title: `Excluir o cadastro de ${nomeProprio(c.nome) || "sem nome"}?`,
       description: "O cadastro sai da lista e a foto e o atestado são apagados do sistema. Não dá para desfazer.",
       confirmLabel: "Excluir",
       danger: true,
     });
-    if (okExcluir) {
-    setLoadingGlobal(true);
-
-    try {
-      // A linha PRIMEIRO, o arquivo depois — e a ordem é o ponto todo.
-      //
-      // Apagar o arquivo antes e a exclusão do cadastro falhar (por permissão,
-      // por conexão) deixaria uma ficha viva sem foto e sem atestado, com o
-      // original só no Drive. Perda irreversível pelo lado do usuário.
-      //
-      // Na ordem contrária, o pior caso é o inverso: cadastro excluído e
-      // arquivo sobrando no bucket. Também é ruim — arquivo órfão continua
-      // alcançável por URL assinada —, mas é visível, avisável e reparável,
-      // enquanto o outro não.
-      const result = await remover("PISCINA", id);
-
-      if (result.success) {
-        // As duas pastas, porque foto e atestado moram separados desde o 0019.
-        // A varredura pega a pasta inteira em vez dos dois caminhos gravados:
-        // o que a linha não referencia mais (foto trocada antes do 0018, envio
-        // que falhou no meio) sumiria do sistema e continuaria no bucket.
-        //
-        // Quem chegou aqui é síndico — só ele apaga cadastro de piscina —, e
-        // síndico também apaga anexo de piscina. Ninguém fica com meia
-        // permissão e meio registro.
-        const sobras = [];
-        for (const pasta of ["piscina", "piscina-atestados"]) {
-          const rm = await removerAnexosDoRegistro(pasta, id);
-          if (!rm.success) sobras.push(`${pasta}: ${rm.message}`);
-        }
-        if (sobras.length) {
-          console.warn("Arquivos não removidos do bucket:", sobras);
-          toast.error("Cadastro excluído, mas algum arquivo continuou no sistema. Avise o suporte.");
-        }
-
-        await fetchData();
-        setLoadingGlobal(false);
-        if (typeof setShowMenuId === "function") setShowMenuId(null);
-      } else {
-        toast.error(mensagemErro(result.message));
-        setLoadingGlobal(false);
-      }
-
-    } catch (error) {
-      console.error("Erro ao excluir:", error);
-      toast.error("Falha na comunicação com o servidor.");
-      setLoadingGlobal(false);
+    if (!ok) return;
+    // A linha PRIMEIRO, os arquivos depois: falhando a exclusão, a ficha
+    // continua com foto e atestado. Na ordem inversa ficaria sem os dois.
+    const r = await remover("PISCINA", c.id);
+    if (!r.success) { toast.error(mensagemErro(r.message)); return; }
+    const sobras = [];
+    for (const pasta of ["piscina", "piscina-atestados"]) {
+      const rm = await removerAnexosDoRegistro(pasta, c.id);
+      if (!rm.success) sobras.push(`${pasta}: ${rm.message}`);
     }
-  }
-};
-
-const handleMoradorSelect = (id) => {
-  // Se o ID for vazio (opção "Escolha..."), limpa os campos incluindo o CPF
-  if (!id) {
-    setFormData(prev => ({ 
-      ...prev, 
-      id_morador: "", 
-      nome: "", 
-      telefone: "",
-      cpf: "" // Adicionado limpeza do CPF
-    }));
-    return;
-  }
-
-  // Busca o morador na lista de moradores
-  const moradorEncontrado = moradores.find(m => m.id?.toString() === id.toString());
-
-  if (moradorEncontrado) {
-    setFormData(prev => ({
-      ...prev,
-      id_morador: id,
-      nome: moradorEncontrado.nome || "",
-      // Tenta buscar o CPF tanto em minúsculo quanto maiúsculo
-      cpf: moradorEncontrado.cpf || moradorEncontrado.CPF || "", 
-      telefone: moradorEncontrado.telefone || moradorEncontrado.celular || ""
-    }));
-  }
-};
-
-const toggleMoradorCadastrado = (checked) => {
-  setIsMoradorCadastrado(checked);
-
-  if (!checked) {
-    setFormData(prev => ({
-      ...prev,
-      id_morador: "",
-      nome: "",
-      cpf: "",      // Limpa o CPF ao desmarcar
-      telefone: ""
-    }));
-  }
-};
-
-  const dadosFiltrados = React.useMemo(() => {
-  // Criamos uma cópia para não mutar o estado original 'festas'
-  let resultado = [...festas];
-
-  resultado = resultado.filter(f => {
-    // 1. Filtro de Busca
-    const matchesSearch = 
-        (f.nome?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (f.id_unidade?.toString().includes(searchTerm)) ||
-        (f.id?.toString().includes(searchTerm));
-    
-    // 2. Filtro de Status
-    const matchesStatus = filterStatus === "Todos" || f.status === filterStatus;
-
-    // 3. Filtro de Validade/Atestado
-    let matchesData = true;
-    if (filterPeriodo?.inicio || filterPeriodo?.fim) {
-        if (!f.validade_atestado) { // Verifique se o nome da chave é validade ou validade_atestado
-          matchesData = false;
-        } else {
-          // Ajuste para datas no formato DD/MM/AAAA que vêm do Sheets
-          const converterData = (dStr) => {
-            if (dStr.includes('/')) {
-              const [d, m, a] = dStr.split('/');
-              return new Date(a, m - 1, d);
-            }
-            return new Date(dStr);
-          };
-
-          const dataValidade = converterData(f.validade_atestado);
-          if (filterPeriodo.inicio) {
-              if (dataValidade < new Date(filterPeriodo.inicio)) matchesData = false;
-          }
-          if (filterPeriodo.fim) {
-              if (dataValidade > new Date(filterPeriodo.fim)) matchesData = false;
-          }
-        }
+    if (sobras.length) {
+      console.warn("Arquivos não removidos do bucket:", sobras);
+      toast.error("Cadastro excluído, mas algum arquivo continuou no sistema. Avise o suporte.");
+    } else {
+      toast.success("Cadastro excluído");
     }
+    setVendo(null);
+    setForm(null);
+    await carregar();
+  };
 
-    return matchesSearch && matchesStatus && matchesData;
-  });
+  // ---------- exportar ----------
+  const valorExportado = (c, id) => {
+    if (id === "id_unidade") return rotuloUnidade(c.id_unidade);
+    if (id === "cpf") return maskCPFPrivacy(c.cpf);
+    if (id === "nascimento" || id === "validade") return dataBR(c[id]) || "-";
+    if (id === "idade") return textoDaIdade(c.nascimento) || "-";
+    if (id === "nome") return sanitizarCelula(nomeProprio(c.nome));
+    return sanitizarCelula(c[id] || "");
+  };
+  const exportarExcel = () => {
+    const ativas = colunas.filter((c) => c.selected);
+    const linhas = filtradas.map((c) => Object.fromEntries(ativas.map((col) => [col.label, valorExportado(c, col.id)])));
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Piscina");
+    XLSX.writeFile(wb, "Relatorio_Piscina.xlsx");
+    setExportando(false);
+  };
+  const exportarPDF = () => {
+    const doc = new jsPDF("l", "mm", "a4");
+    const ativas = colunas.filter((c) => c.selected);
+    const corpo = filtradas.map((c) => ativas.map((col) => valorExportado(c, col.id)));
+    const img = new Image();
+    img.src = "/logo.png";
+    const gerar = (comLogo) => {
+      // O verde do ViT (#B33320), não o verde-limão de antes.
+      doc.setDrawColor(36, 80, 58);
+      doc.setLineWidth(1.2);
+      doc.rect(5, 5, 287, 200);
+      if (comLogo) doc.addImage(img, "PNG", 113, 12, 70, 25);
+      doc.setFontSize(18);
+      doc.setTextColor(28, 43, 36);
+      doc.text("Relatório de cadastros da piscina", 148, comLogo ? 45 : 25, { align: "center" });
+      autoTable(doc, {
+        startY: comLogo ? 55 : 35,
+        head: [ativas.map((c) => c.label)],
+        body: corpo,
+        headStyles: { fillColor: [36, 80, 58], halign: "center", textColor: [255, 255, 255] },
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 3 },
+        margin: { left: 10, right: 10 },
+      });
+      doc.save("Relatorio_Piscina.pdf");
+      setExportando(false);
+    };
+    img.onload = () => gerar(true);
+    img.onerror = () => gerar(false);
+  };
 
-  // --- ORDENAÇÃO (Tratando sortConfig como Array) ---
-  if (Array.isArray(sortConfig) && sortConfig.length > 0) {
-    resultado.sort((a, b) => {
-      for (const { key, direction } of sortConfig) {
-        let valA = a[key] ?? "";
-        let valB = b[key] ?? "";
-
-        if (key === 'id' || key === 'id_unidade') {
-          valA = Number(valA.toString().replace(/\D/g, '')) || 0;
-          valB = Number(valB.toString().replace(/\D/g, '')) || 0;
-        } else {
-          valA = valA.toString().toLowerCase();
-          valB = valB.toString().toLowerCase();
-        }
-
-        if (valA < valB) return direction === 'asc' ? -1 : 1;
-        if (valA > valB) return direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  }
-
-  return resultado;
-}, [festas, searchTerm, filterStatus, filterPeriodo, sortConfig]);
-
-// --- PAGINAÇÃO (Corrigida) ---
-const totalPages = Math.ceil(dadosFiltrados.length / (itemsPerPage === "Todos" ? (dadosFiltrados.length || 1) : parseInt(itemsPerPage)));
-
-const itensExibidos = React.useMemo(() => {
-  if (itemsPerPage === "Todos") return dadosFiltrados;
-  const limit = parseInt(itemsPerPage);
-  const start = (currentPage - 1) * limit;
-  return dadosFiltrados.slice(start, start + limit);
-}, [dadosFiltrados, currentPage, itemsPerPage]);
-
-const handleSort = (key) => {
-  setSortConfig(prev => {
-    const existing = prev.find(s => s.key === key);
-    if (existing) {
-      // Se já existe, inverte a ordem ou remove se for 'desc'
-      if (existing.direction === 'asc') {
-        return [{ key, direction: 'desc' }]; // Troca para desc
-      }
-      return []; // Se clicar a 3ª vez, limpa a ordenação
-    }
-    return [{ key, direction: 'asc' }]; // Nova ordenação
-  });
-};
+  // ---------- o que a tela mostra ----------
+  // Filtro que encolhe a lista não deixa a tela numa página que não existe mais.
+  const paginaAtual = Math.min(pagina, Math.max(1, Math.ceil(filtradas.length / POR_PAGINA)));
+  const itens = filtradas.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+  const v = vendo;
+  const nomeDe = (c) => nomeProprio(c.nome) || "Sem nome";
 
   return (
-    
-    <div style={{...pageContainer, ...(isMobile ? { paddingTop: '70px' } : {})}}>
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .action-menu { 
-    position: absolute; 
-    right: 30px; 
-    background: ${theme.mainBg}; 
-    border: 1px solid ${theme.border}; 
-    border-radius: 10px; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-    z-index: 100; 
-    width: 180px; /* <--- Aumente aqui */
-    padding: 5px; 
-}
-    .column-select-item { 
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  padding: 12px; 
-  border-radius: 10px; 
-  border: 1px solid ${theme.border}; 
-  cursor: pointer; 
-  transition: 0.2s; 
-}
-.column-select-item:hover {
-  background: ${theme.bg};
-}
-.column-select-item.active { 
-  border-color: var(--brand-500); 
-  background: var(--bg-active); 
-}
+    <div>
+      <PageHeader
+        title="Piscina"
+        meta={carregando
+          ? "Carregando cadastros"
+          : `${cadastros.length} cadastros · ${contagem.Ativo} ativos${vencidos ? ` · ${vencidos} com atestado vencido` : ""}`}
+        actions={
+          <>
+            <Button onClick={() => setExportando(true)} iconLeft={<FileText size={15} />}>Exportar</Button>
+            <Button variant="primary" onClick={abrirNovo} iconLeft={<Plus size={16} />}>Novo cadastro</Button>
+          </>
+        }
+      />
 
-/* Evita que o texto pule linha e garante alinhamento */
-.menu-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    padding: 10px 12px; 
-    font-size: 13px; 
-    cursor: pointer; 
-    border-radius: 6px; 
-    color: ${theme.text}; 
-    white-space: nowrap; /* <--- ADICIONE ISSO: impede de pular linha */
-}
-        .menu-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; border-radius: 6px; color: ${theme.text}; }
-        .menu-item:hover { background: ${theme.bg}; }
-        .pagination-btn { background: none; border: 1px solid ${theme.border}; color: ${theme.text}; padding: 5px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; }
-        .pagination-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-      `}</style>
+      <Filtros
+        busca={busca}
+        onBusca={(t) => { setBusca(t); setPagina(1); }}
+        placeholder="Nome, unidade ou CPF"
+        filtro={situacao}
+        onFiltro={(s) => { setSituacao(s); setPagina(1); }}
+        filtros={[["Todos", "Todos", contagem.Todos], ...SITUACOES.map((s) => [s, s, contagem[s]])]}
+        painel={
+          <PainelDeFiltros aberto={maisFiltros}>
+            <Field label="Atestado">
+              <Opcoes rotulo="Atestado" valor={filtroAtestado} onMudar={(a) => { setFiltroAtestado(a); setPagina(1); }}
+                opcoes={["Todos", "Em dia", "Vencido"]} />
+            </Field>
+            <Field label="Validade de">
+              <Input type="date" value={periodo.inicio} onChange={(e) => setPeriodo({ ...periodo, inicio: e.target.value })} />
+            </Field>
+            <Field label="até">
+              <Input type="date" value={periodo.fim} onChange={(e) => setPeriodo({ ...periodo, fim: e.target.value })} />
+            </Field>
+          </PainelDeFiltros>
+        }
+      >
+        <MaisFiltros aberto={maisFiltros} onAlternar={() => setMaisFiltros((a) => !a)} ativos={filtrosDoPainel} onLimpar={limparFiltros} />
+      </Filtros>
 
-            <Modal
-        open={showExportModal}
-        onClose={() => setShowExportModal(false)}
+      {!carregando && filtradas.length === 0 ? (
+        <EmptyState
+          icon={<Waves size={22} />}
+          title={cadastros.length ? "Nenhum cadastro neste filtro" : "Nenhum cadastro na piscina"}
+          description={cadastros.length ? "Troque a situação, a busca ou os filtros." : "Cadastre o primeiro em Novo cadastro."}
+          action={!cadastros.length && <Button variant="primary" iconLeft={<Plus size={16} />} onClick={abrirNovo}>Novo cadastro</Button>}
+        />
+      ) : (
+        <ListaQueAbre
+          colunas={[
+            { rotulo: "Unidade", largura: "100px", ordem: "id_unidade" },
+            { rotulo: "Nome", largura: "minmax(0, 1.8fr)", ordem: "nome" },
+            { rotulo: "Nascimento", largura: "130px", ordem: "nascimento" },
+            { rotulo: "Telefone", largura: "150px", ordem: "telefone" },
+            { rotulo: "Atestado até", largura: "130px", ordem: "validade" },
+            { rotulo: "Situação", largura: "100px", ordem: "status" },
+          ]}
+          ordenacao={ordem}
+          onOrdenar={ordenar}
+          larguraAcoes="96px"
+          itens={itens}
+          carregando={carregando}
+          chave={(c) => c.id}
+          onAbrir={ver}
+          rotuloDaLinha={(c) => `Abrir o cadastro de ${nomeDe(c)} (${rotuloUnidade(c.id_unidade)})`}
+          celulas={(c) => [
+            <b key="u" className="conf-dado__mono">{rotuloUnidade(c.id_unidade)}</b>,
+            <span key="n" className="pis-quem">
+              <Foto c={c} />
+              <span className="mud-quem">
+                <b>{nomeDe(c)}{c.obs?.trim() ? <MessageSquareText size={13} aria-label="Tem observação" /> : null}</b>
+                {c.cpf ? <small>{maskCPFPrivacy(c.cpf)}</small> : null}
+              </span>
+            </span>,
+            <span key="d" className="mud-quem">
+              <b>{dataBR(c.nascimento) || "—"}</b>
+              {c.nascimento ? <small>{textoDaIdade(c.nascimento)}</small> : null}
+            </span>,
+            <span key="t">{c.telefone ? maskPhone(String(c.telefone)) : "—"}</span>,
+            <span key="v" className="mud-quem">
+              <b>{dataBR(c.validade) || "—"}</b>
+              {atestadoVencido(c.validade) ? <small className="pis-vencido">Vencido</small> : null}
+            </span>,
+            <Badge key="s" tone={TOM_SITUACAO[c.status] ?? "neutral"}>{c.status}</Badge>,
+          ]}
+          acoes={(c) => (
+            <>
+              <Button variant="ghost" size="sm" aria-label={`Ver o cadastro de ${nomeDe(c)}`} onClick={() => ver(c)}><Eye size={16} /></Button>
+              <Button variant="ghost" size="sm" aria-label={`Editar o cadastro de ${nomeDe(c)}`} onClick={() => abrirEditar(c)}><Pencil size={16} /></Button>
+            </>
+          )}
+        />
+      )}
+      <Paginador total={filtradas.length} pagina={paginaAtual} porPagina={POR_PAGINA} onPagina={setPagina} rotulo="Páginas dos cadastros da piscina" />
+
+      {/* ---- Ver: o desenho do detalhe de Encomendas, com a carteirinha no lugar da foto ---- */}
+      <Modal
+        open={Boolean(v)}
+        onClose={() => setVendo(null)}
+        title="Cadastro na piscina"
+        size="lg"
+        footer={v && (
+          <div className="app-modal__acoes">
+            <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(v)}>Excluir</Button>
+            <Button variant="ghost" iconLeft={<Pencil size={15} />} onClick={() => abrirEditar(v)}>Editar</Button>
+            <Button variant="primary" iconLeft={<Download size={15} />} loading={baixando} onClick={pedirCarteirinha}>
+              Baixar carteirinha
+            </Button>
+          </div>
+        )}
+      >
+        {v && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <Foto c={v} />
+              <div className="app-modal__quem">
+                <strong>{nomeDe(v)}</strong>
+                <small>{rotuloUnidade(v.id_unidade)} · {v.id_morador && v.id_morador !== "AVULSO" ? "Morador cadastrado" : "Cadastro avulso"}</small>
+                <span className="app-modal__selos">
+                  <Badge tone={TOM_SITUACAO[v.status] ?? "neutral"}>{v.status}</Badge>
+                  {atestadoVencido(v.validade)
+                    ? <Badge tone="danger">Atestado vencido</Badge>
+                    : v.validade ? <Badge tone="positive">Atestado em dia</Badge> : null}
+                </span>
+              </div>
+            </div>
+
+            <div className="app-detalhe">
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Carteirinha</p>
+                <Carteirinha ref={cartaoRef} cadastro={v} unidade={rotuloUnidade(v.id_unidade)} fotoRecortada={fotoRecortada} />
+                {v.url_foto && (
+                  <Button variant="ghost" size="sm" className="pis-recortar" iconLeft={<Crop size={15} />} loading={abrindoFoto} onClick={recortarFoto}>
+                    {fotoRecortada ? "Recortar de novo" : "Recortar a foto"}
+                  </Button>
+                )}
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Cadastro" itens={[
+                  ["Nascimento", v.nascimento ? `${dataBR(v.nascimento)} · ${textoDaIdade(v.nascimento)}` : "Não informado"],
+                  ["CPF", v.cpf ? maskCPFPrivacy(v.cpf) : "Não informado", true],
+                  ["Telefone", v.telefone ? maskPhone(String(v.telefone)) : "Não informado"],
+                ]} />
+                <Ficha titulo="Atestado médico" itens={[
+                  ["Válido até", dataBR(v.validade) || "Não informado"],
+                  ["Arquivo", v.url_atestado || v.id_atestado_drive ? "Anexado" : "Nenhum anexado"],
+                ]} />
+                {(v.url_atestado || v.id_atestado_drive) && (
+                  <Button variant="ghost" size="sm" className="pis-atestado" iconLeft={<FileText size={15} />} onClick={() => abrirAtestado(v)}>
+                    Abrir o atestado
+                  </Button>
+                )}
+                {v.obs?.trim() && (
+                  <section className="app-ficha">
+                    <h3 className="app-ficha__titulo">Observações</h3>
+                    <p className="mud-obs">{v.obs}</p>
+                  </section>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ---- Antes de baixar: quer recortar a foto? ---- */}
+      <Modal
+        open={avisoFoto}
+        onClose={() => setAvisoFoto(false)}
+        title="Quer recortar a foto antes de baixar?"
+        size="sm"
+        footer={
+          <div className="app-modal__acoes">
+            <Button variant="ghost" onClick={() => setAvisoFoto(false)}>Cancelar</Button>
+            <Button variant="secondary" iconLeft={<Download size={15} />} onClick={baixarCarteirinha}>Baixar assim</Button>
+            <Button variant="primary" iconLeft={<Crop size={15} />} loading={abrindoFoto} onClick={recortarFoto}>Recortar a foto</Button>
+          </div>
+        }
+      >
+        <p className="vit-modal__desc">
+          A foto abre inteira e você escolhe o pedaço que vai para o círculo da carteirinha. O recorte fica salvo no cadastro.
+        </p>
+      </Modal>
+
+      <RecorteDaFoto src={recortando} salvando={salvandoRecorte} onRecorte={usarRecorte} onCancelar={() => { if (!salvandoRecorte) setRecortando(""); }} />
+
+      {/* ---- Criar e editar ---- */}
+      <Modal
+        open={Boolean(form)}
+        onClose={fecharForm}
+        title={form?.id ? "Editar cadastro" : "Novo cadastro na piscina"}
+        size="md"
+        footer={form && (
+          <div className="app-modal__acoes">
+            {form.id
+              ? <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(form)}>Excluir</Button>
+              : <span />}
+            <Button variant="ghost" onClick={fecharForm}>Cancelar</Button>
+            <Button variant="primary" type="submit" form="form-piscina" loading={salvando}>Salvar</Button>
+          </div>
+        )}
+      >
+        {form && (
+          <form id="form-piscina" className="mud-form" onSubmit={(e) => { e.preventDefault(); salvar(); }}>
+            <Field label="Unidade" required>
+              <BuscaUnidade
+                unidades={unidades}
+                valor={unidadePorId.get(String(form.id_unidade)) ?? null}
+                onEscolher={(u) => setForm((f) => ({ ...f, id_unidade: u?.id ?? "" }))}
+              />
+            </Field>
+
+            <Chave
+              ligada={moradorCadastrado}
+              onChange={alternarMorador}
+              titulo="É morador cadastrado"
+              sub="Puxa nome, CPF e telefone do cadastro da unidade"
+            />
+            {moradorCadastrado && (
+              <Field label="Morador" help={form.id_unidade ? undefined : "Escolha a unidade primeiro"}>
+                <Select value={form.id_morador || ""} onChange={(e) => escolherMorador(e.target.value)} disabled={!form.id_unidade}>
+                  <option value="">Escolha…</option>
+                  {moradoresDaUnidade.map((m) => <option key={m.id} value={m.id}>{nomeProprio(m.nome)}</option>)}
+                </Select>
+              </Field>
+            )}
+
+            <Field label="Nome e sobrenome" required>
+              <Input value={form.nome} readOnly={moradorCadastrado} onChange={(e) => mudar("nome")(e.target.value)}
+                onBlur={(e) => mudar("nome")(nomeProprio(e.target.value))} />
+            </Field>
+            <div className="mud-form__par">
+              <Field label="CPF">
+                <Input value={form.cpf} readOnly={moradorCadastrado} inputMode="numeric" placeholder="000.000.000-00"
+                  onChange={(e) => mudar("cpf")(maskCPF(e.target.value))} />
+              </Field>
+              <Field label="Telefone">
+                <Input value={form.telefone || ""} inputMode="tel" placeholder="(00) 00000-0000"
+                  onChange={(e) => mudar("telefone")(maskPhone(e.target.value))} />
+              </Field>
+            </div>
+            <div className="mud-form__par">
+              <Field label="Data de nascimento" help={form.nascimento ? textoDaIdade(form.nascimento) : "Sai na carteirinha"}>
+                <Input type="date" value={form.nascimento || ""} onChange={(e) => mudar("nascimento")(e.target.value)} />
+              </Field>
+              <Field label="Atestado válido até" required>
+                <Input type="date" value={form.validade || ""} onChange={(e) => mudar("validade")(e.target.value)} />
+              </Field>
+            </div>
+
+            <Field label="Situação">
+              <Opcoes rotulo="Situação" valor={form.status} onMudar={mudar("status")} opcoes={SITUACOES} />
+            </Field>
+
+            <div className="pis-arquivos">
+              <div className="pis-arquivo">
+                <span className="pis-arquivo__previa" aria-hidden="true">
+                  {form.fotoBase64 || form.url_foto
+                    ? <DriveImage localSrc={form.fotoBase64} source={form.url_foto} alt="" />
+                    : <User size={28} />}
+                </span>
+                <div className="pis-arquivo__texto">
+                  <strong>Foto</strong>
+                  <small>{form.fotoBase64 ? "Foto nova escolhida" : form.url_foto ? "Já tem foto" : "Sai na carteirinha"}</small>
+                </div>
+                <Input id="pis-foto" type="file" accept="image/*" className="pis-arquivo__campo" onChange={(e) => lerArquivo(e, "fotoBase64")} />
+                <Button variant="secondary" size="sm" iconLeft={<Upload size={15} />} onClick={() => document.getElementById("pis-foto").click()}>
+                  {form.url_foto || form.fotoBase64 ? "Trocar" : "Escolher"}
+                </Button>
+              </div>
+              <div className="pis-arquivo">
+                <span className="pis-arquivo__previa pis-arquivo__previa--doc" aria-hidden="true">
+                  {form.atestadoBase64 || form.url_atestado || form.id_atestado_drive ? <CheckCircle2 size={24} /> : <Paperclip size={24} />}
+                </span>
+                <div className="pis-arquivo__texto">
+                  <strong>Atestado médico</strong>
+                  <small>{form.atestadoBase64 ? "Atestado novo escolhido" : form.url_atestado || form.id_atestado_drive ? "Já tem atestado" : "Foto ou PDF"}</small>
+                </div>
+                <Input id="pis-atestado" type="file" accept="image/*,application/pdf" className="pis-arquivo__campo" onChange={(e) => lerArquivo(e, "atestadoBase64")} />
+                <Button variant="secondary" size="sm" iconLeft={<Upload size={15} />} onClick={() => document.getElementById("pis-atestado").click()}>
+                  {form.url_atestado || form.atestadoBase64 ? "Trocar" : "Anexar"}
+                </Button>
+              </div>
+            </div>
+
+            <Field label="Observações">
+              <Textarea rows={3} value={form.obs || ""} placeholder="Algo importante sobre este cadastro"
+                onChange={(e) => mudar("obs")(e.target.value)} />
+            </Field>
+          </form>
+        )}
+      </Modal>
+
+      {/* ---- Exportação ---- */}
+      <Modal
+        open={exportando}
+        onClose={() => setExportando(false)}
         title="Exportar cadastros"
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowExportModal(false)}>Cancelar</Button>
-            <Button onClick={exportToExcel} iconLeft={<Download size={15} />}>Excel</Button>
-            <Button variant="primary" onClick={exportToPDF} iconLeft={<FileText size={15} />}>PDF</Button>
+            <Button variant="ghost" onClick={() => setExportando(false)}>Cancelar</Button>
+            <Button onClick={exportarExcel} iconLeft={<Download size={15} />}>Excel</Button>
+            <Button variant="primary" onClick={exportarPDF} iconLeft={<FileText size={15} />}>PDF</Button>
           </>
         }
       >
-        <p className="vit-modal__desc" style={{ marginBottom: "var(--space-6)" }}>
-          {dadosFiltrados.length === festas.length
-            ? `Serão exportados os ${dadosFiltrados.length} cadastros.`
-            : `Serão exportados os ${dadosFiltrados.length} cadastros que passam nos filtros atuais, de ${festas.length} no total.`}
+        <p className="vit-modal__desc mud-exporta">
+          {filtradas.length === cadastros.length
+            ? `Serão exportados os ${filtradas.length} cadastros.`
+            : `Serão exportados os ${filtradas.length} cadastros que passam nos filtros atuais, de ${cadastros.length} no total.`}
         </p>
-
-        <p className="vit-field__label" style={{ marginBottom: "var(--space-4)" }}>
-          Colunas do PDF
-        </p>
+        <p className="vit-field__label mud-exporta">Colunas</p>
         <div className="exp-colunas">
-          {selectedColumns.map((col) => (
+          {colunas.map((col) => (
             <button
               key={col.id}
               type="button"
               className={`exp-coluna${col.selected ? " exp-coluna--marcada" : ""}`}
-              onClick={() => handleToggleColumn(col.id)}
+              onClick={() => setColunas((cs) => cs.map((c) => (c.id === col.id ? { ...c, selected: !c.selected } : c)))}
               aria-pressed={col.selected}
             >
               {col.selected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
@@ -1025,1057 +818,6 @@ const handleSort = (key) => {
             </button>
           ))}
         </div>
-      </Modal>
-
-      <Ocupado
-        open={loadingInitial || loadingGlobal}
-        mensagem={loadingInitial ? "Carregando cadastros..." : "Salvando..."}
-      />
-
-      <PageHeader
-        title="Piscina"
-        meta={
-          loadingInitial
-            ? "Carregando cadastros"
-            : `${dadosFiltrados.length} de ${festas.length} cadastros`
-        }
-        actions={
-          <>
-            <Button onClick={() => setShowExportModal(true)} iconLeft={<FileText size={15} />}>
-              Exportar
-            </Button>
-            <Button
-              variant="ghost"
-              iconLeft={<RotateCcw size={15} />}
-              onClick={() => {
-                setSearchTerm("");
-                setFilterStatus("Todos");
-                setFilterPago("Todos");
-                setFilterChurrasqueira("Todos");
-                setFilterPeriodo({ inicio: "", fim: "" });
-                setFilterDivergencia("Todos");
-                setCurrentPage(1);
-              }}
-            >
-              Redefinir
-            </Button>
-            <Button
-              variant="primary"
-              iconLeft={<Plus size={16} />}
-              onClick={() => {
-                setModalType("add");
-                setIsMoradorCadastrado(false);
-                setShowModal(true);
-              }}
-            >
-              Novo cadastro
-            </Button>
-          </>
-        }
-      />
-
-      <div className="res-filtros">
-    <div style={{ display: "contents" }}>
-        
-        {/* LINHA 1: BUSCA POR UNIDADE/NOME */}
-        <div style={{display:'flex', width: '100%'}}>
-            <div className="cad-filtros__busca">
-                <Search size={16} className="cad-filtros__lupa" aria-hidden="true" />
-                <Input
-                    value={searchTerm}
-                    placeholder="Buscar unidade, nome ou CPF"
-                    aria-label="Buscar unidade, nome ou CPF"
-                    onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        setCurrentPage(1);
-                    }}
-                />
-            </div>
-        </div>
-
-        {/* LINHA 2: STATUS E VALIDADE JUNTOS */}
-        <div style={{
-            display:'flex', 
-            flexDirection: isMobile ? 'column' : 'row', 
-            gap: '20px', 
-            alignItems: isMobile ? 'flex-start' : 'center',
-            justifyContent: 'space-between',
-            borderTop: `1px solid ${theme.border}`,
-            paddingTop: '15px'
-        }}>
-            
-            {/* GRUPO STATUS */}
-            <div style={{display:'flex', flexDirection: 'column', gap: '8px', flexShrink: 0}}>
-                <span style={{fontSize: '10px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase', marginLeft: '5px'}}>
-                    Status
-                </span>
-                <div style={{display:'flex', gap:'6px'}}>
-                    {["Todos", "Ativo", "Inativo", "Vencido"].map(s => (
-                        <button 
-                            key={s} 
-                            className={`filter-pill ${filterStatus === s ? 'active' : ''}`} 
-                            onClick={() => {
-                                setFilterStatus(s);
-                                setCurrentPage(1);
-                            }}
-                            style={{
-                                whiteSpace: 'nowrap',
-                                padding: '6px 12px',
-                                fontSize: '12px'
-                            }}
-                        >
-                            {s}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* GRUPO VALIDADE (Rótulo na frente das boxes) */}
-            <div style={{
-                display: 'flex', 
-                flexDirection: isMobile ? 'column' : 'row', // Empilha só o título no mobile se não couber
-                gap: '10px', 
-                flex: 1, 
-                alignItems: 'center',
-                justifyContent: isMobile ? 'flex-start' : 'flex-end'
-            }}>
-                <span style={{
-                    fontSize: '10px', 
-                    fontWeight: '700', 
-                    color: theme.textSecondary, 
-                    textTransform: 'uppercase',
-                    whiteSpace: 'nowrap' // Garante que o texto não quebre
-                }}>
-                    Validade:
-                </span>
-
-                <div style={{display: 'flex', alignItems: 'center', gap: '8px', flexWrap: isMobile ? 'wrap' : 'nowrap'}}>
-                    <div style={{...searchContainer, backgroundColor: theme.bg, borderColor: theme.border, padding: '5px 8px', width: isMobile ? '120px' : '130px'}}>
-                        <Calendar size={14} color={theme.textSecondary} />
-                        <input 
-                            type="date" 
-                            style={{background:'none', border:'none', color: theme.text, fontSize:'12px', width: '100%', outline: 'none'}} 
-                            value={filterPeriodo.inicio} 
-                            onChange={e => {
-                                setFilterPeriodo({...filterPeriodo, inicio: e.target.value});
-                                setCurrentPage(1);
-                            }}
-                        />
-                    </div>
-                    
-                    <span style={{color: theme.textSecondary, fontSize: '12px'}}>até</span>
-                    
-                    <div style={{...searchContainer, backgroundColor: theme.bg, borderColor: theme.border, padding: '5px 8px', width: isMobile ? '120px' : '130px'}}>
-                        <Calendar size={14} color={theme.textSecondary} />
-                        <input 
-                            type="date" 
-                            style={{background:'none', border:'none', color: theme.text, fontSize:'12px', width: '100%', outline: 'none'}} 
-                            value={filterPeriodo.fim} 
-                            onChange={e => {
-                                setFilterPeriodo({...filterPeriodo, fim: e.target.value});
-                                setCurrentPage(1);
-                            }}
-                        />
-                    </div>
-
-                    {(filterPeriodo.inicio || filterPeriodo.fim) && (
-                        <RotateCcw 
-                            size={16} 
-                            style={{cursor: 'pointer', color: theme.textSecondary}} 
-                            onClick={() => {
-                                setFilterPeriodo({inicio: "", fim: ""});
-                                setCurrentPage(1);
-                            }} 
-                        />
-                    )}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-      <div style={{...tableCard, backgroundColor: theme.mainBg, borderColor: theme.border}}>
-        <div style={{ overflowX: 'auto' }}>
-            <table style={{...tableStyle, minWidth: isMobile ? '700px' : 'auto'}}>
-                <thead>
-                    <tr style={{...thRow, borderBottomColor: theme.border, backgroundColor: theme.isDark ? 'var(--fg-default)' : 'var(--surface-2)'}}>
-    {[
-      { label: "ID", key: "id" },
-  { label: "Unidade", key: "id_unidade" },
-  { label: "Nome", key: "nome" },
-  { label: "Nascimento", key: "nascimento" },
-  { label: "Telefone", key: "telefone" },
-  { label: "Data Validade", key: "validade" },
-  { label: "Status", key: "status" },
-].map((col) => {
-  const config = sortConfig.find(c => c.key === col.key);
-  return (
-  <th 
-    key={col.key}
-    style={{
-      ...thStyle, 
-      color: theme.textSecondary, 
-      cursor: col.key !== 'acoes' ? 'pointer' : 'default', 
-      userSelect: 'none'
-    }}
-    onClick={(e) => col.key !== 'acoes' && handleSort(col.key, e.shiftKey)}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      {col.label}
-      {config && (config.direction === 'asc' ? " ↑" : " ↓")}
-    </div>
-  </th>
-);
-    })}
-    <th style={{...thStyle, textAlign: 'right', color: theme.textSecondary}}>Ações</th>
-  </tr>
-</thead>
-                <tbody>
-  {itensExibidos.map((f) => {
-    // Busca os dados da unidade (Bloco e Número) para exibir amigavelmente
-    const unit = unidades.find(u => u.id?.toString() === f.id_unidade?.toString());
-    
-    return (
-      <tr key={f.id} style={{ ...trStyle, borderBottom: `1px solid ${theme.border}` }}>
-        
-        {/* Coluna ID */}
-        <td style={{ ...tdStyle, color: theme.textSecondary, fontSize: '12px' }}>
-          {f.id}
-        </td>
-
-        {/* Coluna Unidade */}
-        <td style={{ ...tdStyle, color: theme.text, textAlign: 'left' }}>
-          <strong>{unit ? `B${unit.bloco} - ${unit.unidade}` : f.id_unidade}</strong>
-        </td>
-
-       {/* Coluna Nome (com Foto de Perfil) */}
-<td style={{ ...tdStyle, color: theme.text }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-    {f.url_foto ? (
-      <DriveImage
-        source={f.url_foto}
-        alt="Perfil"
-        style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '50%',
-          objectFit: 'cover',
-          border: `1px solid ${theme.border}`
-        }}
-      />
-    ) : (
-      <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: theme.border, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <User size={16} color={theme.textSecondary} />
-      </div>
-    )}
-    <span style={{ fontWeight: '600' }}>{f.nome}</span>
-  </div>
-</td>
-
-        {/* Coluna Nascimento */}
-        <td style={{ ...tdStyle, color: theme.text }}>
-          {f.nascimento ? f.nascimento.split('-').reverse().join('/') : "-"}
-        </td>
-
-        {/* Coluna Telefone */}
-        <td style={{ ...tdStyle, color: theme.text }}>
-          {f.telefone}
-        </td>
-
-        {/* Coluna Data Validade (Atestado) */}
-        <td style={{ ...tdStyle, color: theme.text }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            {f.validade ? f.validade.split('-').reverse().join('/') : "-"}
-            {/* Ícone de alerta se o atestado estiver vencido */}
-            {f.validade && new Date(f.validade) < new Date() && (
-              <AlertCircle size={14} color="#B8203F" title="Atestado Vencido" />
-            )}
-          </div>
-        </td>
-
-      {/* Coluna Status */}
-<td style={tdStyle}>
-  <span style={{
-    ...badgeGreen, // Mantém suas propriedades de padding e border-radius
-    display: 'inline-block',
-    padding: '4px 8px',
-    borderRadius: '6px',
-    fontWeight: '600',
-    fontSize: '12px',
-    // Lógica de cores baseada no texto do status
-    backgroundColor: 
-      f.status === 'Inativo' ? '#F9DEE3' : 
-      f.status === 'Ativo' ? '#FEE4DC' : 
-      'var(--surface-3)', // Amarelo para 'Vencido'
-    color: 
-      f.status === 'Inativo' ? '#8F1530' : 
-      f.status === 'Ativo' ? '#B33320' : 
-      'var(--fg-secondary)'  // Marrom/Dourado para 'Vencido'
-  }}>
-    {f.status}
-  </span>
-</td>
-
-        {/* --- COLUNA AÇÕES --- */}
-        <td style={{ ...tdStyle, textAlign: 'right', position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-            
-            {/* Container do Olho + Asterisco */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              {/* Botão, como no Salão de festas: o <Eye> sozinho não recebia
-                  foco, e o script de prints do Manual não tinha como abrir a
-                  carteirinha. */}
-              <button
-                type="button"
-                aria-label={`Ver ficha de ${f.nome || "sem nome"}`}
-                onMouseEnter={() => { prefetchFoto(f.url_foto); }}
-                onTouchStart={() => { prefetchFoto(f.url_foto); }}
-                onClick={() => { setSelectedFesta(f); setShowViewModal(true); }}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}
-              >
-                <Eye size={18} color={theme.brand} />
-              </button>
-              
-              {/* Asterisco */}
-              {((f.divergencia_local === "Sim" || f.divergencia_local === true) || (f.obs && (String(f.obs || "").trim()) !== "")) && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '-8px',
-                  color: '#B8203F',
-                  fontWeight: 'bold',
-                  fontSize: '20px',
-                  pointerEvents: 'none'
-                }}>
-                  *
-                </span>
-              )}
-            </div>
-
-            {/* Menu de Opções */}
-            <button 
-              onClick={() => setShowMenuId(showMenuId === f.id ? null : f.id)} 
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
-            >
-              <MoreVertical size={20} color={theme.textSecondary} />
-            </button>
-          </div>
-                                    {showMenuId === f.id && (
-    <div ref={menuRef} className="action-menu" style={{ right: '10px', top: '40px' }}>
-
-        <div style={{ height: '1px', backgroundColor: theme.border, margin: '4px 0' }} />
-
-        <div className="menu-item" onClick={() => {
-    setModalType("edit");
-
-    // Função interna para converter qualquer formato de data para AAAA-MM-DD
-    const paraInput = (valor) => {
-        if (!valor) return "";
-        // Se vier do Sheets como DD/MM/YYYY
-        if (valor.includes('/')) {
-            const [d, m, a] = valor.split(' ')[0].split('/');
-            return `${a}-${m}-${d}`;
-        }
-        // Se vier como YYYY-MM-DD...
-        return valor.split(' ')[0].split('T')[0];
-    };
-
-    setFormData({
-        ...f,
-        // Usando os nomes corretos das colunas da Piscina
-        nascimento: paraInput(f.nascimento),
-        validade: paraInput(f.validade) 
-    });
-
-    setShowModal(true);
-    setShowMenuId(null);
-}}>
-            <Edit2 size={14} /> Editar
-        </div>
-        
-        <div className="menu-item" style={{ color: '#B8203F' }} onClick={() => { handleDelete(f.id); setShowMenuId(null); }}>
-            <Trash2 size={14} /> Excluir
-        </div>
-    </div>
-)}
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
-
-        <div style={{
-  ...paginationFooter,
-  borderTopColor: theme.border,
-  backgroundColor: theme.mainBg,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: isMobile ? "12px" : "0"
-}}>
-
-  {/* ESQUERDA: Exibir + Contador */}
-  <div style={{ 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "20px" 
-  }}>
-    
-    {/* Seletor Exibir */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <span style={{ fontSize: '13px', color: theme.textSecondary }}>
-        Exibir:
-      </span>
-      <select 
-        value={itemsPerPage} 
-        onChange={(e) => {
-          const val = e.target.value;
-          setItemsPerPage(val === "Todos" ? "Todos" : Number(val));
-          setCurrentPage(1);
-        }}
-        style={{
-          padding: '4px 8px',
-          borderRadius: '6px',
-          border: '1px solid ' + theme.border,
-          backgroundColor: theme.bg,
-          color: theme.text,
-          fontSize: '13px',
-          outline: 'none',
-          cursor: 'pointer'
-        }}
-      >
-        <option value={10}>10</option>
-        <option value={20}>20</option>
-        <option value={50}>50</option>
-        <option value={100}>100</option>
-        <option value="Todos">Todos</option>
-      </select>
-    </div>
-
-    {/* Contador */}
-    <div style={{ fontSize: '13px', color: theme.textSecondary }}>
-      Exibindo <strong>{itensExibidos.length}</strong> de{" "}
-      <strong>{dadosFiltrados.length}</strong> registros
-    </div>
-
-  </div>
-
-  {/* DIREITA: Paginação */}
-  {itemsPerPage !== "Todos" && (
-    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-      <button 
-        className="pagination-btn" 
-        disabled={currentPage === 1} 
-        onClick={() => setCurrentPage(c => c - 1)}
-      >
-        <ChevronLeft size={18}/>
-      </button>
-
-      <span style={{fontSize:'13px', color: theme.text}}>
-        {currentPage} / {totalPages || 1}
-      </span>
-
-      <button 
-        className="pagination-btn" 
-        disabled={currentPage === totalPages || totalPages === 0} 
-        onClick={() => setCurrentPage(c => c + 1)}
-      >
-        <ChevronRight size={18}/>
-      </button>
-    </div>
-  )}
-
-</div>
-
-        </div>
-
-    {showModal && (
-  <div style={modalOverlay}>
-    <div style={{ ...modalContent, backgroundColor: theme.mainBg, color: theme.text, maxWidth: '500px', width: isMobile ? 'calc(100% - 24px)' : '90%', maxHeight: '90vh', overflowY: 'auto', padding: isMobile ? '16px' : '24px' }}>
-      <div style={modalHeader}>
-        <h3 style={{ margin: 0 }}>{modalType === "add" ? "Novo Cadastro Piscina" : "Editar Cadastro"}</h3>
-        <X size={20} cursor="pointer" onClick={() => setShowModal(false)} />
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '70vh', overflowY: 'auto', padding: '5px' }}>
-
-        {/* Campo Unidade com Busca Flutuante */}
-        <div style={{ position: 'relative' }} ref={dropdownRef}>
-          <label style={labelStyle}>Unidade</label>
-          <div
-            style={{
-              ...selectStyle,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              cursor: 'pointer',
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border
-            }}
-            onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-          >
-            <span>{formData.id_unidade ? getUnitLabel(formData.id_unidade) : "Selecione a unidade..."}</span>
-            <ChevronDown size={16} />
-          </div>
-
-          {showUnitDropdown && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, width: '100%',
-              backgroundColor: theme.mainBg, border: `1px solid ${theme.border}`,
-              borderRadius: '8px', zIndex: 1200, boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-              marginTop: '4px', overflow: 'hidden'
-            }}>
-              <div style={{ padding: '8px' }}>
-                <input
-                  style={{
-                    width: '100%', padding: '8px', borderRadius: '6px',
-                    border: `1px solid ${theme.border}`, backgroundColor: theme.bg,
-                    color: theme.text, boxSizing: 'border-box', outline: 'none'
-                  }}
-                  placeholder="Digite o bloco ou apto..."
-                  autoFocus
-                  value={unitSearch}
-                  onChange={(e) => setUnitSearch(e.target.value)}
-                />
-              </div>
-              <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                {unidadesFiltradas.length > 0 ? (
-                  unidadesFiltradas.map(u => (
-                    <div
-                      key={u.id}
-                      style={{
-                        padding: '10px 15px', cursor: 'pointer', fontSize: '14px',
-                        borderBottom: `1px solid ${theme.border}`
-                      }}
-                      onClick={() => {
-                        setFormData({ ...formData, id_unidade: u.id });
-                        setShowUnitDropdown(false);
-                        setUnitSearch("");
-                      }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = theme.bg}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                    >
-                      BLOCO {u.bloco} - UNIDADE {u.unidade}
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ padding: '15px', textAlign: 'center', fontSize: '12px', opacity: 0.7 }}>
-                    Nenhuma unidade encontrada
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Checkbox Morador */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', borderRadius: '8px', backgroundColor: theme.bg }}>
-          <input type="checkbox" id="checkMorador" checked={isMoradorCadastrado} onChange={e => toggleMoradorCadastrado(e.target.checked)} />
-          <label htmlFor="checkMorador" style={{ fontSize: '13px', cursor: 'pointer' }}>Morador Cadastrado?</label>
-        </div>
-
-          {isMoradorCadastrado && (
-  <div>
-    <label style={labelStyle}>Selecionar Morador</label>
-    <select 
-      style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-      value={formData.id_morador || ""} // Adicione o value para manter sincronizado
-      onChange={e => handleMoradorSelect(e.target.value)}
-    >
-      <option value="">Escolha...</option>
-      {moradores
-        .filter(m => m.id_unidade?.toString() === formData.id_unidade?.toString())
-        .map(m => <option key={m.id} value={m.id}>{m.nome}</option>)
-      }
-    </select>
-  </div>
-)}
-
-       {/* Nome, CPF e Telefone (Bloqueados se for morador cadastrado) */}
-<div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr 1fr', gap: '10px', marginBottom: '15px' }}>
-  {/* NOME */}
-  <div>
-    <label style={labelStyle}>Nome</label>
-    <input 
-      style={{ ...selectStyle, width: '100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1 }} 
-      value={formData.nome} 
-      readOnly={isMoradorCadastrado}
-      onChange={e => setFormData({ ...formData, nome: e.target.value })} 
-    />
-  </div>
-
-  {/* CPF (NOVO) */}
-  <div>
-    <label style={labelStyle}>CPF</label>
-    <input 
-      style={{ ...selectStyle, width: '100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1 }} 
-      value={formData.cpf} 
-      readOnly={isMoradorCadastrado}
-      placeholder="000.000.000-00"
-      onChange={e => setFormData({ ...formData, cpf: maskCPF(e.target.value) })} // Se tiver função de máscara
-    />
-  </div>
-
-  {/* TELEFONE */}
-  <div>
-    <label style={labelStyle}>Telefone</label>
-    <input 
-      style={{ ...selectStyle, width: '100%', backgroundColor: isMoradorCadastrado ? theme.mainBg : theme.bg, color: theme.text, borderColor: theme.border, opacity: isMoradorCadastrado ? 0.7 : 1 }} 
-      value={formData.telefone} 
-      readOnly={isMoradorCadastrado}
-      onChange={e => setFormData({ ...formData, telefone: maskPhone(e.target.value) })} 
-    />
-  </div>
-</div>
-
-        {/* Nascimento e Validade */}
-        <div style={{display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:'10px'}}>
-          <div>
-            <label style={labelStyle}>Data Nascimento</label>
-            <input 
-              type="date"
-              style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-              value={formData.nascimento} 
-              onChange={e => setFormData({...formData, nascimento: e.target.value})} 
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Validade Atestado</label>
-            <input 
-              type="date"
-              style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-              value={formData.validade} 
-              onChange={e => setFormData({...formData, validade: e.target.value})} 
-            />
-          </div>
-        </div>
-
-        {/* Status */}
-        <div style={{marginTop: '5px'}}>
-          <label style={labelStyle}>Status de Acesso</label>
-          <select 
-            style={{...selectStyle, width:'100%', backgroundColor: theme.bg, color: theme.text, borderColor: theme.border}} 
-            value={formData.status} 
-            onChange={e => setFormData({...formData, status: e.target.value})}
-          >
-            <option value="Ativo">Ativo</option>
-            <option value="Inativo">Inativo</option>
-            <option value="Vencido">Vencido</option>
-          </select>
-        </div>
-
-        {/* SEÇÃO DE ARQUIVOS (FOTO E ATESTADO) */}
-        <div style={{ marginTop: '10px' }}>
-          <label style={labelStyle}>Documentação (Foto e Atestado)</label>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-            
-            {/* Preview Foto Perfil */}
-<div style={{ textAlign: 'center' }}>
-  <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto' }}>
-    
-    {/* Círculo da Foto - Renderização Condicional */}
-    <div style={{
-      width: '100px',
-      height: '100px',
-      borderRadius: '50%',
-      border: `2px solid ${theme.border}`,
-      boxShadow: theme.isDark ? '0 4px 8px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.1)',
-      backgroundColor: theme.bg, // Fundo padrão quando vazio
-      overflow: 'hidden',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative'
-    }}>
-      {/* SE houver foto (Base64 ou URL), mostra a imagem */}
-      {(formData.fotoBase64 || formData.url_foto) ? (
-        <DriveImage
-          localSrc={formData.fotoBase64}
-          source={formData.url_foto}
-          alt="Perfil"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      ) : (
-        /* CASO CONTRÁRIO, mostra o círculo vazio com um ícone de usuário padrão */
-        <User size={40} color={theme.textSecondary} style={{ opacity: 0.5 }} />
-      )}
-    </div>
-
-    {/* Input de Arquivo Oculto */}
-    <input 
-      type="file" 
-      id="upload-foto" 
-      accept="image/*" 
-      style={{display:'none'}} 
-      onChange={(e) => handleFileChange(e, 'fotoBase64')} 
-    />
-    
-
-    {/* Botão de Upload (Ícone de Nuvem) */}
-    <label 
-      htmlFor="upload-foto" 
-      style={{ 
-        position: 'absolute', 
-        bottom: 0, 
-        right: 0, 
-        background: 'var(--btn-primary-bg)', 
-        color: 'white', 
-        borderRadius: '50%', 
-        padding: '7px', 
-        cursor: 'pointer',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10
-      }}
-    >
-      <UploadCloud size={16} />
-    </label>
-  </div>
-  <span style={{fontSize: '10px', color: theme.textSecondary, marginTop: '6px', display: 'block'}}>
-    Foto Perfil
-  </span>
-</div>
-
-            {/* Preview Atestado (SEU CÓDIGO JÁ ESTAVA ASSIM) */}
-    <div style={{ textAlign: 'center' }}>
-       <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto' }}>
-        <div style={{ width: '100px', height: '100px', backgroundColor: theme.bg, borderRadius: '8px', border: `2px dashed ${theme.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-           {formData.atestadoBase64 ? <CheckCircle2 color={theme.brand} /> : <FileText color={theme.textSecondary} />}
-           <span style={{fontSize: '9px', marginTop: '5px'}}>{formData.atestadoBase64 ? "Carregado" : "Atestado"}</span>
-        </div>
-        <input type="file" id="upload-atestado" accept="image/*,application/pdf" style={{display:'none'}} onChange={(e) => handleFileChange(e, 'atestadoBase64')} />
-        <label htmlFor="upload-atestado" style={{ position: 'absolute', bottom: -5, right: -5, background: 'var(--btn-primary-bg)', color: 'white', borderRadius: '50%', padding: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-          <Plus size={14} />
-        </label>
-      </div>
-      <span style={{fontSize: '10px', color: theme.textSecondary, marginTop: '5px', display: 'block'}}>Médico/PDF</span>
-    </div>
-
-  </div>
-</div>
-        {/* Observação (Sempre visível no cadastro da piscina) */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={labelStyle}>Observações</label>
-          <textarea 
-            style={{
-              ...selectStyle, 
-              width:'100%', 
-              backgroundColor: theme.bg, 
-              color: theme.text, 
-              borderColor: theme.border,
-              minHeight: '60px',
-              fontFamily: 'inherit',
-              padding: '10px',
-              borderRadius: '8px',
-              resize: 'vertical'
-            }} 
-            placeholder=""
-            value={formData.obs || ""} 
-            onChange={e => setFormData({...formData, obs: e.target.value})}
-          />
-        </div>
-
-        <button 
-          style={{
-            backgroundColor: 'var(--btn-primary-bg)', color: 'white', border: 'none', padding: '12px', 
-            borderRadius: '10px', fontWeight: '700', cursor: 'pointer', marginTop: '10px'
-          }} 
-          onClick={handleSave}
-        >
-          {loadingGlobal ? <Loader2 className="animate-spin" size={18}/> : "Salvar Cadastro"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-      {/* MODAL VER MAIS - CORRIGIDO E ESTRUTURADO */}
-      {/* Detalhe: arquetipo documento. Carteirinha a esquerda, cadastro a
-          direita. Em coluna unica o cartao empurra os dados para fora da
-          dobra e ninguem confere a validade do atestado, que e o campo que
-          decide se o morador entra na piscina. */}
-      <Modal
-        open={showViewModal && Boolean(selectedFesta)}
-        onClose={() => setShowViewModal(false)}
-        title={selectedFesta?.nome || "Cadastro na piscina"}
-        size="lg"
-        className="pis-doc"
-        footer={
-          <Button variant="ghost" onClick={() => setShowViewModal(false)}>Fechar</Button>
-        }
-      >
-        {selectedFesta && (
-          <div className="pis-doc__grade">
-            <div className="pis-doc__cartao">
-{/* Container da Carteirinha */}
-<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-  
-  <div id="carteirinha-piscina" ref={cartaoRef} style={{
-    width: '100%',
-    maxWidth: '500px', 
-    aspectRatio: '1011 / 639', 
-    backgroundImage: `url(${window.location.origin}/template.jpg)`, 
-    backgroundSize: '100% 100%',
-    backgroundRepeat: 'no-repeat',
-    position: 'relative',
-    borderRadius: '10px',
-    overflow: 'hidden',
-    boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
-    fontFamily: '"Segoe UI", Roboto, sans-serif',
-    color: '#333' 
-  }}>
-
-   {/* CONTAINER DA FOTO COM BORDA DUPLA AFASTADA */}
-<div style={{ 
-  position: 'absolute', 
-  top: '18.1%',      // Ajustado (-0.7%)
-  left: '6.4%',      // Ajustado (-0.7%)
-  width: '28.3%',    
-  height: '63.2%',   
-  borderRadius: '50%', 
-  zIndex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  
-  // PRIMEIRA BORDA (Colada na foto)
-  border: '0.5px solid #83ab9f',
-}}>
-  
-  {/* A SEGUNDA BORDA (Afastada) */}
-  {/* Usamos um div absoluto para criar o anel externo sem interferir na foto */}
-  <div style={{
-    position: 'absolute',
-    top: d(-8),
-    left: d(-8),
-    right: d(-8),
-    bottom: d(-8),
-    border: '0.4px solid #83ab9f',
-    borderRadius: '50%',
-    pointerEvents: 'none' // Garante que não atrapalhe cliques
-  }} />
-
-  {/* A FOTO EM SI */}
-  <div style={{ 
-    width: '100%', 
-    height: '100%', 
-    borderRadius: '50%', 
-    overflow: 'hidden' 
-  }}>
-    {selectedFesta.url_foto ? (
-      <DriveImage
-        source={selectedFesta.url_foto}
-        alt="Foto Morador"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center top'
-        }}
-      />
-    ) : (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#EDEBE5' }}>
-        {/* Cor fixa de proposito: esta area vira imagem baixada, entao nao pode
-            seguir o tema. No escuro, var(--surface-3) sairia preto no arquivo. */}
-        <User size={Math.max(16, Math.round(97 * escala))} color="#B0AEA6" />
-      </div>
-    )}
-  </div>
-</div>
-
-   <div style={{ 
-  position: 'absolute', 
-  top: '31%', 
-  left: '38%', 
-  textAlign: 'left',
-  width: '52%',
-  overflow: 'hidden'
-}}>
-  <div style={{ fontSize: d(21), color: '#666', marginBottom: d(4), textTransform: 'uppercase' }}>
-    Nome
-  </div>
-
-  <div style={{ 
-    fontSize: (selectedFesta.nome || "").length > 16 ? d(27) : d(32), 
-    fontWeight: '700', 
-    color: '#1a1a1a', 
-    textTransform: 'uppercase', 
-    lineHeight: '1.1',
-    whiteSpace: 'nowrap',
-    letterSpacing: (selectedFesta.nome || "").length > 16 ? '-0.03em' : '-0.01em',
-  }}>
-    {formatarNomeCarteirinha(selectedFesta.nome)}
-  </div>
-</div>
-
-    {/* BLOCO DE UNIDADE */}
-    <div style={{ position: 'absolute', top: '53%', left: '38%', textAlign: 'left' }}>
-      <div style={{ fontSize: d(21), color: '#666', marginBottom: d(4), textTransform: 'uppercase' }}>Unidade</div>
-      <div style={{ fontSize: d(32), fontWeight: '700', color: '#1a1a1a' }}>
-        {selectedFesta.id_unidade ? (
-          getUnitLabel(selectedFesta.id_unidade)
-            .replace(/BLOCO\s*|UNIDADE\s*/gi, '')
-            .replace(/\s*-\s*/g, '-')
-            .trim()
-        ) : "-"}
-      </div>
-    </div>
-
-    {/* BLOCO DE VALIDADE */}
-    <div style={{ position: 'absolute', top: '53%', left: '68%', textAlign: 'left' }}>
-      <div style={{ fontSize: d(21), color: '#666', marginBottom: d(4), textTransform: 'uppercase' }}>Validade</div>
-      <div style={{ fontSize: d(32), fontWeight: '700', color: '#1a1a1a' }}>
-        {selectedFesta.validade ? formatarDataExibicao(selectedFesta.validade) : "-"}
-      </div>
-    </div>
-
-  </div>
-</div>
-<button
-  onClick={baixarCarteirinha}
-  disabled={isDownloading}
-  style={{
-    marginTop: "10px",
-    padding: "10px 16px",
-    minHeight: "44px",
-    borderRadius: "8px",
-    border: "none",
-    background: "var(--btn-primary-bg)",
-    color: "#fff",
-    fontWeight: "700",
-    cursor: isDownloading ? "wait" : "pointer",
-    opacity: isDownloading ? 0.7 : 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "6px"
-  }}
->
-  {isDownloading
-    ? <><Loader2 size={16} className="animate-spin" /> Gerando…</>
-    : <><Download size={16} /> Baixar Carteirinha</>}
-</button>
-            </div>
-
-            <div className="pis-doc__dados">
-
-        {/* Cabeçalho com foto e identificação */}
-<div style={{display:'flex', gap:'12px', alignItems:'center'}}>
-  <div style={{width:72, height:72, borderRadius:10, overflow:'hidden', border:`1px solid ${theme.border}`, display:'flex', alignItems:'center', justifyContent:'center', background: theme.bg}}>
-    {selectedFesta.fotoBase64 || selectedFesta.url_foto ? (
-      <DriveImage
-        localSrc={selectedFesta.fotoBase64}
-        source={selectedFesta.url_foto}
-        alt="Foto"
-        style={{width:'100%', height:'100%', objectFit:'cover'}}
-      />
-    ) : (
-      <User size={34} color={theme.textSecondary} />
-    )}
-  </div>
-  <div>
-    <div style={{fontSize:14, fontWeight:700, color: theme.text}}>{selectedFesta.nome || "-"}</div>
-    <div style={{fontSize:12, color: theme.textSecondary}}>ID: {selectedFesta.id || "-"}</div>
-    <div style={{fontSize:12, color: theme.textSecondary}}>{selectedFesta.id_unidade ? getUnitLabel(selectedFesta.id_unidade) : "-"}</div>
-  </div>
-</div>
-
-        {/* Dados pessoais / cadastro */}
-<div style={{...viewBox, backgroundColor: theme.bg, borderColor: theme.border}}>
-  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
-    {/* NOME (Movido para dentro do grid se preferir, ou mantido no cabeçalho) */}
-    <div><strong>Nascimento:</strong><br/>{selectedFesta.nascimento ? formatarDataExibicao(selectedFesta.nascimento) : "-"}</div>
-    
-    {/* CPF ADICIONADO AQUI */}
-    <div>
-  <strong>CPF:</strong><br/>
-  {/* Chamando a nova função maskCPFPrivacy */}
-  {selectedFesta?.cpf ? maskCPFPrivacy(selectedFesta.cpf) : "-"}
-</div>
-    <div><strong>Telefone:</strong><br/>{selectedFesta.telefone || "-"}</div>
-    
-    <div><strong>Validade Atestado:</strong><br/>{selectedFesta.validade ? formatarDataExibicao(selectedFesta.validade) : "-"}</div>
-    
-    <div><strong>Status:</strong><br/>
-      <span style={{
-        display:'inline-block', padding:'4px 8px', borderRadius:8, fontWeight:700,
-        backgroundColor: selectedFesta.status === 'Ativo' ? '#FEE4DC' : selectedFesta.status === 'Inativo' ? '#F9DEE3' : 'var(--surface-3)',
-        color: selectedFesta.status === 'Ativo' ? '#B33320' : selectedFesta.status === 'Inativo' ? '#8F1530' : 'var(--fg-secondary)'
-      }}>{selectedFesta.status || '-'}</span>
-    </div>
-  </div>
-
-  {/* Sinaliza atestado vencido */}
-  {selectedFesta.validade && new Date(selectedFesta.validade) < new Date() && (
-    <div style={{marginTop:10, color:'#B8203F', fontWeight:700, display:'flex', alignItems:'center', gap:8}}>
-      <AlertCircle size={16} /> Atestado vencido
-    </div>
-  )}
-</div>
-
-        {/* Observações */}
-        <div style={{ ...viewBox, backgroundColor: theme.bg, borderColor: theme.border }}>
-  <strong style={{ color: theme.text }}>Observações</strong>
-  <div 
-    style={{ 
-      marginTop: 6, 
-      color: theme.textSecondary, 
-      whiteSpace: 'pre-wrap', 
-      // --- Adicione estas linhas para evitar que o texto vaze ---
-      wordBreak: 'break-word', 
-      overflowWrap: 'break-word',
-      fontSize: '0.9rem',
-      lineHeight: '1.4'
-    }}
-  >
-    {selectedFesta.obs || "-"}
-  </div>
-</div>
-
-        {/* Atestado / Documento */}
-<div style={{...viewBox, backgroundColor: theme.bg, borderColor: theme.border}}>
-  <strong>Atestado / Documento</strong>
-  <div style={{marginTop:8, display:'flex', gap:10, alignItems:'center'}}>
-    {selectedFesta.atestadoBase64 ? (
-      <div style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
-        <CheckCircle2 color={theme.brand} />
-        <small style={{color: theme.textSecondary}}>Atestado carregado (não salvo)</small>
-      </div>
-    ) : (selectedFesta.url_atestado || selectedFesta.id_atestado_drive) ? (
-      <div style={{display:'flex', flexDirection:'column', gap: 5}}>
-        {/* Segurança (N7/LGPD): atestado é privado dos dois lados — no bucket
-            abre por URL assinada; no Drive, via getFoto autenticado.
-            A ordem importa: linha migrada tem `caminho_atestado` E
-            `id_atestado_drive` (a origem é preservada, nunca apagada).
-            Perguntando pelo id primeiro, todo atestado migrado voltaria a bater
-            no Drive — que não responde mais desde que o login saiu do Apps
-            Script. `url_atestado` já chega como link assinado quando há
-            caminho; quem resolve isso é o mapeamento do carregamento da lista. */}
-        <button
-          type="button"
-          onClick={() => abrirArquivoDrive(
-            selectedFesta.caminho_atestado
-              ? selectedFesta.url_atestado
-              : selectedFesta.id_atestado_drive || selectedFesta.url_atestado
-          )}
-          style={{background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--fg-brand)', fontWeight: 600, fontSize: 'inherit', display: 'flex', alignItems: 'center', gap: 4}}
-        >
-          <FileText size={16}/> Abrir Atestado
-        </button>
-      </div>
-    ) : (
-      <div style={{color: theme.textSecondary}}>Nenhum atestado anexado</div>
-    )}
-  </div>
-</div>
-            </div>
-          </div>
-        )}
       </Modal>
     </div>
   );

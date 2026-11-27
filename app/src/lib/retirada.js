@@ -14,6 +14,12 @@
  *
  * Uma retirada, um cadastro. Levar duas encomendas continua possível: são duas
  * baixas, cada uma com a sua assinatura.
+ *
+ * ATUALIZAÇÃO (2026-11-04): a portaria pediu uma assinatura só para tudo o que
+ * o morador leva. Agora a conferência é por ITEM, cada um com a sua caixa e o
+ * número da encomenda à vista, então a assinatura cobre só o que foi marcado.
+ * `pendentesDaRetirada` traz o cadastro aberto primeiro e, depois dele, as
+ * outras encomendas da mesma unidade ainda na portaria.
  */
 
 const celula = (linha, chave) => {
@@ -42,6 +48,25 @@ export function pendentesDoCadastro(encomendas, idCadastro) {
     const status = String(celula(e, "status") || "").trim().toUpperCase();
     return !FORA_DA_PORTARIA.includes(status);
   });
+}
+
+/**
+ * O que a retirada oferece: o cadastro aberto e, depois dele, as outras
+ * encomendas da mesma unidade que ainda estão na portaria (as mais antigas
+ * primeiro). Assim o morador assina uma vez só pelo que leva.
+ */
+export function pendentesDaRetirada(encomendas, idCadastro) {
+  const aberto = pendentesDoCadastro(encomendas, idCadastro);
+  if (!aberto.length) return [];
+  const unidade = String(celula(aberto[0], "id_unidade") ?? "");
+  if (!unidade) return aberto;
+  const outras = (encomendas ?? []).filter((e) => {
+    if (String(celula(e, "id")) === String(idCadastro)) return false;
+    if (String(celula(e, "id_unidade")) !== unidade) return false;
+    const status = String(celula(e, "status") || "").trim().toUpperCase();
+    return !FORA_DA_PORTARIA.includes(status);
+  }).sort((a, b) => Number(celula(a, "id")) - Number(celula(b, "id")));
+  return [...aberto, ...outras];
 }
 
 /**

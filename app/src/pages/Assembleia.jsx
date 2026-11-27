@@ -1,17 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import {
-  Gavel, Upload, Sparkles, Trash2, FileText, Plus, X, ChevronDown,
-  Calendar, Users, CheckCircle2, Loader2, AlertCircle, Inbox, FileSignature, ScrollText,
+  Upload, Sparkles, Trash2, FileText, Plus, X, Eye, Pencil, ScrollText, AlertCircle,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { useTheme } from "../theme/useTheme";
 import AssembleiaChat from "../components/AssembleiaChat";
-import { PageHeader, useToast, useConfirm } from "../ui";
+import {
+  PageHeader, Button, Modal, Field, Input, Textarea, Badge, EmptyState, Skeleton, Tabs, useToast, useConfirm,
+} from "../ui";
+
+// A aba Convenção traz o texto inteiro da Convenção (~180 KB): só carrega
+// quando alguém abre a aba.
+const Convencao = lazy(() => import("../components/assembleia/Convencao"));
+import ListaQueAbre from "../components/confirmacoes/ListaQueAbre";
+import { Ficha, Filtros, Iniciais } from "../components/app/pecas";
 import { listar, criar, editar, remover } from "../api/db";
 import { enviarAnexo, urlDoAnexo, removerAnexosDoRegistro } from "../api/anexos";
 import { chamarEdgeFunction, mensagemDaEdgeFunction } from "../api/edge";
-import { dataBR } from "../lib/format";
+import { dataBR, nomeProprio } from "../lib/format";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -69,6 +75,9 @@ async function extrairTextoPdf(file) {
 // Cargos que podem enviar/salvar/excluir (Conselheiro é read-only).
 const PODE_ESCREVER = ["Sindico", "Auxiliar Administrativo", "Desenvolvedor"];
 
+/** Quantas atas a lista mostra de cada vez; "Mostrar mais" soma outras tantas. */
+const LOTE = 30;
+
 // Lê um File como base64 (sem o prefixo data:).
 function fileParaBase64(file) {
   return new Promise((resolve, reject) => {
@@ -100,31 +109,47 @@ function formatarTamanho(bytes) {
   return mb >= 1 ? mb.toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB";
 }
 
-function iniciais(nome) {
-  const partes = (nome || "").trim().split(/\s+/).filter(Boolean);
-  if (!partes.length) return "?";
-  return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
-}
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+const semAcento = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/** O que o formulário de ata edita (o rascunho da IA ou uma ata salva). */
+const paraFormulario = (ata) => ({
+  id: ata.id ?? null,
+  titulo: ata.titulo || "",
+  data_assembleia: paraDataISO(ata.data_assembleia) || "",
+  resumo_geral: ata.resumo_geral || "",
+  decisoes: parseLista(ata.decisoes),
+  assinantes: parseLista(ata.assinantes),
+});
 
 export default function Assembleia({ user }) {
-  const { theme } = useTheme();
   const toast = useToast();
   const confirmar = useConfirm();
-  const dark = theme.isDark;
   const podeEscrever = PODE_ESCREVER.includes(user?.cargo);
 
   const [atas, setAtas] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [expandido, setExpandido] = useState(null);
+  const [aba, setAba] = useState("atas");
 
-  // Upload + geração
+  // Lista: busca, ano, ordem e quantas aparecem.
+  const [busca, setBusca] = useState("");
+  const [ano, setAno] = useState("Todos");
+  const [ordem, setOrdem] = useState({ chave: "data", direcao: "desc" });
+  const [limite, setLimite] = useState(LOTE);
+
+  // Ver.
+  const [vendo, setVendo] = useState(null);
+
+  // Nova ata: o PDF, a leitura pela IA e o rascunho em revisão.
+  const [novaAberta, setNovaAberta] = useState(false);
   const [arquivo, setArquivo] = useState(null);
   const [arrastando, setArrastando] = useState(false);
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState("");
 
-  // Rascunho em revisão (null = sem rascunho)
-  const [rascunho, setRascunho] = useState(null);
+  // O formulário (rascunho da nova ata, ou a ata em edição).
+  const [form, setForm] = useState(null);
+  const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   const carregarAtas = async () => {
@@ -132,7 +157,12 @@ export default function Assembleia({ user }) {
     try {
       const res = await listar("ASSEMBLEIAS");
       const lista = Array.isArray(res) ? res : [];
-      lista.sort((a, b) => (b.id || "").localeCompare(a.id || "")); // mais recentes primeiro
+      // Mais recentes primeiro: o chat lê atas[0] como "a última ata".
+      lista.sort((a, b) =>
+        String(b.data_assembleia || "").localeCompare(String(a.data_assembleia || ""))
+        // Mesma data: o id maior é a ata mais nova. Como número: em texto "9" vem depois de "10".
+        || (Number(b.id) || 0) - (Number(a.id) || 0)
+      );
       setAtas(lista);
     } catch {
       setAtas([]);
@@ -144,6 +174,22 @@ export default function Assembleia({ user }) {
   useEffect(() => {
     carregarAtas();
   }, []);
+
+  // ---------- nova ata ----------
+  const abrirNova = () => {
+    setArquivo(null);
+    setErro("");
+    setForm(null);
+    setEditando(false);
+    setNovaAberta(true);
+  };
+  const fecharNova = () => {
+    if (gerando || salvando) return;
+    setNovaAberta(false);
+    setForm(null);
+    setArquivo(null);
+    setErro("");
+  };
 
   // Valida e aceita o arquivo (usado pelo input e pelo drag-and-drop).
   const aceitarArquivo = (f) => {
@@ -173,13 +219,13 @@ export default function Assembleia({ user }) {
         return; // mantém o arquivo para nova tentativa
       }
       const res = r.corpo;
-      setRascunho({
-        titulo: res.titulo || "",
-        data_assembleia: res.data_assembleia || "",
-        resumo_geral: res.resumo_geral || "",
+      setForm(paraFormulario({
+        titulo: res.titulo,
+        data_assembleia: res.data_assembleia,
+        resumo_geral: res.resumo_geral,
         decisoes: Array.isArray(res.decisoes) ? res.decisoes : [],
         assinantes: Array.isArray(res.assinantes) ? res.assinantes : [],
-      });
+      }));
     } catch {
       setErro("Erro ao processar o PDF.");
     } finally {
@@ -187,8 +233,19 @@ export default function Assembleia({ user }) {
     }
   };
 
-  const salvar = async () => {
-    if (!arquivo || !rascunho) return;
+  /** As colunas que o formulário grava (as listas como texto JSON, como sempre). */
+  const colunasDoForm = () => ({
+    titulo: form.titulo.trim() || null,
+    data_assembleia: paraDataISO(form.data_assembleia),
+    resumo_geral: form.resumo_geral.trim() || null,
+    // Colunas de texto guardando JSON, como a planilha fazia — `parseLista`
+    // já lê nesse formato, e as atas antigas estão assim.
+    decisoes: JSON.stringify(form.decisoes.map((d) => d.trim()).filter(Boolean)),
+    assinantes: JSON.stringify(form.assinantes.map((a) => nomeProprio(a.trim())).filter(Boolean)),
+  });
+
+  const salvarNova = async () => {
+    if (!arquivo || !form) return;
     setSalvando(true);
     try {
       // `assembleias.id` é texto e não tem identity: quem gera é a tela. O
@@ -201,13 +258,7 @@ export default function Assembleia({ user }) {
       // ninguém apagaria, porque ninguém saberia que ele existe.
       const r = await criar("ASSEMBLEIAS", {
         id,
-        titulo: rascunho.titulo || null,
-        data_assembleia: paraDataISO(rascunho.data_assembleia),
-        resumo_geral: rascunho.resumo_geral || null,
-        // Colunas de texto guardando JSON, como a planilha fazia — `parseLista`
-        // já lê nesse formato, e as atas antigas estão assim.
-        decisoes: JSON.stringify(rascunho.decisoes.filter((d) => d.trim())),
-        assinantes: JSON.stringify(rascunho.assinantes.filter((a) => a.trim())),
+        ...colunasDoForm(),
         created_by: user?.nome || user?.email || "",
       });
       if (!r.success) { toast.error(mensagemErro(r.message)); return; }
@@ -218,9 +269,11 @@ export default function Assembleia({ user }) {
       } else {
         const rv = await editar("ASSEMBLEIAS", id, { caminho_pdf: envio.caminho });
         if (!rv.success) toast.error("Ata salva, mas o PDF não ficou vinculado.");
+        else toast.success("Ata salva");
       }
 
-      setRascunho(null);
+      setNovaAberta(false);
+      setForm(null);
       setArquivo(null);
       await carregarAtas();
     } finally {
@@ -228,10 +281,37 @@ export default function Assembleia({ user }) {
     }
   };
 
+  // ---------- editar ----------
+  const abrirEditar = (ata) => {
+    setForm(paraFormulario(ata));
+    setVendo(null);
+    setEditando(true);
+  };
+  const fecharEditar = () => {
+    if (salvando) return;
+    setEditando(false);
+    setForm(null);
+  };
+  const salvarEdicao = async () => {
+    if (!form?.id) return;
+    setSalvando(true);
+    try {
+      const r = await editar("ASSEMBLEIAS", form.id, colunasDoForm());
+      if (!r.success) { toast.error(mensagemErro(r.message)); return; }
+      toast.success("Ata atualizada");
+      setEditando(false);
+      setForm(null);
+      await carregarAtas();
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  // ---------- excluir e PDF ----------
   const excluir = async (ata) => {
     const ok = await confirmar({
       title: `Excluir a ata "${ata.titulo || "sem título"}"?`,
-      description: "O PDF anexado também é removido do Drive. Não dá para desfazer.",
+      description: "O PDF anexado também é removido. Não dá para desfazer.",
       confirmLabel: "Excluir",
       danger: true,
     });
@@ -248,21 +328,18 @@ export default function Assembleia({ user }) {
       toast.error("Ata excluída, mas o PDF continuou no sistema. Avise o suporte.");
     }
 
+    setVendo(null);
+    setEditando(false);
+    setForm(null);
     await carregarAtas();
     toast.success("Ata excluída");
   };
 
+  const temPdf = (ata) => Boolean(ata?.caminho_pdf || ata?.pdf_url);
   const abrirPdf = async (ata) => {
     // O bucket vem primeiro: a ata migrada tem os dois endereços, e o
-    // `pdf_id` do Drive não responde mais — o `getFoto` exige uma sessão que
-    // ninguém emite desde que o login saiu do Apps Script.
-    //
-    // Sumiu daqui todo o rodeio de baixar o PDF em base64 e montar um iframe
-    // com `data:`: ele existia porque o arquivo no Drive era privado e só o
-    // backend autenticado o alcançava. A URL assinada já carrega a autorização
-    // e tem prazo de validade, então abre direto — sem passar os bytes do PDF
-    // pelo JavaScript e sem `data:` URL, que era o pedaço que precisava do
-    // cuidado com XSS.
+    // `pdf_id` do Drive não responde mais. A URL assinada já carrega a
+    // autorização e tem prazo de validade, então abre direto.
     const endereco = await urlDoAnexo({
       caminho_storage: ata.caminho_pdf,
       url_drive: ata.pdf_url,
@@ -271,424 +348,382 @@ export default function Assembleia({ user }) {
     window.open(endereco, "_blank", "noopener");
   };
 
-  // ---- edição das listas do rascunho ----
-  const setCampo = (campo, valor) => setRascunho((r) => ({ ...r, [campo]: valor }));
+  // ---------- edição das listas do formulário ----------
+  const setCampo = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }));
   const setItem = (campo, i, valor) =>
-    setRascunho((r) => ({ ...r, [campo]: r[campo].map((x, idx) => (idx === i ? valor : x)) }));
-  const addItem = (campo) => setRascunho((r) => ({ ...r, [campo]: [...r[campo], ""] }));
+    setForm((f) => ({ ...f, [campo]: f[campo].map((x, idx) => (idx === i ? valor : x)) }));
+  const addItem = (campo) => setForm((f) => ({ ...f, [campo]: [...f[campo], ""] }));
   const removeItem = (campo, i) =>
-    setRascunho((r) => ({ ...r, [campo]: r[campo].filter((_, idx) => idx !== i) }));
+    setForm((f) => ({ ...f, [campo]: f[campo].filter((_, idx) => idx !== i) }));
 
-  // ---------- tokens de estilo ----------
-  const vars = {
-    "--asb-border": theme.border,
-    "--asb-card": theme.bgCard,
-    "--asb-field": dark ? "var(--bg-app)" : "var(--surface-2)",
-    "--asb-hover": dark ? "#243029" : "#FFF4F1",
-    "--asb-text": theme.text,
-    "--asb-text-sec": theme.textSecondary,
-    "--asb-shadow": dark ? "0 10px 30px -12px rgba(0,0,0,.6)" : "0 12px 32px -16px rgba(40,22,18,.28)",
-  };
+  // ---------- o que a lista mostra ----------
+  const anoDe = (ata) => String(ata.data_assembleia || "").slice(0, 4);
+  const anos = useMemo(
+    () => [...new Set(atas.map(anoDe).filter((a) => /^\d{4}$/.test(a)))].sort().reverse(),
+    [atas]
+  );
 
-  const secTitle = {
-    fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600,
-    color: theme.text, margin: 0, letterSpacing: "-.01em",
-  };
-  const label = {
-    display: "block", fontSize: 12, fontWeight: 600, letterSpacing: ".04em",
-    textTransform: "uppercase", color: theme.textSecondary, marginBottom: 7,
-  };
+  const filtradas = useMemo(() => {
+    const termo = semAcento(busca.trim());
+    const lista = atas.filter((ata) => {
+      if (ano !== "Todos" && anoDe(ata) !== ano) return false;
+      if (!termo) return true;
+      return [ata.titulo, ata.resumo_geral, ...parseLista(ata.decisoes), ...parseLista(ata.assinantes)]
+        .some((t) => semAcento(t).includes(termo));
+    });
+    const valor = (ata) => {
+      if (ordem.chave === "titulo") return semAcento(ata.titulo);
+      if (ordem.chave === "decisoes") return parseLista(ata.decisoes).length;
+      if (ordem.chave === "assinantes") return parseLista(ata.assinantes).length;
+      return String(ata.data_assembleia || "");
+    };
+    const sinal = ordem.direcao === "asc" ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      const va = valor(a), vb = valor(b);
+      return va < vb ? -sinal : va > vb ? sinal : 0;
+    });
+  }, [atas, busca, ano, ordem]);
+
+  const ordenar = (chave) => setOrdem((o) => ({
+    chave,
+    direcao: o.chave === chave && o.direcao === "asc" ? "desc" : "asc",
+  }));
+
+  const decisoesNoTotal = atas.reduce((n, a) => n + parseLista(a.decisoes).length, 0);
+  const v = vendo;
+  const vDecisoes = v ? parseLista(v.decisoes) : [];
+  const vAssinantes = v ? parseLista(v.assinantes) : [];
+
+  /** O formulário da ata, o mesmo para revisar o rascunho e para editar. */
+  const formulario = form && (
+    <form
+      id="form-ata"
+      className="mud-form"
+      onSubmit={(e) => { e.preventDefault(); if (editando) salvarEdicao(); else salvarNova(); }}
+    >
+      {!editando && (
+        <p className="asb-aviso-ia">
+          <Sparkles size={15} aria-hidden="true" />
+          <span>Rascunho da IA a partir de <b>{arquivo?.name}</b>. Confira antes de salvar.</span>
+        </p>
+      )}
+      <div className="asb-form__par">
+        <Field label="Título">
+          <Input value={form.titulo} onChange={(e) => setCampo("titulo", e.target.value)} placeholder="Ex.: AGO 2026" />
+        </Field>
+        <Field label="Data da assembleia" help={form.data_assembleia ? undefined : "A IA não achou a data"}>
+          <Input type="date" value={form.data_assembleia} onChange={(e) => setCampo("data_assembleia", e.target.value)} />
+        </Field>
+      </div>
+      <Field label="Resumo geral">
+        <Textarea rows={4} value={form.resumo_geral} onChange={(e) => setCampo("resumo_geral", e.target.value)} />
+      </Field>
+      {[
+        { campo: "decisoes", titulo: "Decisões", item: "Decisão", novo: "Adicionar decisão" },
+        { campo: "assinantes", titulo: "Quem assinou", item: "Nome", novo: "Adicionar nome" },
+      ].map(({ campo, titulo, item, novo }) => (
+        <fieldset key={campo} className="asb-itens">
+          <legend className="vit-field__label">{titulo}</legend>
+          {form[campo].length === 0 && <p className="asb-vazio">Nenhum ainda.</p>}
+          {form[campo].map((valor, i) => (
+            <div key={i} className="asb-itens__linha">
+              {campo === "decisoes" && <span className="asb-num" aria-hidden="true">{i + 1}</span>}
+              <Input
+                value={valor}
+                aria-label={`${item} ${i + 1}`}
+                onChange={(e) => setItem(campo, i, e.target.value)}
+                onBlur={campo === "assinantes" ? (e) => setItem(campo, i, nomeProprio(e.target.value)) : undefined}
+              />
+              <Button variant="ghost" size="sm" aria-label={`Remover ${item.toLowerCase()} ${i + 1}`} onClick={() => removeItem(campo, i)}>
+                <X size={16} />
+              </Button>
+            </div>
+          ))}
+          <div>
+            <Button variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={() => addItem(campo)}>{novo}</Button>
+          </div>
+        </fieldset>
+      ))}
+    </form>
+  );
 
   return (
-    <div className="asb-page" style={{ ...vars, color: theme.text }}>
-      <style>{CSS}</style>
+    <div>
+      <PageHeader
+        title="Assembleia"
+        meta={
+          carregando
+            ? "Carregando atas"
+            : `${plural(atas.length, "ata registrada", "atas registradas")} · ${plural(decisoesNoTotal, "decisão", "decisões")}`
+        }
+        actions={podeEscrever && aba === "atas" && (
+          <Button variant="primary" iconLeft={<Plus size={16} />} onClick={abrirNova}>Nova ata</Button>
+        )}
+      />
 
-      {/* O brilho radial de fundo e o ícone-fantasma gigante do hero saíram:
-          eram decoração pura, e o design system pede que o topo da página
-          informe o estado em vez de enfeitar. */}
-      <div>
-        <PageHeader
-          title="Assembleia"
-          meta={
-            carregando
-              ? "Carregando atas"
-              : `${atas.length} ${atas.length === 1 ? "ata registrada" : "atas registradas"} · resumo gerado por IA a partir do PDF`
-          }
+      <Tabs
+        className="asb-abas"
+        value={aba}
+        onChange={setAba}
+        items={[
+          { value: "atas", label: "Atas", count: atas.length },
+          { value: "convencao", label: "Convenção" },
+        ]}
+      />
+
+      {aba === "convencao" && (
+        <Suspense fallback={<Skeleton h={160} />}>
+          <Convencao atas={atas} podeEscrever={podeEscrever} />
+        </Suspense>
+      )}
+
+      {aba === "atas" && (<>
+      <Filtros
+        busca={busca}
+        onBusca={(t) => { setBusca(t); setLimite(LOTE); }}
+        placeholder="Título, decisão ou quem assinou"
+        rotuloFiltro="Ano"
+        filtro={ano}
+        onFiltro={(a) => { setAno(a); setLimite(LOTE); }}
+        filtros={anos.length > 1
+          ? [["Todos", "Todas", atas.length], ...anos.map((a) => [a, a, atas.filter((x) => anoDe(x) === a).length])]
+          : undefined}
+      />
+
+      {!carregando && filtradas.length === 0 ? (
+        <EmptyState
+          icon={<ScrollText size={22} />}
+          title={atas.length ? "Nenhuma ata neste filtro" : "Nenhuma ata cadastrada ainda"}
+          description={atas.length
+            ? "Troque a busca ou o ano."
+            : podeEscrever
+              ? "Envie o PDF de uma ata e a IA monta o resumo e as decisões."
+              : "As atas registradas aparecerão aqui."}
+          action={!atas.length && podeEscrever
+            ? <Button variant="primary" iconLeft={<Plus size={16} />} onClick={abrirNova}>Nova ata</Button>
+            : null}
         />
+      ) : (
+        <ListaQueAbre
+          colunas={[
+            { rotulo: "Data", largura: "120px", ordem: "data" },
+            { rotulo: "Ata", largura: "minmax(0, 2fr)", ordem: "titulo" },
+            { rotulo: "Decisões", largura: "110px", ordem: "decisoes" },
+            { rotulo: "Assinaturas", largura: "120px", ordem: "assinantes" },
+          ]}
+          ordenacao={ordem}
+          onOrdenar={ordenar}
+          larguraAcoes={podeEscrever ? "136px" : "96px"}
+          itens={filtradas.slice(0, limite)}
+          carregando={carregando}
+          chave={(ata) => ata.id}
+          onAbrir={setVendo}
+          rotuloDaLinha={(ata) => `Abrir a ata ${ata.titulo || "sem título"}`}
+          celulas={(ata) => [
+            <b key="d" className="conf-dado__mono">{dataBR(ata.data_assembleia) || "Sem data"}</b>,
+            <span key="t" className="mud-quem">
+              <b>{ata.titulo || "Ata sem título"}</b>
+              {ata.resumo_geral ? <small className="asb-linha__resumo">{ata.resumo_geral}</small> : null}
+            </span>,
+            <Badge key="n" tone={parseLista(ata.decisoes).length ? "brand" : "muted"}>
+              {plural(parseLista(ata.decisoes).length, "decisão", "decisões")}
+            </Badge>,
+            <span key="a" className="conf-dado__mono">{parseLista(ata.assinantes).length || "—"}</span>,
+          ]}
+          acoes={(ata) => {
+            const nome = ata.titulo || "sem título";
+            return (
+              <>
+                <Button variant="ghost" size="sm" title="Abrir o PDF" aria-label={`Abrir o PDF da ata ${nome}`}
+                  disabled={!temPdf(ata)} onClick={() => abrirPdf(ata)}>
+                  <FileText size={16} />
+                </Button>
+                <Button variant="ghost" size="sm" title="Ver a ata" aria-label={`Ver a ata ${nome}`} onClick={() => setVendo(ata)}>
+                  <Eye size={16} />
+                </Button>
+                {podeEscrever && (
+                  <Button variant="ghost" size="sm" title="Editar a ata" aria-label={`Editar a ata ${nome}`} onClick={() => abrirEditar(ata)}>
+                    <Pencil size={16} />
+                  </Button>
+                )}
+              </>
+            );
+          }}
+        />
+      )}
+      {filtradas.length > limite && (
+        <div className="mud-mais">
+          <Button variant="ghost" onClick={() => setLimite((n) => n + LOTE)}>
+            Mostrar mais ({filtradas.length - limite} restantes)
+          </Button>
+        </div>
+      )}
+      </>)}
 
-        {/* ===== UPLOAD + GERAÇÃO ===== */}
-        {podeEscrever && !rascunho && (
-          <div className="asb-card asb-in" style={{ padding: 22, marginBottom: 26, animationDelay: "60ms" }}>
+      {/* ---- Ver: modal centrado, só leitura ---- */}
+      <Modal
+        open={Boolean(v)}
+        onClose={() => setVendo(null)}
+        title="Ata da assembleia"
+        size="lg"
+        footer={v && (
+          <div className="app-modal__acoes">
+            {podeEscrever
+              ? <Button variant="ghost" iconLeft={<Trash2 size={15} />} onClick={() => excluir(v)}>Excluir</Button>
+              : <span />}
+            <Button className="res-contrato" iconLeft={<FileText size={15} />} disabled={!temPdf(v)} onClick={() => abrirPdf(v)}>
+              Abrir PDF
+            </Button>
+            {podeEscrever && (
+              <Button variant="primary" iconLeft={<Pencil size={15} />} onClick={() => abrirEditar(v)}>Editar</Button>
+            )}
+          </div>
+        )}
+      >
+        {v && (
+          <div className="app-modal">
+            <div className="app-modal__topo">
+              <span className="asb-icone" aria-hidden="true"><ScrollText size={24} /></span>
+              <div className="app-modal__quem">
+                <strong>{v.titulo || "Ata sem título"}</strong>
+                <small>{dataBR(v.data_assembleia) || "Sem data"}</small>
+                <span className="app-modal__selos">
+                  <Badge tone={vDecisoes.length ? "brand" : "muted"}>{plural(vDecisoes.length, "decisão", "decisões")}</Badge>
+                  <Badge tone="neutral">{plural(vAssinantes.length, "assinatura", "assinaturas")}</Badge>
+                  {!temPdf(v) && <Badge tone="muted">Sem PDF</Badge>}
+                </span>
+              </div>
+            </div>
+
+            {/* O desenho do detalhe de Encomendas: o que a ata diz à esquerda
+                (resumo e decisões), os dados dela à direita. */}
+            <div className="app-detalhe">
+              <div className="app-detalhe__visual">
+                <p className="app-detalhe__legenda">Decisões</p>
+                {vDecisoes.length ? (
+                  <ol className="asb-decisoes">
+                    {vDecisoes.map((d, i) => (
+                      <li key={i}><span className="asb-num" aria-hidden="true">{i + 1}</span><span>{d}</span></li>
+                    ))}
+                  </ol>
+                ) : <p className="asb-vazio">Nenhuma decisão registrada.</p>}
+                {v.resumo_geral && (
+                  <>
+                    <p className="app-detalhe__legenda">Resumo</p>
+                    <p className="asb-resumo">{v.resumo_geral}</p>
+                  </>
+                )}
+              </div>
+
+              <div className="app-detalhe__dados">
+                <Ficha titulo="Ata" itens={[
+                  ["Data", dataBR(v.data_assembleia) || "Sem data"],
+                  ["Decisões", String(vDecisoes.length)],
+                  ["PDF", temPdf(v) ? "Anexado" : "Sem PDF"],
+                ]} />
+                <section className="app-ficha">
+                  <h3 className="app-ficha__titulo">Assinaram</h3>
+                  {vAssinantes.length ? (
+                    <ul className="asb-assinantes">
+                      {vAssinantes.map((x, i) => (
+                        <li key={i}><Iniciais nome={x} />{nomeProprio(x)}</li>
+                      ))}
+                    </ul>
+                  ) : <p className="asb-vazio">Nenhum assinante registrado.</p>}
+                </section>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ---- Nova ata: envia o PDF, a IA lê, a pessoa revisa e salva ---- */}
+      <Modal
+        open={novaAberta}
+        onClose={fecharNova}
+        title={form ? "Revisar a ata" : "Nova ata"}
+        size="md"
+        footer={
+          <div className="app-modal__acoes">
+            <span />
+            {form ? (
+              <>
+                <Button variant="ghost" onClick={() => setForm(null)} disabled={salvando}>Voltar</Button>
+                <Button variant="primary" type="submit" form="form-ata" loading={salvando}>Salvar ata</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={fecharNova} disabled={gerando}>Cancelar</Button>
+                <Button variant="primary" iconLeft={<Sparkles size={15} />} loading={gerando} disabled={!arquivo} onClick={gerarResumo}>
+                  {gerando ? "Lendo a ata…" : "Gerar resumo com IA"}
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      >
+        {form ? formulario : (
+          <div className="mud-form">
             <label
-              className={"asb-drop" + (arrastando ? " asb-drop-active" : "") + (arquivo ? " asb-drop-filled" : "")}
+              className={"asb-drop" + (arrastando ? " asb-drop--ativo" : "") + (arquivo ? " asb-drop--cheio" : "")}
               onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
               onDragLeave={() => setArrastando(false)}
               onDrop={(e) => { e.preventDefault(); setArrastando(false); aceitarArquivo(e.dataTransfer.files?.[0]); }}
             >
-              <input type="file" accept="application/pdf,.pdf" style={{ display: "none" }}
+              <Input type="file" accept="application/pdf,.pdf" className="asb-drop__arquivo" aria-label="PDF da ata"
                 onChange={(e) => aceitarArquivo(e.target.files?.[0])} />
               {arquivo ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 14, width: "100%" }}>
-                  <div className="asb-file-ico"><FileText size={22} /></div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arquivo.name}</div>
-                    <div style={{ fontSize: 12.5, color: theme.textSecondary }}>{formatarTamanho(arquivo.size)} · pronto para gerar</div>
-                  </div>
-                  <button type="button" className="asb-icon-btn" title="Remover"
-                    onClick={(e) => { e.preventDefault(); setArquivo(null); setErro(""); }}><X size={17} /></button>
-                </div>
+                <span className="asb-drop__escolhido">
+                  <span className="asb-drop__pdf" aria-hidden="true"><FileText size={22} /></span>
+                  <span className="asb-drop__nome">
+                    <b>{arquivo.name}</b>
+                    <small>{formatarTamanho(arquivo.size)} · pronto para gerar</small>
+                  </span>
+                  <Button variant="ghost" size="sm" aria-label="Tirar o PDF"
+                    onClick={(e) => { e.preventDefault(); setArquivo(null); setErro(""); }}>
+                    <X size={16} />
+                  </Button>
+                </span>
               ) : (
                 <>
-                  <div className="asb-drop-ico"><Upload size={24} /></div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>Arraste o PDF da ata aqui</div>
-                    <div style={{ fontSize: 13, color: theme.textSecondary, marginTop: 2 }}>ou clique para escolher · somente PDF · até 15&nbsp;MB</div>
-                  </div>
+                  <span className="asb-drop__icone" aria-hidden="true"><Upload size={22} /></span>
+                  <b>Arraste o PDF da ata aqui</b>
+                  <small>ou toque para escolher · só PDF, até 15 MB</small>
                 </>
               )}
             </label>
-
             {erro && (
-              <div className="asb-alert" style={{ marginTop: 16 }}>
-                <AlertCircle size={17} /> <span>{erro}</span>
-              </div>
+              <p className="asb-erro" role="alert"><AlertCircle size={16} aria-hidden="true" /> {erro}</p>
             )}
-
-            <div style={{ marginTop: 18 }}>
-              <button className="asb-btn asb-btn-primary" onClick={gerarResumo} disabled={!arquivo || gerando}>
-                {gerando ? <Loader2 size={18} className="asb-spin" /> : <Sparkles size={18} />}
-                {gerando ? "Lendo a ata…" : "Gerar resumo com IA"}
-              </button>
-            </div>
+            <p className="asb-dica">
+              A IA lê a ata e monta o título, a data, o resumo, as decisões e quem assinou. Você confere tudo antes de salvar.
+            </p>
           </div>
         )}
+      </Modal>
 
-        {/* ===== REVISÃO DO RASCUNHO ===== */}
-        {rascunho && (
-          <div className="asb-card asb-in" style={{ padding: 24, marginBottom: 26, borderColor: dark ? "#B3332055" : "#FCC8B9" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-              <div className="asb-chip-accent"><Sparkles size={14} /> Rascunho da IA</div>
-              <h2 style={secTitle}>Revisar antes de salvar</h2>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)", gap: 14 }}>
-                <div>
-                  <label style={label}>Título</label>
-                  <input className="asb-input" value={rascunho.titulo} onChange={(e) => setCampo("titulo", e.target.value)} />
-                </div>
-                <div>
-                  <label style={label}>Data da assembleia</label>
-                  <input className="asb-input" value={rascunho.data_assembleia} onChange={(e) => setCampo("data_assembleia", e.target.value)} />
-                </div>
-              </div>
-
-              <div>
-                <label style={label}>Resumo geral</label>
-                <textarea className="asb-input" style={{ minHeight: 96, resize: "vertical", lineHeight: 1.55 }}
-                  value={rascunho.resumo_geral} onChange={(e) => setCampo("resumo_geral", e.target.value)} />
-              </div>
-
-              {[
-                { campo: "decisoes", titulo: "Decisões" },
-                { campo: "assinantes", titulo: "Quem assinou" },
-              ].map(({ campo, titulo }) => (
-                <div key={campo}>
-                  <label style={{ ...label, display: "flex", alignItems: "center", gap: 6 }}>
-                    {campo === "decisoes" ? <CheckCircle2 size={13} /> : <FileSignature size={13} />} {titulo}
-                  </label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {rascunho[campo].map((item, i) => (
-                      <div key={i} style={{ display: "flex", gap: 8 }}>
-                        <input className="asb-input" value={item} onChange={(e) => setItem(campo, i, e.target.value)} />
-                        <button className="asb-icon-btn" onClick={() => removeItem(campo, i)} title="Remover"><X size={16} /></button>
-                      </div>
-                    ))}
-                  </div>
-                  <button className="asb-btn asb-btn-soft" style={{ marginTop: 8, fontSize: 13, padding: "7px 12px" }} onClick={() => addItem(campo)}>
-                    <Plus size={14} /> Adicionar
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button className="asb-btn asb-btn-primary" onClick={salvar} disabled={salvando}>
-                {salvando ? <Loader2 size={17} className="asb-spin" /> : <CheckCircle2 size={17} />}
-                {salvando ? "Salvando…" : "Salvar ata"}
-              </button>
-              <button className="asb-btn asb-btn-ghost" onClick={() => setRascunho(null)} disabled={salvando}>Descartar</button>
-            </div>
+      {/* ---- Editar ---- */}
+      <Modal
+        open={editando}
+        onClose={fecharEditar}
+        title="Editar ata"
+        size="md"
+        footer={form && (
+          <div className="app-modal__acoes">
+            <Button variant="ghost" iconLeft={<Trash2 size={15} />}
+              onClick={() => { const ata = atas.find((a) => a.id === form.id); if (ata) excluir(ata); }}>
+              Excluir
+            </Button>
+            <Button variant="ghost" onClick={fecharEditar} disabled={salvando}>Cancelar</Button>
+            <Button variant="primary" type="submit" form="form-ata" loading={salvando}>Salvar</Button>
           </div>
         )}
-
-        {/* ===== HISTÓRICO ===== */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "6px 2px 16px" }}>
-          <ScrollText size={18} color={dark ? "#EF7A5C" : "#D4432A"} />
-          <h2 style={secTitle}>Histórico de assembleias</h2>
-          {atas.length > 0 && <span className="asb-count">{atas.length}</span>}
-        </div>
-
-        {carregando ? (
-          <div className="asb-card" style={{ padding: 28, display: "flex", alignItems: "center", gap: 12, color: theme.textSecondary }}>
-            <Loader2 size={18} className="asb-spin" /> Carregando atas…
-          </div>
-        ) : atas.length === 0 ? (
-          <div className="asb-empty">
-            <div className="asb-empty-ico"><Inbox size={28} /></div>
-            <div style={{ fontWeight: 600, fontSize: 15, color: theme.text }}>Nenhuma ata cadastrada ainda</div>
-            <div style={{ fontSize: 13.5, color: theme.textSecondary, marginTop: 3 }}>
-              {podeEscrever ? "Envie o PDF de uma ata acima para gerar o primeiro resumo." : "As atas registradas aparecerão aqui."}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {atas.map((ata, idx) => {
-              const decisoes = parseLista(ata.decisoes);
-              const assinantes = parseLista(ata.assinantes);
-              const aberto = expandido === ata.id;
-              return (
-                <div key={ata.id} className="asb-card asb-ata asb-in" style={{ animationDelay: `${Math.min(idx, 6) * 55}ms` }}>
-                  <div className="asb-ata-bar" aria-hidden />
-                  <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px 16px 20px" }}>
-                    <div className="asb-date">
-                      <Calendar size={15} />
-                      <span>{dataBR(ata.data_assembleia) || "s/ data"}</span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="asb-ata-title">{ata.titulo || "Ata sem título"}</div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 5, flexWrap: "wrap" }}>
-                        <span className="asb-pill asb-pill-blue"><CheckCircle2 size={12} /> {decisoes.length} {decisoes.length === 1 ? "decisão" : "decisões"}</span>
-                        {assinantes.length > 0 && (
-                          <span className="asb-pill asb-pill-amber"><FileSignature size={12} /> {assinantes.length} {assinantes.length === 1 ? "assinatura" : "assinaturas"}</span>
-                        )}
-                      </div>
-                    </div>
-                    <button className="asb-btn asb-btn-soft" style={{ fontSize: 13, padding: "7px 12px" }} onClick={() => abrirPdf(ata)}>
-                      <FileText size={15} /> PDF
-                    </button>
-                    {podeEscrever && (
-                      <button className="asb-icon-btn asb-icon-danger" title="Excluir" onClick={() => excluir(ata)}><Trash2 size={16} /></button>
-                    )}
-                    <button className={"asb-icon-btn asb-chevron" + (aberto ? " asb-chevron-open" : "")}
-                      title={aberto ? "Recolher" : "Expandir"} onClick={() => setExpandido(aberto ? null : ata.id)}>
-                      <ChevronDown size={17} />
-                    </button>
-                  </div>
-
-                  {aberto && (
-                    <div className="asb-ata-body">
-                      {ata.resumo_geral && <p className="asb-resumo">{ata.resumo_geral}</p>}
-
-                      <div className="asb-sub"><CheckCircle2 size={14} /> Decisões</div>
-                      {decisoes.length ? (
-                        <ol className="asb-decisoes">
-                          {decisoes.map((d, i) => (
-                            <li key={i}><span className="asb-num">{i + 1}</span><span>{d}</span></li>
-                          ))}
-                        </ol>
-                      ) : <div style={{ color: theme.textSecondary, fontSize: 13.5, marginBottom: 8 }}>Nenhuma decisão registrada.</div>}
-
-                      <div className="asb-sub" style={{ marginTop: 16 }}><Users size={14} /> Assinaram</div>
-                      {assinantes.length ? (
-                        <div className="asb-assinantes">
-                          {assinantes.map((a, i) => (
-                            <div key={i} className="asb-assinante"><span className="asb-avatar">{iniciais(a)}</span>{a}</div>
-                          ))}
-                        </div>
-                      ) : <div style={{ color: theme.textSecondary, fontSize: 13.5 }}>Nenhum assinante registrado.</div>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      >
+        {editando && formulario}
+      </Modal>
 
       {/* Chat flutuante: busca local nas atas + fallback de IA */}
-      <AssembleiaChat atas={atas} />
+      {aba === "atas" && <AssembleiaChat atas={atas} />}
     </div>
   );
 }
-
-const CSS = `
-/* Fase 0: o @import de Fraunces no Google Fonts foi removido. Era a única
-   requisição externa de fonte que sobrava e derrubava a auto-hospedagem.
-   A tipografia definitiva desta página é decidida na Fase 6 (Documento). */
-
-@keyframes asbSpin { to { transform: rotate(360deg); } }
-@keyframes asbIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.asb-spin { animation: asbSpin .8s linear infinite; }
-.asb-in { animation: asbIn .5s cubic-bezier(.2,.7,.2,1) both; }
-@media (prefers-reduced-motion: reduce) { .asb-in { animation: none; } }
-
-.asb-page * { box-sizing: border-box; }
-
-.asb-card {
-  background: var(--asb-card);
-  border: 1px solid var(--asb-border);
-  border-radius: 16px;
-  box-shadow: var(--asb-shadow);
-}
-
-/* HERO */
-.asb-hero {
-  position: relative; overflow: hidden;
-  border-radius: 20px; padding: 26px 26px;
-  background: linear-gradient(135deg, #B33320 0%, #8C2616 42%, #5E180D 100%);
-  box-shadow: 0 18px 40px -20px rgba(3,105,161,.75);
-}
-.asb-hero-glow { position: absolute; inset: 0; background:
-  radial-gradient(120% 120% at 100% 0%, rgba(56,189,248,.35), transparent 55%); }
-.asb-hero-ghost { position: absolute; right: -22px; bottom: -46px; color: rgba(255,255,255,.10); transform: rotate(-16deg); }
-.asb-hero-badge {
-  width: 54px; height: 54px; border-radius: 15px; flex: none;
-  display: grid; place-items: center; color: #fff;
-  background: rgba(255,255,255,.16);
-  border: 1px solid rgba(255,255,255,.28);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
-  backdrop-filter: blur(4px);
-}
-.asb-hero-title {
-  font-family: var(--font-display); font-weight: 600;
-  font-size: 30px; line-height: 1.05; letter-spacing: -.02em; margin: 0; color: #fff;
-}
-.asb-hero-sub { margin: 6px 0 0; color: rgba(255,255,255,.82); font-size: 14px; max-width: 46ch; }
-.asb-hero-stat {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 12px 20px; border-radius: 14px; color: #fff;
-  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
-}
-.asb-hero-stat-num { font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1; }
-.asb-hero-stat-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .85; margin-top: 4px; }
-
-/* DROPZONE */
-.asb-drop {
-  display: flex; align-items: center; justify-content: center; gap: 14px;
-  flex-direction: column; width: 100%; cursor: pointer;
-  padding: 30px 20px; border-radius: 14px;
-  border: 1.5px dashed var(--asb-border);
-  background: var(--asb-field);
-  transition: border-color .18s, background .18s, transform .18s;
-}
-.asb-drop:hover { border-color: #EF7A5C; background: var(--asb-hover); }
-.asb-drop-active { border-color: #E35A3A; background: var(--asb-hover); transform: scale(1.006); }
-.asb-drop-filled { border-style: solid; padding: 16px 18px; }
-.asb-drop-ico {
-  width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
-  color: #D4432A; background: rgba(212,67,42,.12); border: 1px solid rgba(212,67,42,.22);
-}
-.asb-file-ico {
-  width: 46px; height: 46px; flex: none; border-radius: 12px; display: grid; place-items: center;
-  color: #8F1530; background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.2);
-}
-
-/* BOTÕES */
-.asb-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 11px 18px; border-radius: 11px; font-size: 14px; font-weight: 600;
-  cursor: pointer; border: 1px solid transparent; transition: transform .12s, box-shadow .18s, background .18s, opacity .18s;
-}
-.asb-btn:active { transform: translateY(1px); }
-.asb-btn:disabled { opacity: .55; cursor: not-allowed; }
-.asb-btn-primary {
-  color: #fff; border: none;
-  background: linear-gradient(135deg, #E35A3A, #B33320 55%, #E35A3A);
-  box-shadow: 0 10px 22px -10px rgba(3,105,161,.85);
-}
-.asb-btn-primary:not(:disabled):hover { box-shadow: 0 14px 26px -10px rgba(3,105,161,.95); transform: translateY(-1px); }
-.asb-btn-ghost { background: transparent; color: var(--asb-text-sec); border: 1px solid var(--asb-border); }
-.asb-btn-ghost:hover { background: var(--asb-hover); color: var(--asb-text); }
-.asb-btn-soft { background: var(--asb-field); color: var(--asb-text-sec); border: 1px solid var(--asb-border); }
-.asb-btn-soft:hover { background: var(--asb-hover); color: #D4432A; border-color: #F7A48E; }
-
-.asb-icon-btn {
-  display: grid; place-items: center; width: 36px; height: 36px; flex: none;
-  border-radius: 10px; cursor: pointer; color: var(--asb-text-sec);
-  background: var(--asb-field); border: 1px solid var(--asb-border);
-  transition: background .16s, color .16s, border-color .16s, transform .16s;
-}
-.asb-icon-btn:hover { background: var(--asb-hover); color: var(--asb-text); }
-.asb-icon-danger:hover { background: rgba(220,38,38,.12); color: #B8203F; border-color: rgba(220,38,38,.35); }
-.asb-chevron svg { transition: transform .22s ease; }
-.asb-chevron-open svg { transform: rotate(180deg); }
-
-/* INPUTS */
-.asb-input {
-  width: 100%; padding: 11px 13px; border-radius: 10px; font-size: 14px; font-family: inherit;
-  color: var(--asb-text); background: var(--asb-field);
-  border: 1px solid var(--asb-border); outline: none;
-  transition: border-color .16s, box-shadow .16s;
-}
-.asb-input:focus { border-color: #E35A3A; box-shadow: 0 0 0 3px rgba(227,90,58,.18); }
-
-/* CHIPS / PILLS */
-.asb-chip-accent {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
-  padding: 4px 10px; border-radius: 999px; letter-spacing: .02em;
-  color: #E35A3A; background: rgba(227,90,58,.12); border: 1px solid rgba(227,90,58,.25);
-}
-.asb-count {
-  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 700;
-  display: inline-grid; place-items: center; color: #D4432A;
-  background: rgba(212,67,42,.12); border: 1px solid rgba(212,67,42,.25);
-}
-.asb-pill {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
-  padding: 3px 9px; border-radius: 999px;
-}
-.asb-pill-blue { color: #D4432A; background: rgba(212,67,42,.1); border: 1px solid rgba(212,67,42,.2); }
-.asb-pill-amber { color: var(--fg-secondary); background: rgba(245,158,11,.13); border: 1px solid rgba(245,158,11,.28); }
-
-/* ALERTA */
-.asb-alert {
-  display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 500;
-  padding: 11px 14px; border-radius: 11px; color: #8F1530;
-  background: rgba(220,38,38,.09); border: 1px solid rgba(220,38,38,.25);
-}
-
-/* CARD DA ATA */
-.asb-ata { position: relative; overflow: hidden; padding-left: 4px; transition: box-shadow .2s, transform .2s; }
-.asb-ata:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -18px rgba(40,22,18,.4); }
-.asb-ata-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-  background: linear-gradient(180deg, #E35A3A, #E35A3A); }
-.asb-date {
-  display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none;
-  min-width: 84px; padding: 9px 10px; border-radius: 12px; text-align: center;
-  font-size: 12.5px; font-weight: 600; color: #D4432A;
-  background: var(--asb-field); border: 1px solid var(--asb-border); line-height: 1.15;
-}
-.asb-ata-title { font-family: var(--font-display); font-weight: 600; font-size: 16.5px;
-  letter-spacing: -.01em; color: var(--asb-text); }
-.asb-ata-body { padding: 4px 20px 20px 24px; border-top: 1px dashed var(--asb-border); margin: 0 0 0 0; }
-.asb-resumo { margin: 16px 0 18px; font-size: 14.5px; line-height: 1.62; color: var(--asb-text);
-  padding-left: 14px; border-left: 3px solid rgba(227,90,58,.4); }
-.asb-sub { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em; color: var(--asb-text-sec); margin-bottom: 10px; }
-.asb-decisoes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
-.asb-decisoes li { display: flex; gap: 11px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: var(--asb-text); }
-.asb-num { flex: none; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
-  font-size: 12px; font-weight: 700; color: #fff; margin-top: 1px;
-  background: linear-gradient(135deg, #E35A3A, #E35A3A); }
-.asb-assinantes { display: flex; flex-wrap: wrap; gap: 8px; }
-.asb-assinante { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500;
-  padding: 5px 12px 5px 5px; border-radius: 999px; color: var(--asb-text);
-  background: var(--asb-field); border: 1px solid var(--asb-border); }
-.asb-avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  font-size: 10.5px; font-weight: 700; color: #fff; letter-spacing: .02em;
-  background: linear-gradient(135deg, var(--fg-muted), var(--fg-secondary)); }
-
-/* EMPTY */
-.asb-empty {
-  text-align: center; padding: 44px 24px; border-radius: 16px;
-  border: 1.5px dashed var(--asb-border); background: var(--asb-card);
-}
-.asb-empty-ico { width: 60px; height: 60px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center;
-  color: #D4432A; background: rgba(212,67,42,.1); border: 1px solid rgba(212,67,42,.2); }
-
-@media (max-width: 620px) {
-  .asb-hero-stat { display: none; }
-  .asb-ata > div:first-of-type + div, .asb-ata .asb-date { min-width: 74px; }
-}
-`;

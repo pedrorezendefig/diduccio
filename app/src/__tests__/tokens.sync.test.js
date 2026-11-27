@@ -1,48 +1,40 @@
-import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { MARCA } from '../theme/tokens.js'
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, it, expect } from "vitest";
+import { CLARO, ESCURO, MARCA } from "../theme/tokens.js";
 
-// Critério 1 da issue 7: tokens.css e o espelho tokens.js têm a mesma rampa
-// brand-* e alert-*, com brand-600 igual a #D4432A.
+const aqui = dirname(fileURLToPath(import.meta.url));
+const css = readFileSync(resolve(aqui, "../styles/tokens.css"), "utf8");
 
-const css = readFileSync(resolve(__dirname, '../styles/tokens.css'), 'utf8')
-const raiz = css.match(/:root\s*\{([\s\S]*?)\n\}/)[1]
-
-function rampaDoCss(prefixo) {
-  const rampa = {}
-  for (const [, nome, valor] of raiz.matchAll(/--((?:brand|alert)-\d+):\s*(#[0-9A-Fa-f]{6})/g)) {
-    if (nome.startsWith(prefixo)) rampa[nome] = valor.toUpperCase()
+/** Extrai os pares --nome: #hex de dentro de um seletor. */
+function lerBloco(seletor) {
+  const inicio = css.indexOf(seletor);
+  if (inicio === -1) throw new Error(`seletor ${seletor} não encontrado`);
+  const abre = css.indexOf("{", inicio);
+  const fecha = css.indexOf("\n}", abre);
+  const corpo = css.slice(abre + 1, fecha);
+  const mapa = {};
+  for (const linha of corpo.split("\n")) {
+    const m = linha.match(/^\s*--([\w-]+)\s*:\s*(#[0-9A-Fa-f]{6})\s*;/);
+    if (m) mapa[m[1]] = m[2].toUpperCase();
   }
-  return rampa
+  return mapa;
 }
 
-function rampaDoJs(prefixo) {
-  return Object.fromEntries(
-    Object.entries(MARCA)
-      .filter(([nome]) => nome.startsWith(prefixo))
-      .map(([nome, valor]) => [nome, valor.toUpperCase()]),
-  )
-}
+const root = lerBloco(":root");
+const dark = lerBloco('[data-theme="dark"]');
 
-describe('tokens da marca', () => {
-  it('a cor da marca é o vermelho claro #D4432A nos dois arquivos', () => {
-    expect(rampaDoCss('brand-')['brand-600']).toBe('#D4432A')
-    expect(MARCA['brand-600'].toUpperCase()).toBe('#D4432A')
-  })
+describe("tokens.js espelha tokens.css", () => {
+  it.each(Object.entries(CLARO))("claro --%s", (nome, valor) => {
+    expect(root[nome]).toBe(valor.toUpperCase());
+  });
 
-  it('a rampa brand do espelho JS é igual à do tokens.css, de 50 a 900', () => {
-    const doCss = rampaDoCss('brand-')
-    expect(Object.keys(doCss)).toHaveLength(10)
-    expect(rampaDoJs('brand-')).toEqual(doCss)
-  })
+  it.each(Object.entries(MARCA))("marca --%s", (nome, valor) => {
+    expect(root[nome]).toBe(valor.toUpperCase());
+  });
 
-  it('cada tom alert do espelho JS tem o mesmo valor do tokens.css', () => {
-    const doCss = rampaDoCss('alert-')
-    const doJs = rampaDoJs('alert-')
-    expect(Object.keys(doJs).length).toBeGreaterThan(0)
-    for (const [nome, valor] of Object.entries(doJs)) {
-      expect(doCss[nome], nome).toBe(valor)
-    }
-  })
-})
+  it.each(Object.entries(ESCURO))("escuro --%s", (nome, valor) => {
+    expect(dark[nome]).toBe(valor.toUpperCase());
+  });
+});

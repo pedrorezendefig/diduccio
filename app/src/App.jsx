@@ -1,7 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
+import Inicio from "./pages/Inicio";
+import InicioCapa from "./pages/InicioCapa";
+import ModoFoco from "./pages/ModoFoco";
 import Unidades from "./pages/Unidades";
 import Moradores from "./pages/Moradores"; 
 import Vagas from "./pages/Vagas"; 
@@ -10,15 +13,18 @@ import Churrasqueira from "./pages/Churrasqueira";
 import SelecaoUsuario from "./pages/SelecaoUsuario";
 import Mudancas from "./pages/Mudancas";
 import Calendario from "./pages/Calendario";
+import CotasExtras from "./pages/CotasExtras";
 import Aprovacao from "./pages/Aprovacao";
 import Piscina from "./pages/Piscina";
 import Comunicado from "./pages/Comunicado";
+import Notificacoes from "./pages/Notificacoes";
 import Tarefas from "./pages/Tarefas";
 import Patrimonio from "./pages/Patrimonio";
 import Encomendas from "./pages/Encomendas";
 import Entregas from "./pages/Entregas";
 import Confirmacao from "./pages/Confirmacao";
 import Manual from "./pages/Manual";
+import AppDoMorador from "./pages/AppDoMorador";
 import Assembleia from "./pages/Assembleia";
 import Agendamento from "./pages/Agendamento";
 import Usuarios from "./pages/Usuarios";
@@ -27,7 +33,25 @@ import TrocarSenhaObrigatoria from "./components/TrocarSenhaObrigatoria";
 import GuardaDeSessao from "./components/GuardaDeSessao";
 import { precisaTrocarSenha } from "./api/auth";
 import { SESSAO_EXPIRADA } from "./api/db";
+import { supabase } from "./api/supabase";
+import { MODO_DEMO } from "./api/config";
 import { clearSessionToken } from "./auth/session";
+import { usePendencias } from "./lib/usePendencias";
+
+/**
+ * Qual Início abre: a capa ilustrada (2026-11) ou o anterior, que fica
+ * guardado. Para voltar, troque para `false`: nada mais precisa mudar. O
+ * anterior também continua em /inicio-anterior, para comparar.
+ */
+const INICIO_COM_CAPA = true;
+
+/**
+ * O Dashboard está desligado por enquanto, para todos. A tela continua no
+ * código: com `false`, quem abre /dashboard (favorito, atalho antigo) vai para
+ * o Início. Para religar, `true` aqui e os cargos de volta no menu (Sidebar).
+ */
+const DASHBOARD_ATIVO = false;
+const InicioDoSistema = INICIO_COM_CAPA ? InicioCapa : Inicio;
 
 export default function App() {
 
@@ -98,6 +122,33 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
     return () => { valeAinda = false; };
   }, [usuarioLogado, handleLogout]);
 
+  // ================= SESSÃO DO SUPABASE ACABOU =================
+  //
+  // O usuário da tela (`usuarioLogado`) e a sessão do Supabase moram em chaves
+  // separadas do sessionStorage, e podem se separar: quando a renovação do
+  // token falha (aba duplicada, que copia o sessionStorage e gasta o mesmo
+  // refresh token duas vezes; computador que dormiu além do prazo; sessão
+  // revogada), o supabase-js apaga a sessão dele e o sistema continua achando
+  // que há alguém logado. Daí em diante toda leitura sai como `anon`, o banco
+  // responde "permission denied" (42501, não 401 — o `comSessaoValida` não
+  // reconhece) e a tela mostra vazio. Foi o que encheu o log do banco em 24/11.
+  //
+  // Sem sessão do Supabase, a pessoa volta para o login. O INITIAL_SESSION
+  // cobre a página recarregada; o SIGNED_OUT, a sessão que cai com a aba aberta.
+  const logadoRef = useRef(Boolean(usuarioLogado));
+  useEffect(() => { logadoRef.current = Boolean(usuarioLogado); }, [usuarioLogado]);
+
+  useEffect(() => {
+    if (MODO_DEMO) return undefined;
+    const { data } = supabase.auth.onAuthStateChange((evento, sessao) => {
+      if (!logadoRef.current) return; // tela de login: nada a derrubar
+      const semSessao = evento === "SIGNED_OUT" || (evento === "INITIAL_SESSION" && !sessao);
+      // Fora do callback: o supabase-js pede para não fazer trabalho dentro dele.
+      if (semSessao) setTimeout(handleLogout, 0);
+    });
+    return () => data?.subscription?.unsubscribe();
+  }, [handleLogout]);
+
   // ================= SALVAR PREFERÊNCIAS =================
   // darkMode é persistido pelo ThemeProvider.
   useEffect(() => {
@@ -118,6 +169,9 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
     sessionStorage.removeItem("ultimoAcesso");
   }
 }, [usuarioLogado]);
+
+  // O número ao lado de "Confirmações" no menu.
+  const pendencias = usePendencias(usuarioLogado, activeTab);
 
   // ================= SESSÃO PARADA =================
   //
@@ -165,18 +219,25 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
                     Pular para o conteúdo
                   </a>
 
-                  <Sidebar active={activeTab} setActive={setActiveTab} user={usuarioLogado} onLogout={handleLogout} />
+                  <Sidebar active={activeTab} setActive={setActiveTab} user={usuarioLogado} onLogout={handleLogout} contadores={{ "Confirmação": pendencias }} />
 
                   <main id="conteudo" className="vit-main">
                     <Routes>
-                      <Route path="/dashboard" element={<Dashboard user={usuarioLogado} />} />
+                      {/* Início: a entrada do sistema, para todos os cargos. O
+                          botão grande de lá muda conforme o cargo. */}
+                      <Route path="/inicio" element={<InicioDoSistema user={usuarioLogado} />} />
+                      <Route path="/inicio-anterior" element={<Inicio user={usuarioLogado} />} />
+                      <Route path="/dashboard" element={DASHBOARD_ATIVO ? <Dashboard user={usuarioLogado} /> : <Navigate to="/inicio" replace />} />
+
+                      {/* Modo foco: os pedidos do app um por vez. Os mesmos
+                          cargos de Confirmações (as funções exigem eh_administrativo). */}
+                      {["Sindico", "Auxiliar Administrativo", "Desenvolvedor"].includes(usuarioLogado.cargo) && (
+                        <Route path="/modo-foco" element={<ModoFoco />} />
+                      )}
 
                       {/* Manual: todo Cargo entra; cada um vê só as páginas das
-                          próprias telas. A antiga tela Processos virou a página
-                          de Encomendas, e o endereço velho, que pode estar em
-                          favorito, leva até ela. */}
+                          próprias telas. */}
                       <Route path="/manual/*" element={<Manual user={usuarioLogado} />} />
-                      <Route path="/processos" element={<Navigate to="/manual/encomendas" replace />} />
 
                       {["Porteiro", "Sindico", "Auxiliar Administrativo", "Desenvolvedor"].includes(usuarioLogado.cargo) && (
                         <Route path="/entregas" element={<Entregas user={usuarioLogado} />} />
@@ -203,6 +264,7 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
                           <Route path="/aprovacao" element={<Aprovacao user={usuarioLogado} />} />
                           <Route path="/piscina" element={<Piscina user={usuarioLogado} />} />
                           <Route path="/comunicado" element={<Comunicado user={usuarioLogado} />} />
+                          <Route path="/notificacoes" element={<Notificacoes user={usuarioLogado} />} />
                           <Route path="/patrimonio" element={<Patrimonio user={usuarioLogado} />} />
                           <Route path="/encomendas" element={<Encomendas user={usuarioLogado} />} />
                           <Route path="/agendamento" element={<Agendamento user={usuarioLogado} />} />
@@ -216,9 +278,24 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
                         <Route path="/tarefas" element={<Tarefas user={usuarioLogado} />} />
                       )}
 
+                      {/* A antiga tela Processos virou a página de Encomendas do
+                          Manual, e o endereço velho, que pode estar em favorito,
+                          leva até ela. */}
+                      <Route path="/processos" element={<Navigate to="/manual/encomendas" replace />} />
+
+                      {/* Cotas extras (0101): só a administração, também pela barra de endereço. */}
+                      {["Sindico", "Auxiliar Administrativo", "Desenvolvedor"].includes(usuarioLogado.cargo) && (
+                        <Route path="/cotas" element={<CotasExtras user={usuarioLogado} />} />
+                      )}
+
                       {/* Confirmação de números: oculta para Porteiro e Conselheiro */}
                       {["Sindico", "Auxiliar Administrativo", "Desenvolvedor"].includes(usuarioLogado.cargo) && (
                         <Route path="/confirmacao" element={<Confirmacao user={usuarioLogado} />} />
+                      )}
+
+                      {/* APP: o app do morador já aprovado. Mesmos cargos de Confirmações. */}
+                      {["Sindico", "Auxiliar Administrativo", "Desenvolvedor"].includes(usuarioLogado.cargo) && (
+                        <Route path="/app" element={<AppDoMorador user={usuarioLogado} />} />
                       )}
 
                       {usuarioLogado.cargo === "Desenvolvedor" && (
@@ -231,8 +308,8 @@ const [usuarioLogado, setUsuarioLogado] = useState(() => {
                         <Route path="/vitrine" element={<Vitrine />} />
                       )}
 
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/" element={<Navigate to="/inicio" replace />} />
+                      <Route path="*" element={<Navigate to="/inicio" replace />} />
                     </Routes>
                   </main>
                 </div>

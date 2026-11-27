@@ -47,10 +47,10 @@
   --surface-3:     #EDEBE5;
   --border:        #E4E2DB;
   --border-strong: #D3D0C7;
-  --text-muted:     #8B8F89;
-  --text-secondary: #63675F;
-  --text:           #1A1C19;
-  --ink:            #10120F;
+  --text-muted:     #8C8C8C;
+  --text-secondary: #636363;
+  --text:           #1A1A1A;
+  --ink:            #101010;
 
   /* ---- Semânticos: é isto que o código consome ---- */
   --bg-app:        var(--paper);
@@ -70,8 +70,10 @@
      NÃO é redefinido no tema escuro, e é essa a razão de existir: a rampa da
      marca não inverte, então usar --paper aqui deixava texto quase preto
      sobre verde escuro no modo escuro — em todo botão primário, selo de
-     marca e avatar. Coberto por src/__tests__/contraste.test.js. */
-  --fg-on-brand:   #FBFAF8;
+     marca e avatar. Coberto por src/__tests__/contraste.test.js.
+     No Diduccio é branco puro: o papel (#FBFAF8) sobre o vermelho brand-600
+     dava 4.3:1, abaixo do 4.5:1 do texto comum; o branco dá 4.5:1. */
+  --fg-on-brand:   #FFFFFF;
 
   --btn-primary-bg: var(--brand-600);
   --btn-primary-fg: var(--fg-on-brand);
@@ -121,15 +123,15 @@
 }
 
 [data-theme="dark"] {
-  --paper:         #0F1411;
-  --surface:       #161C18;
-  --surface-2:     #1D251F;
-  --surface-3:     #243029;
-  --border:        #2A332C;
-  --border-strong: #3A463D;
-  --text-muted:     #6E7A70;
-  --text-secondary: #9BA79D;
-  --text:           #EAEFEA;
+  --paper:         #0A0A0A;
+  --surface:       #121212;
+  --surface-2:     #1A1A1A;
+  --surface-3:     #242424;
+  --border:        #2A2A2A;
+  --border-strong: #3A3A3A;
+  --text-muted:     #787878;
+  --text-secondary: #A6A6A6;
+  --text:           #EDEDED;
   --ink:            #FFFFFF;
 
   --alert-50:  #24111A;

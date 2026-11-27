@@ -1,12 +1,14 @@
 import React, { useId, useState } from "react";
-import { Button, Field, Gaveta, Input, Select, Textarea, useConfirm } from "../ui";
+import { Button, Field, Input, Modal, Select, Textarea, useConfirm } from "../ui";
 import BuscaUnidade from "./BuscaUnidade";
 import {
   SITUACOES, iniciais, mensagemErro, metaDaTarefa, paraGravar, rotuloDoCargo, validarTarefa,
 } from "../lib/tarefas";
 
 /**
- * Criar e editar uma tarefa. Monte-a só quando for abrir, com uma `key` nova a
+ * Criar e editar uma tarefa, num modal centrado (guia de marca: criar e
+ * editar é modal, nunca gaveta lateral). O nome do arquivo ficou da gaveta.
+ * Monte-o só quando for abrir, com uma `key` nova a
  * cada abertura: o formulário nasce do `tarefa` recebido e não se sincroniza
  * depois, e é isso que faz "abrir outra tarefa" não herdar o que se digitou
  * na anterior.
@@ -103,27 +105,36 @@ export default function GavetaDeTarefa({
   };
 
   return (
-    <Gaveta
+    <Modal
       open
       // Fechar no meio de uma gravação perderia a mensagem de falha.
       onClose={ocupado ? undefined : onFechar}
-      sigla={responsavel ? iniciais(responsavel.nome) : "?"}
-      titulo={tarefa ? tarefa.titulo : "Nova tarefa"}
-      meta={tarefa ? [`Tarefa #${tarefa.id}.`, metaDaTarefa(tarefa)].filter(Boolean).join(" ") : undefined}
+      title={tarefa ? "Editar tarefa" : "Nova tarefa"}
+      size="md"
       footer={
-        <>
-          {tarefa && podeExcluir && (
+        <div className="app-modal__acoes">
+          {tarefa && podeExcluir ? (
             <Button variant="ghost" className="tar-excluir" onClick={excluir} disabled={ocupado}>
               Excluir
             </Button>
-          )}
-          <span className="tar-gaveta__espaco" />
-          <Button variant="secondary" onClick={onFechar} disabled={ocupado}>Cancelar</Button>
-          <Button variant="primary" onClick={salvar} loading={salvando} disabled={ocupado}>Salvar</Button>
-        </>
+          ) : <span />}
+          <Button variant="ghost" onClick={onFechar} disabled={ocupado}>Cancelar</Button>
+          <Button variant="primary" type="submit" form="form-tarefa" loading={salvando} disabled={ocupado}>Salvar</Button>
+        </div>
       }
     >
-      <div className="tar-gaveta">
+      {/* `noValidate`: quem diz o que falta é a tela, no campo, com a frase dela
+          (validarTarefa) — a bolha do navegador nem chamaria o salvar. */}
+      <form id="form-tarefa" className="tar-gaveta" noValidate onSubmit={(e) => { e.preventDefault(); salvar(); }}>
+        {/* Quem é e de quando: o que a gaveta dizia no topo. */}
+        {tarefa && (
+          <div className="tar-modal__quem">
+            <span className="app-iniciais" aria-hidden="true">{responsavel ? iniciais(responsavel.nome) : "?"}</span>
+            <p className="tar-modal__meta">
+              {[`Tarefa #${tarefa.id}.`, metaDaTarefa(tarefa)].filter(Boolean).join(" ")}
+            </p>
+          </div>
+        )}
         {erroGeral && <p className="vit-form__erro" role="alert">{erroGeral}</p>}
 
         <Field label="Título" required error={erros.titulo}>
@@ -179,7 +190,7 @@ export default function GavetaDeTarefa({
             ))}
           </div>
         </div>
-      </div>
-    </Gaveta>
+      </form>
+    </Modal>
   );
 }

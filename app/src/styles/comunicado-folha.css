@@ -1,0 +1,54 @@
+/* ======================= A FOLHA DO COMUNICADO =======================
+   Papel branco impresso, não superfície do sistema: as cores são FIXAS e não
+   seguem o tema. Com var(--fg-*) o texto ficava branco no branco no tema
+   escuro, e saía assim no PDF e na imagem.
+
+   Este arquivo vai também, inteiro, para a janela de impressão
+   (Comunicado.jsx importa com ?inline): lá não existe o resto do CSS. */
+
+.com-folha {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 794px; /* A4 a 96dpi; encolhe por transform, nunca por largura */
+  min-height: 1123px; /* No mínimo uma folha A4; cresce com o texto (sem trava desde 23/11/2026) */
+  margin: 0 auto;
+  padding: 20mm;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .1);
+  transform-origin: top left;
+}
+
+.com-folha__topo { margin-bottom: 30px; text-align: center; }
+.com-folha__logo { display: block; width: 90px; height: 90px; margin: -30px auto 10px; }
+.com-folha__marca { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #B33320; }
+.com-folha__linha { height: 2px; margin-top: 15px; background: #B33320; opacity: .2; }
+
+.com-folha__titulo {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  color: #B33320;
+  outline: none;
+}
+.com-folha__data { margin: 0 0 40px; font-size: 13px; text-align: center; color: #636363; }
+
+.com-folha__corpo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #1A1A1A;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.com-folha__editor { min-height: 200px; width: 100%; padding: 5px; outline: none; white-space: pre-wrap; }
+
+.com-folha__assinatura { display: flex; flex-direction: column; align-items: center; margin-top: auto; text-align: center; }
+.com-folha__assinatura p { margin: 0; font-size: 14px; color: #636363; }
+.com-folha__traco { width: 200px; height: 1px; margin: 40px auto 10px; background: #B33320; opacity: .3; }
+.com-folha__assinatura strong { display: block; font-size: 16px; text-transform: uppercase; color: #B33320; }
+.com-folha__assinatura span { font-size: 12px; color: #636363; }

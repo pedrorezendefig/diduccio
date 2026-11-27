@@ -31,10 +31,31 @@
    se confundem numa linha só — "Volume 1 Volume 2" vira um texto corrido, e
    conferir prateleira lendo texto corrido é como não conferir. Aqui cada item é
    uma linha. */
-.ret-lista .vit-check {
+:is(.ret-lista, .ret-quem) .vit-check {
   display: flex;
-  padding: var(--space-1) 0;
+  margin-top: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
 }
+:is(.ret-lista, .ret-quem) .vit-check:hover { border-color: var(--brand-400); }
+:is(.ret-lista, .ret-quem) .vit-check:has(.vit-check__campo:checked) {
+  border-color: var(--fg-brand);
+  background: color-mix(in srgb, var(--fg-brand) 10%, transparent);
+}
+/* A caixa: aqui ela enche de verde, com o visto branco (a caixa em si é a
+   do <Checkbox>, em ui.css). */
+:is(.ret-lista, .ret-quem) .vit-check__caixa { width: 22px; height: 22px; border-width: 2px; border-radius: 7px; }
+:is(.ret-lista, .ret-quem) .vit-check__campo:checked + .vit-check__caixa {
+  border-color: var(--brand-600);
+  background: var(--brand-600);
+  color: var(--fg-on-brand);
+}
+:is(.ret-lista, .ret-quem) .vit-check:active .vit-check__caixa { transform: scale(.9); }
 
 /* Um cadastro com vários volumes. O título agrupa as caixas para ficar claro
    que "Volume 2 de 3" pertence àquela encomenda, e não a outra da lista. */
@@ -57,7 +78,7 @@
 /* Recuo: deixa claro que as caixas pertencem ao cadastro do título acima, e não
    a um segundo cadastro da lista. */
 .ret-lista__grupo .vit-check {
-  padding-left: var(--space-4);
+  margin-left: var(--space-4);
 }
 
 /* ---------------------------- Assinatura ---------------------------- */
@@ -170,3 +191,189 @@
     min-height: 48px;
   }
 }
+
+/* ---------------------- Quem veio: a pessoa do app ---------------------- */
+/* O check "é quem usa o app" usa a mesma caixa da conferência (acima). Abaixo
+   dele, o cartão de quem o QR ou o código reconheceu, ou a escolha entre as
+   pessoas do apartamento quando o código foi digitado. */
+
+.ret-quem { margin: var(--space-4) 0 var(--space-5); }
+.ret-quem .vit-check { margin-top: 0; }
+
+.ret-quem__corpo { margin-top: var(--space-3); }
+
+.ret-quem__dica {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.ret-quem__pessoa {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.ret-quem__pessoa b { display: block; font-size: var(--text-md); }
+.ret-quem__pessoa > div { display: grid; gap: var(--space-1); min-width: 0; }
+.ret-quem__pessoa span { font-size: var(--text-sm); color: var(--text-muted); }
+
+.ret-quem__trocar {
+  justify-self: start;
+  margin-top: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-brand);
+  cursor: pointer;
+}
+
+.ret-quem__escolha { display: grid; gap: var(--space-2); }
+.ret-quem__opcao {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease;
+}
+.ret-quem__opcao:hover { border-color: var(--brand-400); }
+.ret-quem__opcao:focus-visible { outline: 2px solid var(--fg-brand); outline-offset: 2px; }
+.ret-quem__opcao span { font-size: var(--text-sm); color: var(--text-muted); }
+
+/* As encomendas que o código ou o QR já conferiram: uma por linha. */
+.ret-conferidas {
+  display: grid;
+  gap: var(--space-2);
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+.ret-conferidas li {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-brand);
+}
+.ret-conferidas li::before { content: "✓ "; }
+
+/* Nome e CPF que vêm do app: travados, mas legíveis. */
+.ret-quem ~ .vit-field .vit-input:disabled { opacity: 1; color: var(--text); }
+
+/* ---------------------- A janela em 3 passos (2026-11-04) ---------------------- */
+
+.ret-passos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  list-style: none;
+}
+.ret-passos li {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.ret-passos li::before {
+  content: "";
+  display: block;
+  height: 4px;
+  margin-bottom: var(--space-3);
+  border-radius: 4px;
+  background: var(--surface-3);
+}
+.ret-passos .ret-passos__feito, .ret-passos .ret-passos__agora { color: var(--text); }
+.ret-passos .ret-passos__feito::before, .ret-passos .ret-passos__agora::before { background: var(--brand-600); }
+
+/* O QR é o caminho mais rápido: o botão grande do passo 1. */
+.ret-qr {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  margin-bottom: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--brand-600);
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ret-qr b { display: block; font-size: var(--text-md); }
+.ret-qr small { font-size: var(--text-sm); opacity: .85; }
+.ret-qr:disabled { background: var(--surface-3); color: var(--text-muted); cursor: not-allowed; }
+.ret-qr:focus-visible { outline: 2px solid var(--fg-brand); outline-offset: 2px; }
+
+.ret-quem__espera {
+  margin: 0;
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+.ret-quem__corpo { display: grid; gap: var(--space-4); }
+
+.ret-lista__outras {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.ret-lista__separador {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.ret-lista__fora {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.ret-lista__incluir {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+.ret-lista__incluir > :first-child { flex: 1; min-width: 0; }
+.ret-lista__incluir .vit-btn { margin-top: 22px; }
+.ret-conferidas__uma {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-brand);
+}
+.ret-conferidas__uma::before { content: "✓ "; }
+
+/* O resumo do passo 3: legível do outro lado do balcão. */
+.ret-resumo {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--fg-brand) 10%, transparent);
+}
+.ret-resumo b { font-size: var(--text-lg); }
+.ret-resumo span { font-size: var(--text-sm); color: var(--text-muted); }

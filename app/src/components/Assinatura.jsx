@@ -56,9 +56,18 @@ export function assinaturaParaBlob(tela, prazo = PRAZO_EXPORTACAO) {
 
     const cronometro = setTimeout(() => responder(null), prazo);
 
+    // Veio do recorte: os pixels foram lidos e há traço de verdade. Quem grava
+    // (`registrarRetirada`) usa isto em vez do tamanho do arquivo, que não mede
+    // tinta: rubrica curta no recorte branco pesa menos de 1000 bytes e era
+    // recusada como "assinatura não capturada" (24/11/2026).
+    const conferida = fonte !== tela;
+
     // `toBlob` também pode lançar em vez de chamar o callback.
     try {
-      fonte.toBlob((blob) => responder(blob), "image/png");
+      fonte.toBlob((blob) => {
+        if (blob && conferida) Object.defineProperty(blob, "tintaConferida", { value: true });
+        responder(blob);
+      }, "image/png");
     } catch {
       responder(null);
     }
@@ -109,11 +118,13 @@ export function recortarTinta(tela, margem = MARGEM, ladoMinimo = LADO_MINIMO) {
 
   const { data, width, height } = pixels;
   let x0 = width, y0 = height, x1 = -1, y1 = -1;
+  let tinta = 0;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       // Alfa acima de 8 e não acima de 0: a borda suavizada do traço deixa
       // pixels quase transparentes, e contá-los devolveria quase o canvas todo.
       if (data[(y * width + x) * 4 + 3] > 8) {
+        tinta++;
         if (x < x0) x0 = x;
         if (x > x1) x1 = x;
         if (y < y0) y0 = y;
@@ -122,6 +133,10 @@ export function recortarTinta(tela, margem = MARGEM, ladoMinimo = LADO_MINIMO) {
     }
   }
   if (x1 < 0) return null; // nada desenhado
+  // Mais da metade da área "pintada" não é assinatura: é o navegador que, por
+  // privacidade, devolve pixels de mentira (folha opaca) em vez de negar. O
+  // recorte marcaria isso como traço conferido; sem recorte, vale o tamanho.
+  if (tinta > (width * height) / 2) return null;
 
   x0 = Math.max(0, x0 - margem);
   y0 = Math.max(0, y0 - margem);

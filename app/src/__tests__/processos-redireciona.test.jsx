@@ -5,7 +5,10 @@ import { ThemeProvider } from '../theme/ThemeProvider'
 // O App pergunta ao banco se a senha precisa ser trocada. Aqui não precisa.
 // E o cliente do Supabase exige as chaves do .env.local; o Manual não usa banco.
 vi.mock('../api/auth', () => ({ precisaTrocarSenha: () => Promise.resolve(false) }))
-vi.mock('../api/supabase', () => ({ supabase: {} }))
+// O App escuta a sessão (onAuthStateChange); aqui ela nunca muda.
+vi.mock('../api/supabase', () => ({
+  supabase: { auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) } },
+}))
 // A Assembleia carrega o pdf.js no import, e ele não roda no jsdom.
 vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {} }))
 
